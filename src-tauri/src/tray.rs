@@ -55,7 +55,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         .expect("default window icon is bundled");
 
     TrayIconBuilder::with_id(TRAY_ID)
-        .tooltip("Parla")
+        .tooltip("Parla (MNM)")
         .icon(icon)
         .menu(&menu)
         .show_menu_on_left_click(false)
