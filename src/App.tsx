@@ -14,6 +14,7 @@ import { EnhancementPanel } from "@/components/EnhancementPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { ModelsPage } from "@/components/ModelsPage";
+import { ModelPerformancePanel } from "@/components/ModelPerformancePanel";
 import { Onboarding } from "@/components/Onboarding";
 import { PermissionsPanel } from "@/components/PermissionsPanel";
 import { PostProcessingPanel } from "@/components/PostProcessingPanel";
@@ -104,17 +105,7 @@ function App() {
                 title={t("hero.dashboardTitle")}
                 description={t("hero.dashboardDescription")}
               />
-              <DashboardPanel />
-              {gpu && (
-                <p className="text-center text-xs text-muted-foreground">
-                  {gpu.has_nvidia
-                    ? t("hero.hardwareGpu", {
-                        device: gpu.device_name ?? "",
-                        cuda: gpu.cuda_version ?? "?",
-                      })
-                    : t("hero.hardwareCpu")}
-                </p>
-              )}
+              <DashboardPanel onNavigate={setView} />
             </>
           )}
 
@@ -151,10 +142,22 @@ function App() {
                 title={t("hero.modelsTitle")}
                 description={t("hero.modelsDescription")}
               />
+              {gpu && (
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  {gpu.has_nvidia
+                    ? t("hero.hardwareGpu", {
+                        device: gpu.device_name ?? "",
+                        cuda: gpu.cuda_version ?? "?",
+                      })
+                    : t("hero.hardwareCpu")}
+                </p>
+              )}
               <ModelsPage
                 selectedModelId={selectedModelId}
                 onSelectModel={handleSelectModel}
               />
+              {/* Parlato: moved from Home, which the design keeps simple. */}
+              <ModelPerformancePanel />
             </>
           )}
 

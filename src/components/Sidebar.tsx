@@ -9,7 +9,6 @@
 // (Home, History), "set up" and "more". The "more" group is always
 // visible. View ids are unchanged so the tray menu keeps navigating.
 
-import { useEffect, useState } from "react";
 import {
   AudioLines,
   BookA,
@@ -23,8 +22,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { formatCombo } from "@/components/HotkeyRecorder";
-import { api, type HotkeyTrigger } from "@/lib/tauri";
+import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
 import { cn } from "@/lib/utils";
 
 export type View =
@@ -93,13 +91,6 @@ export function useCrumb(view: View): string {
   return "";
 }
 
-function useTriggerLabel(trigger: HotkeyTrigger | null): string | null {
-  const { t } = useTranslation();
-  if (!trigger || trigger.kind === "none") return null;
-  if (trigger.kind === "modifier") return t(`hotkey.options.${trigger.option}`);
-  return formatCombo(trigger);
-}
-
 export function Sidebar({
   current,
   onSelect,
@@ -108,18 +99,9 @@ export function Sidebar({
   onSelect: (v: View) => void;
 }) {
   const { t } = useTranslation();
-  const [trigger, setTrigger] = useState<HotkeyTrigger | null>(null);
-
   // Re-read on every navigation so the status card reflects a shortcut
   // just changed on the Microphone & shortcut page.
-  useEffect(() => {
-    api
-      .getHotkeyConfig()
-      .then((c) => setTrigger(c.primary.trigger))
-      .catch(console.error);
-  }, [current]);
-
-  const hotkeyLabel = useTriggerLabel(trigger);
+  const { label: hotkeyLabel } = useHotkeyLabel(current);
 
   return (
     <aside className="flex h-full w-[232px] shrink-0 flex-col border-r-[1.5px] border-sidebar-border bg-sidebar text-sidebar-foreground">
