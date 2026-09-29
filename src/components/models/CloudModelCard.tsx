@@ -165,7 +165,7 @@ export function CloudModelCard({
               <button
                 type="button"
                 onClick={() => openUrl(apiKeyUrl)}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-foreground underline decoration-primary underline-offset-2"
               >
                 <ExternalLink className="h-3 w-3" />
                 {t("aiModels.getApiKey")}

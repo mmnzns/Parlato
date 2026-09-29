@@ -56,7 +56,7 @@ export function WhisperModelCard({
               </span>
             )}
             {m.imported && (
-              <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">
                 {t("whisperModels.importedBadge")}
               </span>
             )}

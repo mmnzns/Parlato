@@ -51,7 +51,7 @@ export function InfoTip({
             <button
               type="button"
               onClick={() => openUrl(learnMoreUrl)}
-              className="text-[11px] font-medium text-primary hover:underline"
+              className="text-[11px] font-medium text-foreground underline decoration-primary underline-offset-2"
             >
               {label} {"->"}
             </button>

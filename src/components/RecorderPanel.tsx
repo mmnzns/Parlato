@@ -188,7 +188,7 @@ export function RecorderPanel() {
             </Button>
           )}
           {hotkeyAction && (
-            <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <span className="ml-auto rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
               {t("recorder.hotkeyBadge", { action: hotkeyAction })}
             </span>
           )}

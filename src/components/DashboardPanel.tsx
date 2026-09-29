@@ -114,7 +114,7 @@ export function DashboardPanel() {
         />
         <MetricCard
           icon={Type}
-          color="text-primary bg-primary/10"
+          color="text-accent-foreground bg-accent"
           title={t("dashboard.wordsDictated")}
           value={metrics?.words ?? 0}
           subtitle={t("dashboard.wordsDictatedSubtitle")}

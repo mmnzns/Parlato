@@ -5,6 +5,11 @@ import App from "./App";
 import { MiniRecorderView } from "./components/MiniRecorderView";
 import { RecorderPopoverView } from "./components/RecorderPopoverView";
 import "./i18n";
+// Parlato fonts, bundled locally so the app works offline.
+import "@fontsource-variable/bricolage-grotesque";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/ibm-plex-mono/600.css";
 import "./index.css";
 
 // Selection de la vue en fonction du label de fenetre :
@@ -26,6 +31,14 @@ if (isRecorder || isPopover) {
 }
 if (isRecorder) {
   document.body.style.colorScheme = "dark";
+}
+
+// Parlato: the main window follows the Windows light/dark app theme.
+if (!isRecorder && !isPopover) {
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const applyTheme = () => document.documentElement.classList.toggle("dark", darkQuery.matches);
+  applyTheme();
+  darkQuery.addEventListener("change", applyTheme);
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

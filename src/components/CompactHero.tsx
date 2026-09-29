@@ -17,7 +17,7 @@ export function CompactHero({
 }) {
   return (
     <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
         <Icon className="h-6 w-6" />
       </div>
       <h2 className="text-xl font-bold leading-tight">{title}</h2>

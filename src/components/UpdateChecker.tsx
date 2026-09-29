@@ -95,7 +95,7 @@ export function UpdateChecker() {
         "flex items-center gap-3 border-b bg-primary/5 px-4 py-2 text-sm",
       )}
     >
-      <Download className="h-4 w-4 text-primary" />
+      <Download className="h-4 w-4 text-foreground" />
       <div className="flex-1">
         {status === "available" && update && (
           <span>

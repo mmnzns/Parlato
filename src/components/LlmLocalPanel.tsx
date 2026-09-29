@@ -291,7 +291,7 @@ export function LlmLocalPanel() {
                         </span>
                       )}
                       {isSelected && (
-                        <span className="ml-2 text-[10px] text-primary">
+                        <span className="ml-2 text-[10px] text-positive">
                           {t("llmLocal.active")}
                         </span>
                       )}
