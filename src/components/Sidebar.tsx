@@ -66,11 +66,11 @@ export function Sidebar({
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <img
           src="/favicon.png"
-          alt="Parla"
+          alt="Parlato"
           className="h-7 w-7 rounded-md shadow-sm"
         />
         <div className="flex items-baseline gap-2">
-          <span className="text-sm font-semibold">Parla</span>
+          <span className="text-sm font-semibold">Parlato</span>
           <span className="text-[10px] text-muted-foreground">Windows</span>
         </div>
       </div>

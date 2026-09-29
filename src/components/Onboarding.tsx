@@ -188,7 +188,7 @@ function WelcomeStep() {
     <div className="flex flex-col items-center gap-4 text-center">
       <img
         src="/favicon.png"
-        alt="Parla"
+        alt="Parlato"
         className="h-20 w-20 rounded-2xl shadow-md"
       />
       <h1 className="text-3xl font-black leading-tight">

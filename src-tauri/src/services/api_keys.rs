@@ -20,7 +20,7 @@
 use anyhow::{Context, Result};
 use keyring::Entry;
 
-const SERVICE: &str = "Parla";
+const SERVICE: &str = "Parlato";
 
 /// Retourne le username stocke cote keyring pour un provider donne.
 /// Case-insensitive comme VoiceInk (APIKeyManager L183).

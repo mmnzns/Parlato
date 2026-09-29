@@ -113,10 +113,27 @@ It is the zero-code way to test a model ID. Caveat: `reasoning_for()` keys on
 provider `"custom"`, which matches no arm, so reasoning-effort tuning does not
 apply on that path.
 
-**App identity is still upstream's.** `src-tauri/tauri.conf.json` has
-`identifier: "com.litterabbit.parla"`. Changing it is a deliberate branding task,
-not a drive-by edit — it affects installer upgrade paths and stored settings
-location.
+**The fork is branded "Parlato".** Upstream's name is Parla; the rename was done
+with the upstream author's permission. User-visible identity lives in:
+`tauri.conf.json` (productName, identifier `com.craftconceptsdigital.parlato`,
+window title, publisher, updater endpoint), `index.html`, `tray.rs` (tooltip and
+menu labels), `mini_recorder.rs` (window titles), `Sidebar.tsx`/`Onboarding.tsx`,
+the i18n files, `services/api_keys.rs` (Credential Manager service name) and
+`installer-hooks.nsh` (uninstall data paths and autostart key). When merging
+upstream, new user-facing strings will say "Parla": rename them.
+
+Deliberately NOT renamed (internal, invisible to users, renaming only adds merge
+conflicts): the Rust crate `parla` / `parla_lib` (dev exe is `parla.exe`), store
+files `parla.*.json`, thread names, log filters, and code comments.
+
+**Never change the identifier again once the app is distributed.** It determines
+the data folders, the single-instance lock and installer upgrades; changing it
+strands every user's settings and API keys.
+
+**The auto-updater points at this fork's GitHub releases** but still carries
+upstream's signing public key. Before publishing a release: generate our own
+updater key pair, replace `plugins.updater.pubkey`, and sign releases with it.
+Until then the update check finds nothing and fails silently.
 
 ## Guardrails for this fork
 

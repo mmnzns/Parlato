@@ -107,7 +107,7 @@ pub fn ensure_open(app: &AppHandle) {
     let url = WebviewUrl::App("index.html#recorder".into());
 
     let builder = WebviewWindowBuilder::new(app, LABEL, url)
-        .title("Parla Recorder")
+        .title("Parlato Recorder")
         .inner_size(WIDTH, HEIGHT)
         .resizable(false)
         .decorations(false)
@@ -139,7 +139,7 @@ fn ensure_popover_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     }
     let url = WebviewUrl::App("index.html#recorder-popover".into());
     let builder = WebviewWindowBuilder::new(app, POPOVER_LABEL, url)
-        .title("Parla Recorder Popover")
+        .title("Parlato Recorder Popover")
         .inner_size(POPOVER_WIDTH, POPOVER_HEIGHT)
         .resizable(false)
         .decorations(false)

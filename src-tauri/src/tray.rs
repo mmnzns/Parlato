@@ -55,7 +55,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         .expect("default window icon is bundled");
 
     TrayIconBuilder::with_id(TRAY_ID)
-        .tooltip("Parla (MNM)")
+        .tooltip("Parlato")
         .icon(icon)
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -356,7 +356,7 @@ fn tr(lang: &str, key: &str) -> String {
         _ => 0,
     };
     let row: [&str; 3] = match key {
-        "open" => ["Open Parla", "Ouvrir Parla", "Abrir Parla"],
+        "open" => ["Open Parlato", "Ouvrir Parlato", "Abrir Parlato"],
         "completeOnboarding" => [
             "Complete onboarding",
             "Terminer la configuration",
@@ -408,7 +408,7 @@ fn tr(lang: &str, key: &str) -> String {
             "V\u{e9}rifier les mises \u{e0} jour",
             "Buscar actualizaciones",
         ],
-        "quit" => ["Quit Parla", "Quitter Parla", "Salir de Parla"],
+        "quit" => ["Quit Parlato", "Quitter Parlato", "Salir de Parlato"],
         _ => [key, key, key],
     };
     row[col].to_string()
