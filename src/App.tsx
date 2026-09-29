@@ -6,19 +6,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
-import {
-  Book,
-  FileAudio,
-  Gauge,
-  History,
-  Mic,
-  Settings as SettingsIcon,
-  Shield,
-  Sparkles,
-  Wrench,
-  Zap,
-} from "lucide-react";
-import { Sidebar, type View } from "@/components/Sidebar";
+import { Sidebar, useCrumb, type View } from "@/components/Sidebar";
 import { CompactHero } from "@/components/CompactHero";
 import { DashboardPanel } from "@/components/DashboardPanel";
 import { DictionaryPanel } from "@/components/DictionaryPanel";
@@ -45,6 +33,7 @@ function App() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [lastWavPath, setLastWavPath] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const crumb = useCrumb(view);
 
   useEffect(() => {
     api.getGpuInfo().then(setGpu).catch(console.error);
@@ -102,13 +91,16 @@ function App() {
   return (
     <div className="flex h-screen w-screen bg-background text-foreground">
       <Sidebar current={view} onSelect={setView} />
-      <main className="flex-1 overflow-auto">
+      <main
+        className="min-w-0 flex-1 overflow-auto"
+        style={{ backgroundImage: "var(--dot-grid)", backgroundSize: "18px 18px" }}
+      >
         <UpdateChecker />
-        <div className="mx-auto max-w-5xl space-y-6 p-6">
+        <div className="mx-auto flex max-w-[820px] flex-col gap-[22px] px-9 pt-7 pb-12">
           {view === "dashboard" && (
             <>
               <CompactHero
-                icon={Gauge}
+                crumb={crumb}
                 title={t("hero.dashboardTitle")}
                 description={t("hero.dashboardDescription")}
               />
@@ -129,7 +121,7 @@ function App() {
           {view === "transcribe" && (
             <>
               <CompactHero
-                icon={FileAudio}
+                crumb={crumb}
                 title={t("hero.transcribeTitle")}
                 description={t("hero.transcribeDescription")}
               />
@@ -144,7 +136,7 @@ function App() {
           {view === "history" && (
             <>
               <CompactHero
-                icon={History}
+                crumb={crumb}
                 title={t("hero.historyTitle")}
                 description={t("hero.historyDescription")}
               />
@@ -155,7 +147,7 @@ function App() {
           {view === "models" && (
             <>
               <CompactHero
-                icon={Wrench}
+                crumb={crumb}
                 title={t("hero.modelsTitle")}
                 description={t("hero.modelsDescription")}
               />
@@ -169,7 +161,7 @@ function App() {
           {view === "enhancement" && (
             <>
               <CompactHero
-                icon={Sparkles}
+                crumb={crumb}
                 title={t("hero.enhancementTitle")}
                 description={t("hero.enhancementDescription")}
               />
@@ -181,7 +173,7 @@ function App() {
           {view === "powermode" && (
             <>
               <CompactHero
-                icon={Zap}
+                crumb={crumb}
                 title={t("hero.powerModeTitle")}
                 description={t("hero.powerModeDescription")}
               />
@@ -192,7 +184,7 @@ function App() {
           {view === "permissions" && (
             <>
               <CompactHero
-                icon={Shield}
+                crumb={crumb}
                 title={t("hero.permissionsTitle")}
                 description={t("hero.permissionsDescription")}
               />
@@ -203,7 +195,7 @@ function App() {
           {view === "audio" && (
             <>
               <CompactHero
-                icon={Mic}
+                crumb={crumb}
                 title={t("hero.audioTitle")}
                 description={t("hero.audioDescription")}
               />
@@ -216,7 +208,7 @@ function App() {
           {view === "dictionary" && (
             <>
               <CompactHero
-                icon={Book}
+                crumb={crumb}
                 title={t("hero.dictionaryTitle")}
                 description={t("hero.dictionaryDescription")}
               />
@@ -227,12 +219,14 @@ function App() {
           {view === "settings" && (
             <>
               <CompactHero
-                icon={SettingsIcon}
+                crumb={crumb}
                 title={t("hero.settingsTitle")}
                 description={t("hero.settingsDescription")}
               />
               <SettingsPanel />
               <PostProcessingPanel />
+              {/* Parlato: Permissions moved here from its own sidebar entry. */}
+              <PermissionsPanel />
             </>
           )}
         </div>

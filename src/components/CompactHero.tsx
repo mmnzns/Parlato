@@ -1,27 +1,30 @@
-// Bandeau page : icon + title + description.
+// Bandeau page : breadcrumb + title + description.
 //
 // Reference VoiceInk Views/Components/CompactHeroSection.swift : icon
 // 28pt hierarchique primary + title 22pt bold + description 14pt
 // secondary, padding vertical 20.
-
-import type { LucideIcon } from "lucide-react";
+//
+// Parlato: Workbench page header (docs/design/v1). Left-aligned, no icon:
+// mono breadcrumb, 28px display title, muted description.
 
 export function CompactHero({
-  icon: Icon,
+  crumb,
   title,
   description,
 }: {
-  icon: LucideIcon;
+  crumb?: string;
   title: string;
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
-        <Icon className="h-6 w-6" />
-      </div>
-      <h2 className="text-xl font-bold leading-tight">{title}</h2>
-      <p className="max-w-prose text-sm text-muted-foreground">{description}</p>
-    </div>
+    <header className="flex min-w-0 flex-col gap-1.5">
+      {crumb && (
+        <span className="font-mono text-[11px] leading-[14px] text-muted-foreground">{crumb}</span>
+      )}
+      <h1 className="font-display text-[28px] leading-8 font-extrabold tracking-[-0.035em]">
+        {title}
+      </h1>
+      <p className="max-w-[560px] text-sm text-pretty text-muted-foreground">{description}</p>
+    </header>
   );
 }

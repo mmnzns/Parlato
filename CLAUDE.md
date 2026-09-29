@@ -90,8 +90,14 @@ specifies. The CPU build works. CUDA is a separate matter — see Guardrails.
 ## Things that are easy to get wrong
 
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-587 keys each and exactly in sync. Any user-facing string means editing all three.
-Adding a key to only `en.json` is a silent bug in two languages.
+638 keys each and exactly in sync. Any user-facing string means editing all three.
+Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
+are written without accents throughout (upstream convention); match it unless the
+whole set is converted at once.
+
+**Vite on Windows sometimes misses a change to a locale JSON file** and keeps
+serving the stale module (new keys render as raw `section.key` text). `touch` the
+file to force a reload.
 
 **Design tokens live in exactly one file.** `src/index.css` (92 lines) defines every
 color, radius and the font stack, currently the stock shadcn defaults — fully
