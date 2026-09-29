@@ -155,6 +155,7 @@ export function PowerModePanel() {
           </div>
           <input
             type="checkbox"
+            role="switch"
             checked={autoRestore}
             onChange={(e) => toggleAutoRestore(e.target.checked)}
             className="h-5 w-5"
@@ -401,18 +402,19 @@ function ConfigEditor({
           value={config.emoji}
           onChange={(e) => set("emoji", e.target.value.slice(0, 4))}
           placeholder="*"
-          className="h-9 w-14 rounded-md border border-input bg-background px-2 text-center text-lg"
+          className="h-9 w-14 rounded-md border-[1.5px] border-input bg-background px-2 text-center text-lg"
         />
         <input
           type="text"
           value={config.name}
           onChange={(e) => set("name", e.target.value)}
           placeholder={t("powerMode.namePlaceholder")}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
         />
         <label className="flex items-center gap-1 text-xs">
           <input
             type="checkbox"
+            role="switch"
             checked={config.is_default}
             onChange={(e) => set("is_default", e.target.checked)}
           />
@@ -423,6 +425,7 @@ function ConfigEditor({
       <label className="flex items-center gap-2 text-xs">
         <input
           type="checkbox"
+          role="switch"
           checked={config.is_enabled}
           onChange={(e) => set("is_enabled", e.target.checked)}
         />
@@ -472,6 +475,7 @@ function ConfigEditor({
         <label className="flex items-center gap-2 text-xs">
           <input
             type="checkbox"
+            role="switch"
             checked={config.is_enhancement_enabled}
             onChange={(e) => set("is_enhancement_enabled", e.target.checked)}
           />
@@ -480,6 +484,7 @@ function ConfigEditor({
         <label className="flex items-center gap-2 text-xs">
           <input
             type="checkbox"
+            role="switch"
             checked={config.use_screen_capture === true}
             ref={(el) => {
               if (el) el.indeterminate = config.use_screen_capture === null;
@@ -510,7 +515,7 @@ function ConfigEditor({
             onChange={(e) =>
               set("selected_prompt_id", e.target.value || null)
             }
-            className="h-8 rounded-md border border-input bg-background px-2"
+            className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
           >
             <option value="">{t("powerMode.unchangedOption")}</option>
             {prompts.map((p) => (
@@ -533,7 +538,7 @@ function ConfigEditor({
                   set("selected_llm_model", p?.default_model ?? null);
                 }
               }}
-              className="h-8 rounded-md border border-input bg-background px-2"
+              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
             >
               <option value="">{t("powerMode.unchangedOption")}</option>
               {providers.map((p) => (
@@ -552,7 +557,7 @@ function ConfigEditor({
                 set("selected_llm_model", e.target.value || null)
               }
               placeholder={currentProvider?.default_model ?? "-"}
-              className="h-8 rounded-md border border-input bg-background px-2"
+              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
             />
           </label>
         </div>
@@ -567,7 +572,7 @@ function ConfigEditor({
             onChange={(e) =>
               set("transcription_kind", e.target.value || null)
             }
-            className="h-8 rounded-md border border-input bg-background px-2"
+            className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
           >
             <option value="">{t("powerMode.unchangedOption")}</option>
             <option value="local">{t("powerMode.typeLocal")}</option>
@@ -585,7 +590,7 @@ function ConfigEditor({
                 set("whisper_model_id", e.target.value || null)
               }
               placeholder="ggml-base.en"
-              className="h-8 rounded-md border border-input bg-background px-2"
+              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
             />
           </label>
         )}
@@ -599,7 +604,7 @@ function ConfigEditor({
                 set("parakeet_model_id", e.target.value || null)
               }
               placeholder="parakeet-tdt-0.6b-v3-int8"
-              className="h-8 rounded-md border border-input bg-background px-2"
+              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
             />
           </label>
         )}
@@ -613,7 +618,7 @@ function ConfigEditor({
                 onChange={(e) =>
                   set("cloud_provider", e.target.value || null)
                 }
-                className="h-8 rounded-md border border-input bg-background px-2"
+                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
               />
             </label>
             <label className="grid gap-1 text-xs">
@@ -624,7 +629,7 @@ function ConfigEditor({
                 onChange={(e) =>
                   set("cloud_model", e.target.value || null)
                 }
-                className="h-8 rounded-md border border-input bg-background px-2"
+                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
               />
             </label>
           </div>
@@ -636,7 +641,7 @@ function ConfigEditor({
             value={config.language ?? ""}
             onChange={(e) => set("language", e.target.value || null)}
             placeholder={t("powerMode.languagePlaceholder")}
-            className="h-8 rounded-md border border-input bg-background px-2"
+            className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
           />
         </label>
       </fieldset>

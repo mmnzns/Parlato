@@ -96,7 +96,7 @@ export function DictationLanguagePanel() {
         <select
           value={selected}
           onChange={(e) => change(e.target.value)}
-          className="flex h-9 w-full max-w-md rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+          className="flex h-9 w-full max-w-md rounded-md border-[1.5px] border-input bg-background px-3 py-1 text-sm"
         >
           {sorted.map((code) => (
             <option key={code} value={code}>

@@ -215,7 +215,7 @@ export function LlmLocalPanel() {
                     n_gpu_layers: Number(e.target.value) || 0,
                   })
                 }
-                className="h-8 rounded-md border border-input bg-background px-2"
+                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
               />
               <span className="text-muted-foreground">
                 {t("llmLocal.nGpuLayersHelp")}
@@ -234,7 +234,7 @@ export function LlmLocalPanel() {
                     context_size: Number(e.target.value) || 4096,
                   })
                 }
-                className="h-8 rounded-md border border-input bg-background px-2"
+                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
               />
             </label>
             <label className="grid gap-1">
@@ -250,7 +250,7 @@ export function LlmLocalPanel() {
                     max_tokens: Number(e.target.value) || 1024,
                   })
                 }
-                className="h-8 rounded-md border border-input bg-background px-2"
+                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
               />
             </label>
           </div>

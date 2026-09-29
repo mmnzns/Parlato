@@ -213,6 +213,7 @@ export function EnhancementPanel() {
           </div>
           <input
             type="checkbox"
+            role="switch"
             checked={enabled}
             onChange={(e) => toggleEnabled(e.target.checked)}
             className="h-5 w-5"
@@ -224,7 +225,7 @@ export function EnhancementPanel() {
           <select
             value={selection?.provider_id ?? ""}
             onChange={(e) => selectProvider(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
           >
             <option value="">{t("enhancement.selectPlaceholder")}</option>
             {providers.map((p) => (
@@ -241,7 +242,7 @@ export function EnhancementPanel() {
             <select
               value={selection?.model ?? ""}
               onChange={(e) => selectModel(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
             >
               {selection?.model &&
                 !currentProvider.models.includes(selection.model) && (
@@ -270,7 +271,7 @@ export function EnhancementPanel() {
                 value={ollamaBaseUrl}
                 onChange={(e) => setOllamaBaseUrl(e.target.value)}
                 placeholder="http://localhost:11434"
-                className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-9 flex-1 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
               />
               <Button size="sm" onClick={saveOllamaBaseUrl}>
                 {t("enhancement.save")}
@@ -286,7 +287,7 @@ export function EnhancementPanel() {
             <select
               value={selection?.model ?? ""}
               onChange={(e) => selectModel(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
             >
               {!ollamaModels.includes(selection?.model ?? "") && selection?.model && (
                 <option value={selection.model}>{selection.model}</option>
@@ -306,7 +307,7 @@ export function EnhancementPanel() {
             <select
               value={selection?.model ?? "pi"}
               onChange={(e) => selectModel(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
             >
               <option value="pi">pi</option>
               <option value="claude">claude</option>
@@ -329,7 +330,7 @@ export function EnhancementPanel() {
                   value={localcliCustomCmd}
                   onChange={(e) => setLocalcliCustomCmd(e.target.value)}
                   placeholder="& mon-cli -p $env:PARLA_FULL_PROMPT"
-                  className="min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+                  className="min-h-[80px] rounded-md border-[1.5px] border-input bg-background px-3 py-2 text-sm font-mono"
                 />
                 <Button size="sm" onClick={saveLocalcliCustomCmd}>
                   {t("enhancement.saveCommand")}
@@ -346,7 +347,7 @@ export function EnhancementPanel() {
                   max={300}
                   value={localcliTimeout}
                   onChange={(e) => setLocalcliTimeout(Number(e.target.value) || 45)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
                 />
               </div>
               <Button size="sm" onClick={saveLocalcliTimeout}>
@@ -369,7 +370,7 @@ export function EnhancementPanel() {
                 value={customBaseUrl}
                 onChange={(e) => setCustomBaseUrl(e.target.value)}
                 placeholder="https://my-llm.example.com/v1"
-                className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-9 flex-1 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
               />
               <Button size="sm" onClick={saveCustomBaseUrl}>
                 {t("enhancement.saveUrl")}
@@ -387,7 +388,7 @@ export function EnhancementPanel() {
               onChange={(e) => setCustomModel(e.target.value)}
               onBlur={(e) => selectCustomModel(e.target.value)}
               placeholder={t("enhancement.customModelPlaceholder")}
-              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
             />
             {status.custom && (
               <p className="text-xs text-muted-foreground">{status.custom}</p>
@@ -428,7 +429,7 @@ export function EnhancementPanel() {
                     [currentProvider.id]: e.target.value,
                   }))
                 }
-                className="flex h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+                className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
                 autoComplete="off"
               />
               <Button
@@ -471,7 +472,7 @@ export function EnhancementPanel() {
           <select
             value={activePromptId ?? ""}
             onChange={(e) => selectPrompt(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
           >
             {prompts.map((p) => (
               <option key={p.id} value={p.id}>

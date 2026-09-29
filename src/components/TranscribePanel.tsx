@@ -64,7 +64,7 @@ export function TranscribePanel({ lastWavPath, selectedModelId }: Props) {
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               disabled={busy}
-              className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm disabled:opacity-50"
+              className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 py-1 text-sm disabled:opacity-50"
             >
               <option value="auto">{t("transcribe.auto")}</option>
               <option value="fr">{t("transcribe.french")}</option>

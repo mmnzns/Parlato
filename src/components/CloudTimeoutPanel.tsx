@@ -64,7 +64,7 @@ export function CloudTimeoutPanel() {
               )
             }
             onBlur={(e) => save(e.target.valueAsNumber)}
-            className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm"
+            className="h-9 w-28 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
           />
           <span className="text-xs text-muted-foreground">
             {t("common.seconds")} ({MIN_SECS} - {MAX_SECS})

@@ -187,3 +187,68 @@
    import "@fontsource/ibm-plex-mono/500.css";
    import "@fontsource/ibm-plex-mono/600.css";
 */
+
+/* Parlato form controls (Workbench design). Unlayered on purpose so they
+   win over per-component size utilities such as h-4 w-4 on checkboxes.
+   Plain checkboxes: 16px square, lime when checked.
+   role="switch": 40x22 toggle, knob muted when off, lime track when on. */
+input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: var(--border-width) solid var(--input);
+  border-radius: var(--radius-check);
+  background: var(--background);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+input[type="checkbox"]::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  background: var(--primary-foreground);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 0.12s;
+}
+input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--edge);
+}
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type="checkbox"][role="switch"] {
+  width: 40px;
+  height: 22px;
+  padding: 0 3px;
+  place-content: center start;
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+input[type="checkbox"][role="switch"]::before {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-pill);
+  clip-path: none;
+  background: var(--muted-foreground);
+  transform: none;
+  transition: transform 0.15s, background-color 0.15s;
+}
+input[type="checkbox"][role="switch"]:checked {
+  background: var(--primary);
+  border-color: var(--edge);
+}
+input[type="checkbox"][role="switch"]:checked::before {
+  background: var(--primary-foreground);
+  transform: translateX(17px);
+}

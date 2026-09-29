@@ -184,7 +184,7 @@ export function CloudModelCard({
                 if (e.key === "Enter") verify();
               }}
               disabled={verifying}
-              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
               autoComplete="off"
             />
             <Button

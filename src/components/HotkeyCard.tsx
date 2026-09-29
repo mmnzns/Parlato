@@ -281,7 +281,7 @@ function SlotEditor({
         <select
           value={valueStr}
           onChange={(e) => onTriggerSelect(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
         >
           <option value="none">{t("hotkey.options.none")}</option>
           {MODIFIER_OPTIONS.map((opt) => (
@@ -297,7 +297,7 @@ function SlotEditor({
           onChange={(e) => onModeSelect(e.target.value as HotkeyMode)}
           disabled={slot.trigger.kind === "none"}
           className={cn(
-            "h-9 rounded-md border border-input bg-background px-2 text-sm",
+            "h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm",
             slot.trigger.kind === "none" && "opacity-50",
           )}
         >

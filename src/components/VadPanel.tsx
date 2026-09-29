@@ -105,6 +105,7 @@ export function VadPanel() {
         <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
+            role="switch"
             checked={enabled}
             onChange={toggle}
             className="mt-1 h-4 w-4 cursor-pointer"

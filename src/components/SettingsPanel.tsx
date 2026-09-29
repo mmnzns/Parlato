@@ -179,6 +179,7 @@ export function SettingsPanel() {
             </div>
             <input
               type="checkbox"
+              role="switch"
               checked={autostart}
               onChange={(e) => toggleAutostart(e.target.checked)}
               className="h-5 w-5"
@@ -194,6 +195,7 @@ export function SettingsPanel() {
             </div>
             <input
               type="checkbox"
+              role="switch"
               checked={closeToTray}
               onChange={(e) => toggleCloseToTray(e.target.checked)}
               className="h-5 w-5"
@@ -225,6 +227,7 @@ export function SettingsPanel() {
             </div>
             <input
               type="checkbox"
+              role="switch"
               checked={soundFeedback}
               onChange={(e) => toggleSoundFeedback(e.target.checked)}
               className="h-5 w-5"
@@ -242,6 +245,7 @@ export function SettingsPanel() {
             </div>
             <input
               type="checkbox"
+              role="switch"
               checked={systemMute}
               onChange={(e) => toggleSystemMute(e.target.checked)}
               className="h-5 w-5"
@@ -276,7 +280,7 @@ export function SettingsPanel() {
                 }
                 onBlur={(e) => saveResumeDelay(e.target.valueAsNumber || 0)}
                 disabled={!systemMute}
-                className="h-9 w-24 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 w-24 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
               />
               <span className="text-xs text-muted-foreground">
                 {t("common.seconds")}
@@ -328,6 +332,7 @@ export function SettingsPanel() {
             </div>
             <input
               type="checkbox"
+              role="switch"
               checked={showLiveTranscript}
               onChange={(e) => toggleShowLiveTranscript(e.target.checked)}
               className="h-5 w-5"

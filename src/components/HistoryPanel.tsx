@@ -207,7 +207,7 @@ export function HistoryPanel() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("history.search")}
-              className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm"
+              className="h-9 w-full rounded-md border-[1.5px] border-input bg-background pl-8 pr-3 text-sm"
             />
           </div>
           {selectedCount > 0 ? (
@@ -422,6 +422,7 @@ export function HistoryPanel() {
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
+              role="switch"
               checked={retention.transcription_cleanup}
               onChange={(e) =>
                 saveRetention({
@@ -441,13 +442,14 @@ export function HistoryPanel() {
                   transcription_retention_minutes: Number(e.target.value) || 0,
                 })
               }
-              className="h-7 w-20 rounded-md border border-input bg-background px-2 text-xs"
+              className="h-7 w-20 rounded-md border-[1.5px] border-input bg-background px-2 text-xs"
             />
             {t("history.retentionSentenceB")}
           </label>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
+              role="switch"
               checked={retention.audio_cleanup}
               disabled={retention.transcription_cleanup}
               onChange={(e) =>
@@ -468,7 +470,7 @@ export function HistoryPanel() {
                   audio_retention_days: Number(e.target.value) || 0,
                 })
               }
-              className="h-7 w-16 rounded-md border border-input bg-background px-2 text-xs"
+              className="h-7 w-16 rounded-md border-[1.5px] border-input bg-background px-2 text-xs"
               disabled={retention.transcription_cleanup}
             />
             {t("history.retentionSentenceD")}

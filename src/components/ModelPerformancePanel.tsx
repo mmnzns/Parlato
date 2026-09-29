@@ -81,7 +81,7 @@ export function ModelPerformancePanel() {
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value as MetricsPeriod)}
-            className="h-8 shrink-0 rounded-md border border-input bg-background px-2 text-sm shadow-sm"
+            className="h-8 shrink-0 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
           >
             <option value="last7_days">
               {t("modelPerformance.period.last7Days")}

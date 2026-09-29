@@ -101,13 +101,13 @@ export function DictionaryPanel() {
             value={original}
             onChange={(e) => setOriginal(e.target.value)}
             placeholder={t("dictionary.originalPlaceholder")}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
           />
           <input
             value={replacement}
             onChange={(e) => setReplacement(e.target.value)}
             placeholder={t("dictionary.replacementPlaceholder")}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
           />
           <Button onClick={add}>
             <Plus /> {t("dictionary.add")}
@@ -130,6 +130,7 @@ export function DictionaryPanel() {
               >
                 <input
                   type="checkbox"
+                  role="switch"
                   checked={e.is_enabled}
                   onChange={() => toggle(e)}
                   className="h-4 w-4 cursor-pointer"
@@ -138,12 +139,12 @@ export function DictionaryPanel() {
                 <input
                   defaultValue={e.original_text}
                   onBlur={(ev) => editInline(e, "original_text", ev.target.value)}
-                  className="flex h-8 rounded-md border border-input bg-background px-2 text-xs font-mono"
+                  className="flex h-8 rounded-md border-[1.5px] border-input bg-background px-2 text-xs font-mono"
                 />
                 <input
                   defaultValue={e.replacement_text}
                   onBlur={(ev) => editInline(e, "replacement_text", ev.target.value)}
-                  className="flex h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  className="flex h-8 rounded-md border-[1.5px] border-input bg-background px-2 text-xs"
                 />
                 <Button size="sm" variant="ghost" onClick={() => remove(e.id)}>
                   <Trash2 className="h-3.5 w-3.5" />

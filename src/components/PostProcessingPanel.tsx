@@ -103,7 +103,7 @@ export function PostProcessingPanel() {
             <input
               value={customWords}
               onChange={(e) => setCustomWords(e.target.value)}
-              className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              className="flex h-9 flex-1 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
             />
             <Button size="sm" variant="outline" onClick={saveFillers}>
               {t("postProcessing.save")}
@@ -130,6 +130,7 @@ function Toggle({ label, description, checked, onChange }: ToggleProps) {
     <label className="flex cursor-pointer items-start gap-3">
       <input
         type="checkbox"
+        role="switch"
         checked={checked}
         onChange={onChange}
         className="mt-1 h-4 w-4 cursor-pointer"

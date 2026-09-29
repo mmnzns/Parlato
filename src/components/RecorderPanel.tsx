@@ -148,7 +148,7 @@ export function RecorderPanel() {
               value={selected ?? ""}
               onChange={(e) => chooseDevice(e.target.value || null)}
               disabled={isRecording}
-              className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm disabled:opacity-50"
+              className="flex h-9 flex-1 rounded-md border-[1.5px] border-input bg-background px-3 py-1 text-sm disabled:opacity-50"
             >
               {devices.length === 0 && <option value="">{t("recorder.noDevice")}</option>}
               {devices.length > 0 && (

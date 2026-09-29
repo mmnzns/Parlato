@@ -72,6 +72,7 @@ export function EnhancementScreenContext() {
         </div>
         <input
           type="checkbox"
+          role="switch"
           checked={enabled}
           onChange={(e) => toggle(e.target.checked)}
           className="h-5 w-5"

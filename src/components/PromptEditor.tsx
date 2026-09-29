@@ -118,7 +118,7 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
                 e.target.value = "";
               }}
               defaultValue=""
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2 text-xs"
             >
               <option value="" disabled>
                 {t("promptEditor.fromTemplate")}
@@ -231,7 +231,7 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
                   onChange={(e) =>
                     setEditing({ ...editing, title: e.target.value })
                   }
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
                 />
               </div>
               <div className="grid gap-1">
@@ -245,12 +245,13 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
                       description: e.target.value || null,
                     })
                   }
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
                 />
               </div>
               <label className="flex items-start gap-2 rounded-md border p-2 text-xs">
                 <input
                   type="checkbox"
+                  role="switch"
                   className="mt-0.5"
                   checked={editing.use_system_instructions}
                   onChange={(e) =>
@@ -277,7 +278,7 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
                   onChange={(e) =>
                     setEditing({ ...editing, prompt_text: e.target.value })
                   }
-                  className="min-h-[220px] rounded-md border border-input bg-background px-3 py-2 font-mono text-xs"
+                  className="min-h-[220px] rounded-md border-[1.5px] border-input bg-background px-3 py-2 font-mono text-xs"
                 />
               </div>
               <div className="grid gap-1">
@@ -297,7 +298,7 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
                         .filter(Boolean),
                     })
                   }
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
                 />
                 <p className="text-[10px] text-muted-foreground">
                   {t("promptEditor.triggerWordsHelp")}
