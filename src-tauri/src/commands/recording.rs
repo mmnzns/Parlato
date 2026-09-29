@@ -86,6 +86,13 @@ pub fn is_recording(state: State<'_, RecorderState>) -> bool {
     state.0.lock().is_some()
 }
 
+/// Bouton d'enregistrement de la bulle (VoiceInk RecorderRecordButton) :
+/// meme cycle complet que le raccourci et le menu tray.
+#[tauri::command]
+pub fn toggle_recording_from_ui(app: AppHandle) {
+    crate::transcription::engine::toggle_from_ui(&app);
+}
+
 // ============================================================================
 // Helpers reutilisables (hotkey manager, etc.)
 // ============================================================================
@@ -121,6 +128,10 @@ pub fn start_recording_core_with_chunk(
     let id = Uuid::new_v4().to_string();
     let wav_path = dir.join(format!("{id}.wav"));
 
+    // Sans peripherique explicite (hotkey, tray), on utilise le micro
+    // choisi dans les reglages / le menu tray, sinon le defaut systeme.
+    // Reference VoiceInk AudioDeviceManager (systemDefault / custom).
+    let device_name = device_name.or_else(|| crate::audio::device::selected_input_device(app));
     let config = RecorderConfig {
         device_name,
         output_path: wav_path.clone(),
@@ -183,7 +194,7 @@ pub fn cancel_recording_core(
     Ok(())
 }
 
-fn recordings_dir(app: &AppHandle) -> anyhow::Result<PathBuf> {
+pub fn recordings_dir(app: &AppHandle) -> anyhow::Result<PathBuf> {
     let base = app
         .path()
         .app_local_data_dir()

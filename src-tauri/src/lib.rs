@@ -34,18 +34,20 @@ use commands::models::{
 };
 use commands::recording::{
     cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
-    stop_recording, RecorderState,
+    stop_recording, toggle_recording_from_ui, RecorderState,
 };
 use commands::streaming::{StreamingRegistryState, StreamingSessionState};
 use commands::settings::{
     close_to_tray_enabled, get_audio_resumption_delay, get_close_to_tray,
-    get_dictation_language, get_selected_whisper_model, get_sound_feedback_enabled,
+    get_cloud_transcription_timeout, get_dictation_language, get_selected_input_device,
+    get_selected_whisper_model, get_show_live_transcript, get_sound_feedback_enabled,
     get_system_mute_enabled, get_text_processing_settings, get_transcription_source,
-    set_append_trailing_space, set_audio_resumption_delay, set_close_to_tray,
-    set_dictation_language, set_filler_words, set_remove_filler_words,
-    set_restore_clipboard_after_paste, set_selected_whisper_model, set_sound_feedback_enabled,
-    set_system_mute_enabled, set_text_formatting_enabled, set_transcription_kind,
-    set_transcription_source,
+    get_ui_language, reset_escape_hint, set_append_trailing_space, set_audio_resumption_delay,
+    set_close_to_tray, set_cloud_transcription_timeout, set_dictation_language,
+    set_filler_words, set_remove_filler_words, set_restore_clipboard_after_paste,
+    set_selected_input_device, set_selected_whisper_model, set_show_live_transcript,
+    set_sound_feedback_enabled, set_system_mute_enabled, set_text_formatting_enabled,
+    set_transcription_kind, set_transcription_source, set_ui_language,
 };
 use commands::transcription::{transcribe_wav, WhisperEngineState};
 use commands::cloud::{
@@ -74,8 +76,8 @@ use commands::permissions::{
 };
 use commands::power_mode::{
     add_power_config, delete_power_config, get_active_power_session, get_power_auto_restore,
-    list_power_configs, power_mode_preview, reorder_power_configs, set_power_auto_restore,
-    update_power_config,
+    list_power_configs, power_mode_preview, reorder_power_configs, select_power_config,
+    set_power_auto_restore, update_power_config,
 };
 use commands::history::{
     count_history, delete_history_item, export_history_csv, get_history_item,
@@ -204,7 +206,6 @@ pub fn run() {
                 }
                 Err(e) => warn!("Ouverture DB SQLite echec: {e}"),
             }
-            tray::setup(app.handle())?;
             // Subclasse WndProc de la main window pour neutraliser le menu
             // systeme Alt+Space (cf window_subclass.rs). Sans ca, Parla
             // intercepte Alt+Space pendant qu'il est focus et les launchers
@@ -257,7 +258,14 @@ pub fn run() {
                     }
                 }
             }
-            setup_hotkeys(handle);
+            setup_hotkeys(handle.clone());
+            // Timeout batch cloud persiste (VoiceInk CloudTranscriptionSettings).
+            transcription::cloud::http::set_batch_timeout_secs(
+                commands::settings::cloud_timeout_secs(&handle),
+            );
+            // Le tray depend du hotkey manager (Toggle Recorder) : construit
+            // apres setup_hotkeys.
+            tray::setup(&handle)?;
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -287,6 +295,7 @@ pub fn run() {
             cancel_recording,
             get_audio_meter,
             is_recording,
+            toggle_recording_from_ui,
             list_whisper_models,
             download_whisper_model,
             cancel_download_whisper_model,
@@ -311,7 +320,8 @@ pub fn run() {
             set_audio_resumption_delay,
             get_sound_feedback_enabled,
             set_sound_feedback_enabled,
-            mini_recorder::resize_recorder_window,
+            mini_recorder::open_recorder_popover,
+            mini_recorder::close_recorder_popover,
             mini_recorder::show_main_window,
             list_word_replacements,
             add_word_replacement,
@@ -377,6 +387,7 @@ pub fn run() {
             get_power_auto_restore,
             set_power_auto_restore,
             get_active_power_session,
+            select_power_config,
             power_mode_preview,
             get_screen_context_enabled,
             set_screen_context_enabled,
@@ -404,6 +415,15 @@ pub fn run() {
             set_hotkey_config,
             reset_hotkey_config,
             list_hotkey_options,
+            get_show_live_transcript,
+            set_show_live_transcript,
+            get_cloud_transcription_timeout,
+            set_cloud_transcription_timeout,
+            get_selected_input_device,
+            set_selected_input_device,
+            get_ui_language,
+            set_ui_language,
+            reset_escape_hint,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -415,7 +435,16 @@ fn setup_hotkeys(app: AppHandle) {
         cfg.primary.mode,
         cfg.secondary.mode,
     ));
-    let rx = install_hook(cfg.primary.trigger, cfg.secondary.trigger);
+    let rx = install_hook(
+        cfg.primary.trigger,
+        cfg.secondary.trigger,
+        cfg.actions.as_utility_list(),
+        cfg.actions.cancel_recording,
+    );
+    manager.set_custom_cancel(!matches!(
+        cfg.actions.cancel_recording,
+        hotkeys::keyboard_hook::HotkeyTrigger::None
+    ));
 
     info!(
         primary = ?cfg.primary.trigger,

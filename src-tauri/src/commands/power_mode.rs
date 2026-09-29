@@ -2,7 +2,7 @@
 // active.
 
 use serde::Serialize;
-use tauri::{command, AppHandle};
+use tauri::{command, AppHandle, Emitter};
 
 use crate::power_mode::active_window::{foreground_window, ActiveWindow};
 use crate::power_mode::browser_url::extract_url;
@@ -32,6 +32,7 @@ pub fn add_power_config(app: AppHandle, config: PowerModeConfig) -> Result<Power
     }
     all.push(c.clone());
     config::save_all(&app, &all).map_err(|e| e.to_string())?;
+    crate::tray::refresh(&app);
     Ok(c)
 }
 
@@ -50,14 +51,18 @@ pub fn update_power_config(app: AppHandle, config: PowerModeConfig) -> Result<()
         }
     }
     all[pos] = config;
-    config::save_all(&app, &all).map_err(|e| e.to_string())
+    config::save_all(&app, &all).map_err(|e| e.to_string())?;
+    crate::tray::refresh(&app);
+    Ok(())
 }
 
 #[command]
 pub fn delete_power_config(app: AppHandle, id: String) -> Result<(), String> {
     let mut all = config::load_all(&app).map_err(|e| e.to_string())?;
     all.retain(|c| c.id != id);
-    config::save_all(&app, &all).map_err(|e| e.to_string())
+    config::save_all(&app, &all).map_err(|e| e.to_string())?;
+    crate::tray::refresh(&app);
+    Ok(())
 }
 
 #[command]
@@ -70,7 +75,20 @@ pub fn reorder_power_configs(app: AppHandle, ordered_ids: Vec<String>) -> Result
         }
     }
     remapped.append(&mut all);
-    config::save_all(&app, &remapped).map_err(|e| e.to_string())
+    config::save_all(&app, &remapped).map_err(|e| e.to_string())?;
+    crate::tray::refresh(&app);
+    Ok(())
+}
+
+/// Selection manuelle d'un profil par id (popover Mode de la bulle, menu
+/// tray). Reference VoiceInk ModePopover -> ModeManager.setActiveConfiguration.
+#[command]
+pub fn select_power_config(app: AppHandle, id: String) -> Result<(), String> {
+    if let Some(s) = session::select_by_id(&app, &id) {
+        let _ = app.emit("power_mode:active", &s);
+    }
+    crate::tray::refresh(&app);
+    Ok(())
 }
 
 // -- Auto restore + active session -----------------------------------------

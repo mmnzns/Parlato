@@ -350,10 +350,15 @@ export const api = {
   getSoundFeedbackEnabled: () => invoke<boolean>("get_sound_feedback_enabled"),
   setSoundFeedbackEnabled: (enabled: boolean) =>
     invoke<void>("set_sound_feedback_enabled", { enabled }),
-  resizeRecorderWindow: (height: number) =>
-    invoke<void>("resize_recorder_window", { height }),
   showMainWindow: (panel?: string | null) =>
     invoke<void>("show_main_window", { panel: panel ?? null }),
+  // Popover du bouton Mode de la bulle (fenetre separee). Ancres en px
+  // logiques relatifs a la fenetre recorder.
+  openRecorderPopover: (anchorX: number, anchorTop: number, anchorBottom: number) =>
+    invoke<void>("open_recorder_popover", { anchorX, anchorTop, anchorBottom }),
+  closeRecorderPopover: () => invoke<void>("close_recorder_popover"),
+  // Bouton d'enregistrement de la bulle : meme cycle que le raccourci.
+  toggleRecordingFromUi: () => invoke<void>("toggle_recording_from_ui"),
 
   listCloudProviders: () =>
     invoke<
@@ -513,6 +518,8 @@ export const api = {
   getPowerAutoRestore: () => invoke<boolean>("get_power_auto_restore"),
   setPowerAutoRestore: (enabled: boolean) =>
     invoke<void>("set_power_auto_restore", { enabled }),
+  selectPowerConfig: (id: string) =>
+    invoke<void>("select_power_config", { id }),
   getActivePowerSession: () =>
     invoke<PowerSession | null>("get_active_power_session"),
   powerModePreview: () => invoke<DetectionPreview>("power_mode_preview"),
@@ -571,6 +578,29 @@ export const api = {
     invoke<void>("set_hotkey_config", { config }),
   resetHotkeyConfig: () => invoke<HotkeyConfig>("reset_hotkey_config"),
   listHotkeyOptions: () => invoke<HotkeyOptionInfo[]>("list_hotkey_options"),
+  resetEscapeHint: () => invoke<void>("reset_escape_hint"),
+
+  // Live text display in the recorder pill (VoiceInk ShowLiveTranscript).
+  getShowLiveTranscript: () => invoke<boolean>("get_show_live_transcript"),
+  setShowLiveTranscript: (enabled: boolean) =>
+    invoke<void>("set_show_live_transcript", { enabled }),
+
+  // Cloud batch transcription timeout, seconds (VoiceInk CloudTranscriptionSettings).
+  getCloudTranscriptionTimeout: () =>
+    invoke<number>("get_cloud_transcription_timeout"),
+  setCloudTranscriptionTimeout: (secs: number) =>
+    invoke<void>("set_cloud_transcription_timeout", { secs }),
+
+  // Microphone used by hotkey / tray recordings (null = system default).
+  getSelectedInputDevice: () =>
+    invoke<string | null>("get_selected_input_device"),
+  setSelectedInputDevice: (name: string | null) =>
+    invoke<void>("set_selected_input_device", { name }),
+
+  // UI language mirrored to the native tray menu.
+  getUiLanguage: () => invoke<string>("get_ui_language"),
+  setUiLanguage: (language: string) =>
+    invoke<void>("set_ui_language", { language }),
 };
 
 // -- Hotkey types ----------------------------------------------------------
@@ -608,9 +638,24 @@ export type HotkeySlotConfig = {
   mode: HotkeyMode;
 };
 
+/**
+ * Raccourcis additionnels (VoiceInk "Additional Shortcuts"). Tous `none`
+ * par defaut. `cancel_recording` a `none` = double-Echap par defaut.
+ * Miroir de `UtilityShortcuts` dans src-tauri/src/commands/hotkey.rs.
+ */
+export type UtilityShortcuts = {
+  copy_last_transcription: HotkeyTrigger;
+  paste_last_transcription: HotkeyTrigger;
+  paste_last_enhancement: HotkeyTrigger;
+  retry_last_transcription: HotkeyTrigger;
+  open_history: HotkeyTrigger;
+  cancel_recording: HotkeyTrigger;
+};
+
 export type HotkeyConfig = {
   primary: HotkeySlotConfig;
   secondary: HotkeySlotConfig;
+  actions: UtilityShortcuts;
 };
 
 export type HotkeyOptionInfo = {
