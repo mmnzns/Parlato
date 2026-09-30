@@ -44,6 +44,12 @@ import {
   type WhisperModelState,
 } from "@/lib/tauri";
 
+/// Parlato: the backend reports a cancelled download as the French error
+/// "telechargement annule" (model managers); it is not a real error.
+function isCancel(e: unknown): boolean {
+  return String(e).includes("annule");
+}
+
 export function ModelsPage({
   selectedModelId,
   onSelectModel,
@@ -136,6 +142,8 @@ export function ModelsPage({
           delete next[e.payload.id];
           return next;
         });
+        // Parlato: a cancel is not an error; just clear the progress.
+        if (isCancel(e.payload.message)) return;
         setWhisperErrors((er) => ({
           ...er,
           [e.payload.id]: e.payload.message,
@@ -168,7 +176,7 @@ export function ModelsPage({
           });
           setParakeetStatus((s) => ({
             ...s,
-            [e.payload.id]: e.payload.message.includes("annule")
+            [e.payload.id]: isCancel(e.payload.message)
               ? t("parakeet.cancelled")
               : t("parakeet.errorPrefix", { message: e.payload.message }),
           }));
@@ -204,7 +212,7 @@ export function ModelsPage({
         delete next[id];
         return next;
       });
-      setWhisperErrors((er) => ({ ...er, [id]: String(e) }));
+      if (!isCancel(e)) setWhisperErrors((er) => ({ ...er, [id]: String(e) }));
     }
   }
 
@@ -246,9 +254,11 @@ export function ModelsPage({
         const { [id]: _, ...rest } = p;
         return rest;
       });
+      // Parlato: a cancel also rejects this call; show "cancelled", not the
+      // raw backend message.
       setParakeetStatus((s) => ({
         ...s,
-        [id]: t("parakeet.errorPrefix", { message: String(e) }),
+        [id]: isCancel(e) ? t("parakeet.cancelled") : t("parakeet.errorPrefix", { message: String(e) }),
       }));
     }
   }
