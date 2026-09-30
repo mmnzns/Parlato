@@ -1,11 +1,13 @@
 // Card modele Parakeet : meta int8/F16, multilingue, missing files,
 // download avec fichier courant, et le bouton d'action a 3 etats
 // VoiceInk : Download -> Set as Default -> Default Model.
+//
+// Parlato: rendered through the Workbench ModelTile.
 
 import { useTranslation } from "react-i18next";
-import { Cpu, Download, Languages, Loader2, Trash2 } from "lucide-react";
+import { Download, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RatingDots } from "@/components/RatingDots";
+import { ModelTile, TileProgress } from "@/components/models/ModelTile";
 import { cn } from "@/lib/utils";
 import type { ParakeetModelState } from "@/lib/tauri";
 import type { ParakeetDownloadProgress } from "./types";
@@ -39,105 +41,77 @@ export function ParakeetModelCard({
   onSetDefault,
 }: Props) {
   const { t } = useTranslation();
-  const pct =
-    prog && prog.total > 0
-      ? Math.round((prog.downloaded / prog.total) * 100)
-      : null;
+  const pct = prog && prog.total > 0 ? Math.round((prog.downloaded / prog.total) * 100) : null;
+  const meta = [
+    m.multilingual
+      ? t("speech.languages", { count: m.language_codes.filter((c) => c !== "auto").length })
+      : t("speech.englishOnly"),
+    formatBytes(m.size_bytes),
+    m.is_quantized ? "int8" : "F16",
+    m.downloaded ? t("speech.downloaded") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div
-      className={cn(
-        "rounded-lg border p-4 transition-colors",
-        isCurrent && "border-primary bg-primary/5",
-      )}
+    <ModelTile
+      current={isCurrent}
+      kind="Parakeet"
+      local
+      name={m.display_name}
+      tech={m.id}
+      description={m.notes || undefined}
+      speed={m.speed}
+      accuracy={m.accuracy}
+      meta={meta}
+      trailing={
+        m.downloaded ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-muted-foreground"
+            onClick={onDelete}
+            title={t("speech.delete")}
+            aria-label={t("speech.delete")}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ) : undefined
+      }
+      action={
+        m.downloaded ? (
+          <Button size="sm" onClick={onSetDefault}>
+            {t("speech.use")}
+          </Button>
+        ) : prog ? (
+          <Button size="sm" variant="outline" onClick={onCancelDownload}>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t("speech.cancel")}
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" onClick={onDownload}>
+            <Download className="h-3.5 w-3.5" />
+            {t("speech.download")}
+          </Button>
+        )
+      }
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{m.display_name}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{m.notes}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Cpu className="h-3 w-3" />
-              {m.is_quantized ? "int8" : "F16"}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Languages className="h-3 w-3" />
-              {m.multilingual
-                ? t("parakeet.multilingual")
-                : t("parakeet.englishOnly")}
-            </span>
-            <span>{formatBytes(m.size_bytes)}</span>
-            <span className="inline-flex items-center gap-1">
-              {t("common.speed")}
-              <RatingDots value={m.speed} />
-            </span>
-            <span className="inline-flex items-center gap-1">
-              {t("common.accuracy")}
-              <RatingDots value={m.accuracy} />
-            </span>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          {m.downloaded ? (
-            <>
-              {isCurrent ? (
-                <span className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  {t("aiModels.defaultModel")}
-                </span>
-              ) : (
-                <Button size="sm" variant="outline" onClick={onSetDefault}>
-                  {t("aiModels.setAsDefault")}
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={onDelete}>
-                <Trash2 className="h-3.5 w-3.5" />
-                {t("common.delete")}
-              </Button>
-            </>
-          ) : prog ? (
-            <Button size="sm" variant="ghost" onClick={onCancelDownload}>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {t("parakeet.cancel")}
-            </Button>
-          ) : (
-            <Button size="sm" onClick={onDownload}>
-              <Download className="h-3.5 w-3.5" />
-              {t("parakeet.download")}
-            </Button>
-          )}
-        </div>
-      </div>
       {prog && pct !== null && (
-        <div className="mt-2">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-primary transition-[width]"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {formatBytes(prog.downloaded)} / {formatBytes(prog.total)} ({pct}%)
-            {" - "}
-            {prog.current_file}
-          </p>
-        </div>
-      )}
-      {!m.downloaded && m.missing_files.length > 0 && !prog && (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {t("parakeet.missingFiles", { files: m.missing_files.join(", ") })}
-        </p>
+        <TileProgress
+          pct={pct}
+          label={`${formatBytes(prog.downloaded)} / ${formatBytes(prog.total)} (${pct}%)`}
+        />
       )}
       {st && (
         <p
           className={cn(
-            "mt-2 text-xs",
-            st.startsWith(t("common.error"))
-              ? "text-destructive"
-              : "text-muted-foreground",
+            "text-xs",
+            st.startsWith(t("common.error")) ? "text-destructive" : "text-muted-foreground",
           )}
         >
           {st}
         </p>
       )}
-    </div>
+    </ModelTile>
   );
 }

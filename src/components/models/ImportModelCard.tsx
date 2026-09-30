@@ -37,32 +37,24 @@ export function ImportModelCard({
   }
 
   return (
-    <div className="rounded-lg border border-dashed bg-muted/30 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <FolderOpen className="h-4 w-4 text-muted-foreground" />
-          <div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-sm font-medium">{t("aiModels.import.title")}</p>
-              <InfoTip learnMoreUrl="https://tryvoiceink.com/docs/custom-local-whisper-models">
-                {t("aiModels.import.infoTip")}
-              </InfoTip>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("aiModels.import.description")}
-            </p>
-          </div>
+    <div className="flex flex-col gap-2 rounded-lg border-[1.5px] border-dashed border-input bg-card px-5 py-4">
+      <div className="flex items-center gap-4">
+        <FolderOpen className="h-5 w-5 flex-none text-muted-foreground" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex items-center gap-1.5 font-medium">
+            {t("speech.importTitle")}
+            <InfoTip learnMoreUrl="https://tryvoiceink.com/docs/custom-local-whisper-models">
+              {t("aiModels.import.infoTip")}
+            </InfoTip>
+          </span>
+          <span className="text-[13px] text-muted-foreground">{t("speech.importDesc")}</span>
         </div>
         <Button size="sm" variant="outline" onClick={importModel}>
           <Upload className="h-3.5 w-3.5" />
-          {t("aiModels.import.browse")}
+          {t("speech.browse")}
         </Button>
       </div>
-      {error && (
-        <p className="mt-2 text-xs text-destructive">
-          {t("aiModels.import.error", { message: error })}
-        </p>
-      )}
+      {error && <p className="text-xs text-destructive">{t("aiModels.import.error", { message: error })}</p>}
     </div>
   );
 }

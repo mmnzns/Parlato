@@ -146,19 +146,16 @@ function App() {
                 title={t("hero.modelsTitle")}
                 description={t("hero.modelsDescription")}
               />
-              {gpu && (
-                <p className="font-mono text-[11px] text-muted-foreground">
-                  {gpu.has_nvidia
-                    ? t("hero.hardwareGpu", {
-                        device: gpu.device_name ?? "",
-                        cuda: gpu.cuda_version ?? "?",
-                      })
-                    : t("hero.hardwareCpu")}
-                </p>
-              )}
               <ModelsPage
                 selectedModelId={selectedModelId}
                 onSelectModel={handleSelectModel}
+                hardware={
+                  gpu
+                    ? gpu.has_nvidia
+                      ? t("speech.hwGpu", { device: gpu.device_name ?? "" })
+                      : t("speech.hwCpu")
+                    : undefined
+                }
               />
               {/* Parlato: moved from Home, which the design keeps simple. */}
               <ModelPerformancePanel />

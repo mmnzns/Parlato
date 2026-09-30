@@ -8,14 +8,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Globe } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { selectClass } from "@/components/ui/section";
 import { languageLabel } from "@/lib/languages";
 import { api, type TranscriptionSource } from "@/lib/tauri";
 
@@ -79,37 +72,24 @@ export function DictationLanguagePanel() {
     return languageLabel(a).localeCompare(languageLabel(b));
   });
 
+  // Parlato: compact labelled select for the Speech model "in use" bar.
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-base">
-            {t("dictationLanguage.title")}
-          </CardTitle>
-        </div>
-        <CardDescription>
-          {t("dictationLanguage.description", { model: activeLabel })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <select
-          value={selected}
-          onChange={(e) => change(e.target.value)}
-          className="flex h-9 w-full max-w-md rounded-md border-[1.5px] border-input bg-background px-3 py-1 text-sm"
-        >
-          {sorted.map((code) => (
-            <option key={code} value={code}>
-              {code === "auto"
-                ? t("dictationLanguage.auto")
-                : languageLabel(code)}
-              {" "}
-              ({code})
-            </option>
-          ))}
-        </select>
-      </CardContent>
-    </Card>
+    <label className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground" title={t("dictationLanguage.description", { model: activeLabel })}>
+        {t("speech.language")}
+      </span>
+      <select
+        value={selected}
+        onChange={(e) => change(e.target.value)}
+        className={selectClass}
+      >
+        {sorted.map((code) => (
+          <option key={code} value={code}>
+            {code === "auto" ? t("dictationLanguage.auto") : languageLabel(code)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

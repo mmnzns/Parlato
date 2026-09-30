@@ -8,14 +8,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { BarChart3 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Block, Section, selectClass } from "@/components/ui/section";
+import { cn } from "@/lib/utils";
 import {
   api,
   type EnhancementModelMetric,
@@ -23,14 +17,6 @@ import {
   type ModelPerformanceMetrics,
   type TranscriptionModelMetric,
 } from "@/lib/tauri";
-
-function formatDurationShort(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
-  if (seconds < 60) return `${seconds.toFixed(0)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return s === 0 ? `${m}m` : `${m}m ${s}s`;
-}
 
 export function ModelPerformancePanel() {
   const { t } = useTranslation();
@@ -63,133 +49,66 @@ export function ModelPerformancePanel() {
     !data ||
     (data.transcription_models.length === 0 && data.enhancement_models.length === 0);
 
+  // Parlato: Workbench section (docs/design/v1, "How fast your models are").
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">
-                {t("modelPerformance.title")}
-              </CardTitle>
-            </div>
-            <CardDescription className="mt-1">
-              {t("modelPerformance.description")}
-            </CardDescription>
-          </div>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as MetricsPeriod)}
-            className="h-8 shrink-0 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
-          >
-            <option value="last7_days">
-              {t("modelPerformance.period.last7Days")}
-            </option>
-            <option value="last30_days">
-              {t("modelPerformance.period.last30Days")}
-            </option>
-            <option value="this_year">
-              {t("modelPerformance.period.thisYear")}
-            </option>
-            <option value="all_time">
-              {t("modelPerformance.period.allTime")}
-            </option>
-          </select>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {error && (
-          <p className="text-xs text-destructive">
-            {t("common.errorPrefix", { message: error })}
-          </p>
-        )}
-        {isEmpty ? (
-          <p className="text-sm text-muted-foreground">
-            {t("modelPerformance.empty")}
-          </p>
-        ) : (
-          <div className="space-y-6">
-            {data!.transcription_models.length > 0 && (
-              <section>
-                <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t("modelPerformance.transcriptionModels")}
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {data!.transcription_models.map((m) => (
-                    <TranscriptionTile key={m.name} metric={m} />
-                  ))}
-                </div>
-              </section>
-            )}
-            {data!.enhancement_models.length > 0 && (
-              <section>
-                <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t("modelPerformance.enhancementModels")}
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {data!.enhancement_models.map((m) => (
-                    <EnhancementTile key={m.name} metric={m} />
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <Section
+      title={t("speech.perfTitle")}
+      description={t("speech.perfDesc")}
+      action={
+        <select
+          aria-label={t("speech.perfTitle")}
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as MetricsPeriod)}
+          className={cn(selectClass, "min-w-0")}
+        >
+          <option value="last7_days">{t("modelPerformance.period.last7Days")}</option>
+          <option value="last30_days">{t("modelPerformance.period.last30Days")}</option>
+          <option value="this_year">{t("modelPerformance.period.thisYear")}</option>
+          <option value="all_time">{t("modelPerformance.period.allTime")}</option>
+        </select>
+      }
+    >
+      {error && (
+        <Block className="py-3 text-xs text-destructive">{t("common.errorPrefix", { message: error })}</Block>
+      )}
+      {isEmpty ? (
+        <Block className="text-sm text-muted-foreground">{t("modelPerformance.empty")}</Block>
+      ) : (
+        <>
+          {data!.transcription_models.map((m) => (
+            <TranscriptionTile key={m.name} metric={m} />
+          ))}
+          {data!.enhancement_models.map((m) => (
+            <EnhancementTile key={m.name} metric={m} />
+          ))}
+        </>
+      )}
+    </Section>
   );
 }
 
 function TranscriptionTile({ metric }: { metric: TranscriptionModelMetric }) {
   const { t } = useTranslation();
   const speedFactor =
-    metric.total_processing_sec > 0
-      ? metric.total_audio_sec / metric.total_processing_sec
-      : 0;
-  const avgAudio =
-    metric.session_count > 0 ? metric.total_audio_sec / metric.session_count : 0;
+    metric.total_processing_sec > 0 ? metric.total_audio_sec / metric.total_processing_sec : 0;
   const avgProcessing =
-    metric.session_count > 0
-      ? metric.total_processing_sec / metric.session_count
-      : 0;
+    metric.session_count > 0 ? metric.total_processing_sec / metric.session_count : 0;
   const fasterThanRealtime = speedFactor >= 1.0;
 
   return (
-    <div className="rounded-lg border p-3">
-      <div className="text-center">
-        <p className="truncate text-sm font-semibold">{metric.name}</p>
-        <p className="text-[11px] text-muted-foreground">
-          {t("modelPerformance.sessionCount", { count: metric.session_count })}
-        </p>
+    <div className="flex items-center gap-5 px-5 py-[13px]">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate font-medium">{metric.name}</span>
+        <span className="text-[13px] text-muted-foreground">
+          {t("speech.dictations", { count: metric.session_count })} ·{" "}
+          {t("speech.each", { secs: avgProcessing.toFixed(1) })}
+        </span>
       </div>
-      <div className="my-3 text-center">
-        <p className="text-3xl font-bold leading-none text-emerald-500">
-          {speedFactor.toFixed(1)}x
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {fasterThanRealtime
-            ? t("modelPerformance.fasterRealtime")
-            : t("modelPerformance.slowerRealtime")}
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-1 border-t pt-2 text-center">
-        <div>
-          <p className="font-mono text-xs font-semibold text-indigo-500">
-            {formatDurationShort(avgAudio)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {t("modelPerformance.avgAudio")}
-          </p>
-        </div>
-        <div>
-          <p className="font-mono text-xs font-semibold text-teal-500">
-            {avgProcessing.toFixed(2)}s
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {t("modelPerformance.avgProcessing")}
-          </p>
-        </div>
+      <div className="flex flex-none flex-col items-end">
+        <span className="font-display text-2xl leading-7 font-extrabold">{speedFactor.toFixed(1)}×</span>
+        <span className="text-[11px] text-muted-foreground">
+          {fasterThanRealtime ? t("speech.faster") : t("speech.slower")}
+        </span>
       </div>
     </div>
   );
@@ -197,22 +116,19 @@ function TranscriptionTile({ metric }: { metric: TranscriptionModelMetric }) {
 
 function EnhancementTile({ metric }: { metric: EnhancementModelMetric }) {
   const { t } = useTranslation();
-  const avgDuration =
-    metric.session_count > 0
-      ? metric.total_duration_sec / metric.session_count
-      : 0;
+  const avgDuration = metric.session_count > 0 ? metric.total_duration_sec / metric.session_count : 0;
   return (
-    <div className="rounded-lg border p-3 text-center">
-      <p className="truncate text-sm font-semibold">{metric.name}</p>
-      <p className="text-[11px] text-muted-foreground">
-        {t("modelPerformance.sessionCount", { count: metric.session_count })}
-      </p>
-      <p className="mt-3 text-3xl font-bold leading-none text-indigo-500">
-        {avgDuration.toFixed(2)}s
-      </p>
-      <p className="mt-1 text-[11px] text-muted-foreground">
-        {t("modelPerformance.avgEnhancement")}
-      </p>
+    <div className="flex items-center gap-5 px-5 py-[13px]">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate font-medium">{metric.name}</span>
+        <span className="text-[13px] text-muted-foreground">
+          {t("speech.aiTitle")} · {t("speech.cleanups", { count: metric.session_count })}
+        </span>
+      </div>
+      <div className="flex flex-none flex-col items-end">
+        <span className="font-display text-2xl leading-7 font-extrabold">{avgDuration.toFixed(1)} s</span>
+        <span className="text-[11px] text-muted-foreground">{t("modelPerformance.avgEnhancement")}</span>
+      </div>
     </div>
   );
 }

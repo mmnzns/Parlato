@@ -6,14 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Timer } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Row, Section } from "@/components/ui/section";
 import { api } from "@/lib/tauri";
 
 const MIN_SECS = 10;
@@ -40,37 +33,24 @@ export function CloudTimeoutPanel() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Timer className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-base">{t("cloudTimeout.title")}</CardTitle>
-        </div>
-        <CardDescription>{t("cloudTimeout.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={MIN_SECS}
-            max={MAX_SECS}
-            step={5}
-            value={secs}
-            onChange={(e) =>
-              setSecs(
-                Number.isFinite(e.target.valueAsNumber)
-                  ? e.target.valueAsNumber
-                  : MIN_SECS,
-              )
-            }
-            onBlur={(e) => save(e.target.valueAsNumber)}
-            className="h-9 w-28 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
-          />
-          <span className="text-xs text-muted-foreground">
-            {t("common.seconds")} ({MIN_SECS} - {MAX_SECS})
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+    <Section title={t("speech.cloudTimeoutTitle")}>
+      <Row
+        label={t("speech.cloudTimeoutDesc")}
+        description={`${MIN_SECS} - ${MAX_SECS} ${t("common.seconds")}`}
+      >
+        <input
+          type="number"
+          min={MIN_SECS}
+          max={MAX_SECS}
+          step={5}
+          aria-label={t("speech.cloudTimeoutTitle")}
+          value={secs}
+          onChange={(e) => setSecs(Number.isFinite(e.target.valueAsNumber) ? e.target.valueAsNumber : MIN_SECS)}
+          onBlur={(e) => save(e.target.valueAsNumber)}
+          className="h-[34px] w-24 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm"
+        />
+        <span className="text-xs text-muted-foreground">{t("common.seconds")}</span>
+      </Row>
+    </Section>
   );
 }

@@ -7,16 +7,20 @@
 // active (issue #6, comportement VoiceInk). Changer de filtre ne change
 // jamais la source non plus - seul le modele actif compte, il est rappele
 // dans le header et surligne dans la liste.
+//
+// Parlato: Workbench layout (docs/design/v1, screen "model"): an "in use"
+// bar with the language picker, Recommended / On this PC / Online tabs,
+// and a two-column grid of model tiles.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
+import { AudioLines } from "lucide-react";
+import { Segmented } from "@/components/ui/section";
 import { CloudTimeoutPanel } from "@/components/CloudTimeoutPanel";
 import { DictationLanguagePanel } from "@/components/DictationLanguagePanel";
 import { CloudModelCard } from "@/components/models/CloudModelCard";
-import { DefaultModelCard } from "@/components/models/DefaultModelCard";
 import { ImportModelCard } from "@/components/models/ImportModelCard";
-import { ModelFilterPills } from "@/components/models/ModelFilterPills";
 import { ParakeetModelCard } from "@/components/models/ParakeetModelCard";
 import { WhisperModelCard } from "@/components/models/WhisperModelCard";
 import {
@@ -43,9 +47,12 @@ import {
 export function ModelsPage({
   selectedModelId,
   onSelectModel,
+  hardware,
 }: {
   selectedModelId: string | null;
   onSelectModel: (id: string | null) => void;
+  /** One-line hardware summary shown next to the tabs. */
+  hardware?: string;
 }) {
   const { t } = useTranslation();
   const [whisper, setWhisper] = useState<WhisperModelState[]>([]);
@@ -53,7 +60,6 @@ export function ModelsPage({
   const [providers, setProviders] = useState<CloudProvider[]>([]);
   const [cloudModels, setCloudModels] = useState<CloudModel[]>([]);
   const [source, setSource] = useState<TranscriptionSource | null>(null);
-  const [ep, setEp] = useState<string>("cpu");
   const [filter, setFilter] = useState<ModelFilter>("recommended");
   const [whisperProgress, setWhisperProgress] = useState<
     Record<string, DownloadProgress>
@@ -78,20 +84,18 @@ export function ModelsPage({
 
   async function refresh() {
     try {
-      const [w, pk, provs, cm, src, e] = await Promise.all([
+      const [w, pk, provs, cm, src] = await Promise.all([
         api.listWhisperModels(),
         api.listParakeetModels(),
         api.listCloudProviders(),
         api.listCloudModels(),
         api.getTranscriptionSource(),
-        api.parakeetExecutionProvider(),
       ]);
       setWhisper(w);
       setParakeet(pk);
       setProviders(provs);
       setCloudModels(cm);
       setSource(src);
-      setEp(e);
       // Auto-selection : premier whisper telecharge si rien de selectionne
       // (TranscribePanel depend de selectedModelId). Ne change pas le kind.
       if (!selectedRef.current) {
@@ -364,27 +368,35 @@ export function ModelsPage({
     [source, whisper, parakeet, cloudModels],
   );
 
-  const showCpuHint = ep === "cpu" && rows.some((r) => r.type === "parakeet");
-
   return (
-    <div className="space-y-4">
-      <DefaultModelCard displayName={defaultDisplayName} />
-
-      <DictationLanguagePanel />
-
-      <CloudTimeoutPanel />
-
-      <ModelFilterPills value={filter} onChange={setFilter} />
-
-      {showCpuHint && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-xs">
-          <span className="font-medium">{t("parakeet.executionProvider")}</span>
-          <code>{ep}</code>
-          <span className="text-muted-foreground">{t("parakeet.cpuHint")}</span>
+    <div className="flex flex-col gap-4">
+      <section className="flex flex-wrap items-center gap-4 rounded-lg border-[1.5px] border-edge bg-card px-5 py-4">
+        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md bg-highlight text-[#141416]">
+          <AudioLines className="h-5 w-5" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-mono text-[11px] text-muted-foreground">{t("speech.inUse")}</span>
+          <span className="font-display text-lg leading-6 font-bold">
+            {defaultDisplayName ?? t("speech.noneYet")}
+          </span>
         </div>
-      )}
+        <DictationLanguagePanel />
+      </section>
 
-      <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmented<ModelFilter>
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "recommended", label: t("speech.tabRecommended") },
+            { value: "local", label: t("speech.tabLocal") },
+            { value: "cloud", label: t("speech.tabCloud") },
+          ]}
+        />
+        {hardware && <span className="font-mono text-[11px] text-muted-foreground">{hardware}</span>}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         {rows.map((row) => {
           const current = isRowCurrent(row, source);
           switch (row.type) {
@@ -397,9 +409,7 @@ export function ModelsPage({
                   progress={whisperProgress[row.model.id] ?? null}
                   error={whisperErrors[row.model.id] ?? null}
                   onDownload={() => downloadWhisper(row.model.id)}
-                  onCancelDownload={() =>
-                    api.cancelDownloadWhisperModel(row.model.id)
-                  }
+                  onCancelDownload={() => api.cancelDownloadWhisperModel(row.model.id)}
                   onDelete={() => deleteWhisper(row.model.id)}
                   onSetDefault={() => setDefaultWhisper(row.model.id)}
                 />
@@ -413,9 +423,7 @@ export function ModelsPage({
                   progress={parakeetProgress[row.model.id] ?? null}
                   status={parakeetStatus[row.model.id] || null}
                   onDownload={() => downloadParakeet(row.model.id)}
-                  onCancelDownload={() =>
-                    api.cancelDownloadParakeetModel(row.model.id)
-                  }
+                  onCancelDownload={() => api.cancelDownloadParakeetModel(row.model.id)}
                   onDelete={() => deleteParakeet(row.model.id)}
                   onSetDefault={() => setDefaultParakeet(row.model.id)}
                 />
@@ -426,15 +434,11 @@ export function ModelsPage({
                 <CloudModelCard
                   key={row.key}
                   model={row.model}
-                  providerName={
-                    provider?.display_name ?? row.model.provider_id
-                  }
+                  providerName={provider?.display_name ?? row.model.provider_id}
                   apiKeyUrl={provider?.api_key_url ?? null}
                   isConfigured={provider?.has_api_key ?? false}
                   isCurrent={current}
-                  onVerifyAndSave={(key) =>
-                    verifyAndSaveKey(row.model.provider_id, key)
-                  }
+                  onVerifyAndSave={(key) => verifyAndSaveKey(row.model.provider_id, key)}
                   onSetDefault={() => setDefaultCloud(row.model)}
                   onRemoveKey={() => removeKey(row.model.provider_id)}
                 />
@@ -442,16 +446,18 @@ export function ModelsPage({
             }
           }
         })}
-
-        {filter === "local" && (
-          <ImportModelCard
-            onImported={async (id) => {
-              await refresh();
-              onSelectModel(id);
-            }}
-          />
-        )}
       </div>
+
+      {filter === "local" && (
+        <ImportModelCard
+          onImported={async (id) => {
+            await refresh();
+            onSelectModel(id);
+          }}
+        />
+      )}
+
+      {filter === "cloud" && <CloudTimeoutPanel />}
     </div>
   );
 }

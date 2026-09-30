@@ -12,23 +12,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  Cloud,
-  ExternalLink,
-  Loader2,
-  MoreHorizontal,
-  Settings,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { ExternalLink, KeyRound, Loader2, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { RatingDots } from "@/components/RatingDots";
-import { cn } from "@/lib/utils";
+import { ModelTile } from "@/components/models/ModelTile";
 import type { CloudModel } from "./types";
 
 type VerifyStatus = "none" | "success" | "failure";
@@ -84,137 +70,95 @@ export function CloudModelCard({
     }
   }
 
-  return (
-    <div
-      className={cn(
-        "rounded-lg border transition-colors",
-        isCurrent && "border-primary bg-primary/5",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3 p-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium">{m.display_name}</p>
-            {m.supports_streaming && (
-              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                {t("aiModels.cloud.streaming")}
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Cloud className="h-3 w-3" />
-              {providerName}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              {t("common.speed")}
-              <RatingDots value={m.speed} />
-            </span>
-            <span className="inline-flex items-center gap-1">
-              {t("common.accuracy")}
-              <RatingDots value={m.accuracy} />
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">{m.notes}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {isCurrent ? (
-            <span className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-              {t("aiModels.defaultModel")}
-            </span>
-          ) : isConfigured ? (
-            <Button size="sm" variant="outline" onClick={onSetDefault}>
-              {t("aiModels.setAsDefault")}
-            </Button>
-          ) : (
-            <Button size="sm" onClick={() => setIsExpanded((v) => !v)}>
-              <Settings className="h-3.5 w-3.5" />
-              {t("aiModels.configure")}
-            </Button>
-          )}
-          {isConfigured && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="icon" variant="ghost" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-auto p-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive"
-                  onClick={onRemoveKey}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {t("aiModels.removeApiKey")}
-                </Button>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
-      </div>
+  const meta = [
+    m.multilingual
+      ? t("speech.languages", { count: m.language_codes.filter((c) => c !== "auto").length })
+      : t("speech.englishOnly"),
+    m.supports_streaming ? t("speech.liveWords") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
+  return (
+    <ModelTile
+      current={isCurrent}
+      kind={providerName}
+      local={false}
+      name={m.display_name}
+      tech={`${m.provider_id} · ${m.model_id}`}
+      description={m.notes || undefined}
+      speed={m.speed}
+      accuracy={m.accuracy}
+      meta={meta}
+      trailing={
+        isConfigured ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-muted-foreground"
+            onClick={onRemoveKey}
+            title={t("speech.removeKey")}
+            aria-label={t("speech.removeKey")}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ) : undefined
+      }
+      action={
+        isConfigured ? (
+          <Button size="sm" onClick={onSetDefault}>
+            {t("speech.use")}
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setIsExpanded((v) => !v)} aria-expanded={isExpanded}>
+            <KeyRound className="h-3.5 w-3.5" />
+            {t("speech.addKey")}
+          </Button>
+        )
+      }
+    >
       {isExpanded && !isConfigured && (
-        <div className="border-t p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium">
-              {t("aiModels.cloud.apiKeyConfig")}
-            </p>
-            {apiKeyUrl && (
-              <button
-                type="button"
-                onClick={() => openUrl(apiKeyUrl)}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-foreground underline decoration-primary underline-offset-2"
-              >
-                <ExternalLink className="h-3 w-3" />
-                {t("aiModels.getApiKey")}
-              </button>
-            )}
-          </div>
-          <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+        <div className="flex flex-col gap-2 border-t border-dashed pt-3">
+          <div className="flex items-center gap-2">
             <input
               type="password"
-              placeholder={t("aiModels.cloud.apiKeyPlaceholder", {
-                provider: providerName,
-              })}
+              placeholder={t("aiModels.cloud.apiKeyPlaceholder", { provider: providerName })}
+              aria-label={t("aiModels.cloud.apiKeyConfig")}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") verify();
               }}
               disabled={verifying}
-              className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
+              className="h-[34px] min-w-0 flex-1 rounded-sm border-[1.5px] border-input bg-background px-3 font-mono text-sm placeholder:font-sans"
               autoComplete="off"
             />
-            <Button
-              size="sm"
-              className="h-9"
-              onClick={verify}
-              disabled={!apiKey.trim() || verifying}
-            >
-              {verifying ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ShieldCheck className="h-3.5 w-3.5" />
-              )}
-              {verifying
-                ? t("aiModels.cloud.verifying")
-                : t("aiModels.cloud.verify")}
+            <Button size="sm" onClick={verify} disabled={!apiKey.trim() || verifying}>
+              {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+              {verifying ? t("aiModels.cloud.verifying") : t("aiModels.cloud.verify")}
             </Button>
           </div>
-          {verifyStatus === "failure" && (
-            <p className="mt-2 text-xs text-destructive">
-              {verifyError ?? t("aiModels.cloud.verifyFailed")}
-            </p>
+          <span className="text-[11px] text-muted-foreground">{t("speech.keyNote")}</span>
+          {apiKeyUrl && (
+            <button
+              type="button"
+              onClick={() => openUrl(apiKeyUrl)}
+              className="inline-flex items-center gap-1 self-start text-xs font-semibold text-foreground underline underline-offset-[3px]"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {t("aiModels.getApiKey")}
+            </button>
           )}
-          {verifyStatus === "success" && (
-            <p className="mt-2 text-xs text-green-600 dark:text-green-400">
-              {t("aiModels.cloud.verifySuccess")}
+          {verifyStatus === "failure" && (
+            <p role="alert" className="text-xs text-destructive">
+              {verifyError ?? t("aiModels.cloud.verifyFailed")}
             </p>
           )}
         </div>
       )}
-    </div>
+      {verifyStatus === "success" && isConfigured && !isCurrent && (
+        <p className="text-xs text-positive">{t("aiModels.cloud.verifySuccess")}</p>
+      )}
+    </ModelTile>
   );
 }
