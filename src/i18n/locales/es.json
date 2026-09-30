@@ -1039,5 +1039,29 @@
     "cloudNote": "Los servicios en linea limitan el tamano de subida, asi que los archivos largos funcionan mejor con un modelo en este PC.",
     "dialogTitle": "Elige un archivo de audio o video",
     "filterName": "Audio y video"
+  },
+  "dict": {
+    "wordsTitle": "Palabras que Parlato debe conocer",
+    "wordsDesc": "Nombres, marcas y jerga. Parlato las escribira exactamente asi.",
+    "addWord": "Anadir una palabra",
+    "wordPlaceholder": "Escribe una palabra y pulsa Intro",
+    "removeWord": "Quitar {{word}}",
+    "noWords": "Aun no hay palabras.",
+    "replTitle": "Reemplazos",
+    "replDesc": "Di una frase corta y obten algo mas largo. Util para direcciones, correos y despedidas.",
+    "whenYouSay": "cuando dices",
+    "parlatoWrites": "Parlato escribe",
+    "sayPlaceholder": "mi direccion",
+    "writePlaceholder": "Calle Mayor 1, Madrid",
+    "addReplacement": "Anadir reemplazo",
+    "add": "Anadir",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "edit": "Editar",
+    "delete": "Borrar",
+    "noReplacements": "Aun no hay reemplazos.",
+    "variantsHint": "Separa varias formas de decirlo con comas.",
+    "on": "Activado",
+    "bothRequired": "Rellena los dos lados."
   }
 }

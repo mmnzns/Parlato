@@ -1039,5 +1039,29 @@
     "cloudNote": "Online services limit upload size, so long files work best with a model on this PC.",
     "dialogTitle": "Choose an audio or video file",
     "filterName": "Audio and video"
+  },
+  "dict": {
+    "wordsTitle": "Words Parlato should know",
+    "wordsDesc": "Names, brands and jargon. Parlato will spell them exactly like this.",
+    "addWord": "Add a word",
+    "wordPlaceholder": "Type a word, then Enter",
+    "removeWord": "Remove {{word}}",
+    "noWords": "No words yet.",
+    "replTitle": "Replacements",
+    "replDesc": "Say a short phrase, get something longer. Handy for addresses, emails and sign-offs.",
+    "whenYouSay": "when you say",
+    "parlatoWrites": "Parlato writes",
+    "sayPlaceholder": "my address",
+    "writePlaceholder": "221B Baker Street, London",
+    "addReplacement": "Add replacement",
+    "add": "Add",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "noReplacements": "No replacements yet.",
+    "variantsHint": "Separate several spoken versions with commas.",
+    "on": "On",
+    "bothRequired": "Fill in both sides."
   }
 }

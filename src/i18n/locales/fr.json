@@ -1039,5 +1039,29 @@
     "cloudNote": "Les services en ligne limitent la taille des envois : les longs fichiers marchent mieux avec un modele sur ce PC.",
     "dialogTitle": "Choisir un fichier audio ou video",
     "filterName": "Audio et video"
+  },
+  "dict": {
+    "wordsTitle": "Mots que Parlato doit connaitre",
+    "wordsDesc": "Noms, marques et jargon. Parlato les ecrira exactement ainsi.",
+    "addWord": "Ajouter un mot",
+    "wordPlaceholder": "Tapez un mot, puis Entree",
+    "removeWord": "Retirer {{word}}",
+    "noWords": "Aucun mot pour l'instant.",
+    "replTitle": "Remplacements",
+    "replDesc": "Dites une courte phrase, obtenez un texte plus long. Pratique pour adresses, e-mails et formules de fin.",
+    "whenYouSay": "quand vous dites",
+    "parlatoWrites": "Parlato ecrit",
+    "sayPlaceholder": "mon adresse",
+    "writePlaceholder": "12 rue de la Paix, Paris",
+    "addReplacement": "Ajouter un remplacement",
+    "add": "Ajouter",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "noReplacements": "Aucun remplacement pour l'instant.",
+    "variantsHint": "Separez plusieurs formulations par des virgules.",
+    "on": "Active",
+    "bothRequired": "Remplissez les deux cotes."
   }
 }
