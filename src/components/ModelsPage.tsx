@@ -9,14 +9,16 @@
 // dans le header et surligne dans la liste.
 //
 // Parlato: Workbench layout (docs/design/v1, screen "model"): an "in use"
-// bar with the language picker, Recommended / On this PC / Online tabs,
-// and a two-column grid of model tiles.
+// bar with the language picker, then models organised by company (spec
+// docs/superpowers/specs/2026-09-29-speech-model-by-company-design.md): a
+// company list on the left (on this PC / online), the chosen company's
+// plain picks and other versions on the right. Config in companies.ts.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
-import { AudioLines } from "lucide-react";
-import { Segmented } from "@/components/ui/section";
+import type * as React from "react";
+import { AudioLines, ChevronDown } from "lucide-react";
 import { CloudTimeoutPanel } from "@/components/CloudTimeoutPanel";
 import { DictationLanguagePanel } from "@/components/DictationLanguagePanel";
 import { CloudModelCard } from "@/components/models/CloudModelCard";
@@ -24,13 +26,16 @@ import { ImportModelCard } from "@/components/models/ImportModelCard";
 import { ParakeetModelCard } from "@/components/models/ParakeetModelCard";
 import { WhisperModelCard } from "@/components/models/WhisperModelCard";
 import {
+  companyOfSource,
+  LOCAL_COMPANIES,
+  pickModelId,
+  RUNS_NOTE,
+} from "@/components/models/companies";
+import {
   isRowCurrent,
-  RECOMMENDED_MODELS,
   resolveDefaultDisplayName,
-  rowName,
   type CloudModel,
   type CloudProvider,
-  type ModelFilter,
   type ModelRow,
   type ParakeetDownloadProgress,
 } from "@/components/models/types";
@@ -43,6 +48,7 @@ import {
   type TranscriptionSource,
   type WhisperModelState,
 } from "@/lib/tauri";
+import { cn } from "@/lib/utils";
 
 /// Parlato: the backend reports a cancelled download as the French error
 /// "telechargement annule" (model managers); it is not a real error.
@@ -57,7 +63,7 @@ export function ModelsPage({
 }: {
   selectedModelId: string | null;
   onSelectModel: (id: string | null) => void;
-  /** One-line hardware summary shown next to the tabs. */
+  /** One-line hardware summary shown under the local company header. */
   hardware?: string;
 }) {
   const { t } = useTranslation();
@@ -66,7 +72,11 @@ export function ModelsPage({
   const [providers, setProviders] = useState<CloudProvider[]>([]);
   const [cloudModels, setCloudModels] = useState<CloudModel[]>([]);
   const [source, setSource] = useState<TranscriptionSource | null>(null);
-  const [filter, setFilter] = useState<ModelFilter>("recommended");
+  // Parlato: company picked in the list (null = follow the model in use),
+  // dictation language (for English-only picks) and "Show all versions".
+  const [chosenCompany, setChosenCompany] = useState<string | null>(null);
+  const [language, setLanguage] = useState("auto");
+  const [showAll, setShowAll] = useState(false);
   const [whisperProgress, setWhisperProgress] = useState<
     Record<string, DownloadProgress>
   >({});
@@ -328,45 +338,7 @@ export function ModelsPage({
     }
   }
 
-  // --- Liste unifiee ---
-
-  const rows = useMemo<ModelRow[]>(() => {
-    const whisperRows: ModelRow[] = whisper.map((m) => ({
-      type: "whisper",
-      key: m.id,
-      model: m,
-    }));
-    const parakeetRows: ModelRow[] = parakeet.map((m) => ({
-      type: "parakeet",
-      key: m.id,
-      model: m,
-    }));
-    // Comme l'ancien panneau cloud : seuls les modeles batch sont
-    // activables ici (les streaming-only ont leur propre chemin pipeline).
-    const cloudRows: ModelRow[] = cloudModels
-      .filter((m) => m.supports_batch)
-      .map((m) => ({
-        type: "cloud",
-        key: `${m.provider_id}:${m.model_id}`,
-        model: m,
-      }));
-    switch (filter) {
-      case "local":
-        return [...whisperRows, ...parakeetRows];
-      case "cloud":
-        return cloudRows;
-      case "recommended": {
-        const all = [...whisperRows, ...parakeetRows, ...cloudRows];
-        return all
-          .filter((r) => RECOMMENDED_MODELS.includes(rowName(r)))
-          .sort(
-            (a, b) =>
-              RECOMMENDED_MODELS.indexOf(rowName(a)) -
-              RECOMMENDED_MODELS.indexOf(rowName(b)),
-          );
-      }
-    }
-  }, [whisper, parakeet, cloudModels, filter]);
+  // --- Companies (Parlato) ---
 
   const providerById = useMemo(
     () => new Map(providers.map((p) => [p.id, p])),
@@ -377,6 +349,100 @@ export function ModelsPage({
     () => resolveDefaultDisplayName(source, whisper, parakeet, cloudModels, t),
     [source, whisper, parakeet, cloudModels, t],
   );
+
+  // Comme l'ancien panneau cloud : seuls les modeles batch sont activables
+  // ici (les streaming-only ont leur propre chemin pipeline).
+  const batchCloud = useMemo(() => cloudModels.filter((m) => m.supports_batch), [cloudModels]);
+
+  // Online companies = providers that have at least one usable model, in
+  // catalog order.
+  const onlineCompanies = useMemo(
+    () => providers.filter((p) => batchCloud.some((m) => m.provider_id === p.id)),
+    [providers, batchCloud],
+  );
+
+  const activeCompany = companyOfSource(source, !!defaultDisplayName);
+  const company = chosenCompany ?? activeCompany ?? "nvidia";
+  const localCompany = LOCAL_COMPANIES.find((c) => c.id === company);
+
+  /// Rows of the chosen company: picks first (local), then the other
+  /// versions; online companies list all their models as "rest".
+  const { pickRows, restRows } = useMemo(() => {
+    const whisperRows = whisper.map<ModelRow>((m) => ({ type: "whisper", key: m.id, model: m }));
+    const parakeetRows = parakeet.map<ModelRow>((m) => ({ type: "parakeet", key: m.id, model: m }));
+    if (!localCompany) {
+      const rest = batchCloud
+        .filter((m) => m.provider_id === company)
+        .map<ModelRow>((m) => ({ type: "cloud", key: `${m.provider_id}:${m.model_id}`, model: m }));
+      return { pickRows: [] as { row: ModelRow; label: string }[], restRows: rest };
+    }
+    const all = localCompany.id === "nvidia" ? parakeetRows : whisperRows;
+    const picks = localCompany.picks.flatMap((p) => {
+      const row = all.find((r) => r.key === pickModelId(p, language));
+      return row ? [{ row, label: t(p.label) }] : [];
+    });
+    const picked = new Set(picks.map((p) => p.row.key));
+    return { pickRows: picks, restRows: all.filter((r) => !picked.has(r.key)) };
+  }, [whisper, parakeet, batchCloud, company, localCompany, language, t]);
+
+  // "Show all versions" opens by itself when the model in use is hidden.
+  const currentHidden = !!localCompany && restRows.some((r) => isRowCurrent(r, source));
+  const showRest = !localCompany || showAll || currentHidden;
+
+  function renderRow(row: ModelRow, pick?: string) {
+    const current = isRowCurrent(row, source);
+    switch (row.type) {
+      case "whisper":
+        return (
+          <WhisperModelCard
+            key={row.key}
+            pick={pick}
+            model={row.model}
+            isCurrent={current}
+            progress={whisperProgress[row.model.id] ?? null}
+            error={whisperErrors[row.model.id] ?? null}
+            onDownload={() => downloadWhisper(row.model.id)}
+            onCancelDownload={() => api.cancelDownloadWhisperModel(row.model.id)}
+            onDelete={() => deleteWhisper(row.model.id)}
+            onSetDefault={() => setDefaultWhisper(row.model.id)}
+          />
+        );
+      case "parakeet":
+        return (
+          <ParakeetModelCard
+            key={row.key}
+            pick={pick}
+            model={row.model}
+            isCurrent={current}
+            progress={parakeetProgress[row.model.id] ?? null}
+            status={parakeetStatus[row.model.id] || null}
+            onDownload={() => downloadParakeet(row.model.id)}
+            onCancelDownload={() => api.cancelDownloadParakeetModel(row.model.id)}
+            onDelete={() => deleteParakeet(row.model.id)}
+            onSetDefault={() => setDefaultParakeet(row.model.id)}
+          />
+        );
+      case "cloud": {
+        const provider = providerById.get(row.model.provider_id);
+        return (
+          <CloudModelCard
+            key={row.key}
+            pick={pick}
+            model={row.model}
+            providerName={provider?.display_name ?? row.model.provider_id}
+            apiKeyUrl={provider?.api_key_url ?? null}
+            isConfigured={provider?.has_api_key ?? false}
+            isCurrent={current}
+            onVerifyAndSave={(key) => verifyAndSaveKey(row.model.provider_id, key)}
+            onSetDefault={() => setDefaultCloud(row.model)}
+            onRemoveKey={() => removeKey(row.model.provider_id)}
+          />
+        );
+      }
+    }
+  }
+
+  const onlineName = providerById.get(company)?.display_name ?? company;
 
   return (
     <div className="flex flex-col gap-4">
@@ -390,84 +456,121 @@ export function ModelsPage({
             {defaultDisplayName ?? t("speech.noneYet")}
           </span>
         </div>
-        <DictationLanguagePanel />
+        <DictationLanguagePanel onLanguage={setLanguage} />
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented<ModelFilter>
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "recommended", label: t("speech.tabRecommended") },
-            { value: "local", label: t("speech.tabLocal") },
-            { value: "cloud", label: t("speech.tabCloud") },
-          ]}
-        />
-        {hardware && <span className="font-mono text-[11px] text-muted-foreground">{hardware}</span>}
+      <div className="grid grid-cols-[216px_minmax(0,1fr)] items-start gap-4">
+        <nav aria-label={t("speech.companies")} className="flex flex-col gap-1.5">
+          <GroupLabel>{t("speech.groupLocal")}</GroupLabel>
+          {LOCAL_COMPANIES.map((c) => (
+            <CompanyButton
+              key={c.id}
+              name={c.name}
+              note={c.family}
+              selected={company === c.id}
+              inUse={activeCompany === c.id}
+              onClick={() => setChosenCompany(c.id)}
+            />
+          ))}
+          <GroupLabel className="mt-3">{t("speech.groupOnline")}</GroupLabel>
+          {onlineCompanies.map((p) => (
+            <CompanyButton
+              key={p.id}
+              name={p.display_name}
+              note={RUNS_NOTE[p.id] ? t(RUNS_NOTE[p.id]) : p.has_api_key ? t("speech.keyAdded") : undefined}
+              selected={company === p.id}
+              inUse={activeCompany === p.id}
+              onClick={() => setChosenCompany(p.id)}
+            />
+          ))}
+        </nav>
+
+        <div className="@container flex min-w-0 flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="font-display text-lg leading-6 font-bold">
+              {localCompany ? localCompany.name : onlineName}
+            </h2>
+            <p className="text-[13px] text-muted-foreground">
+              {localCompany ? t("speech.localIntro") : t("speech.onlineIntro", { name: onlineName })}
+            </p>
+            {localCompany && hardware && (
+              <span className="font-mono text-[11px] text-muted-foreground">{hardware}</span>
+            )}
+          </div>
+
+          {pickRows.length > 0 && (
+            <div className="grid gap-3 @2xl:grid-cols-2">
+              {pickRows.map((p) => renderRow(p.row, p.label))}
+            </div>
+          )}
+
+          {localCompany && restRows.length > 0 && !currentHidden && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              aria-expanded={showRest}
+              className="flex items-center gap-1.5 self-start text-[13px] font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-4 w-4 transition-transform", showRest && "rotate-180")} />
+              {showRest ? t("speech.hideVersions") : t("speech.showVersions", { count: restRows.length })}
+            </button>
+          )}
+
+          {showRest && restRows.length > 0 && (
+            <div className="grid gap-3 @2xl:grid-cols-2">{restRows.map((r) => renderRow(r))}</div>
+          )}
+
+          {showRest && localCompany?.id === "openai" && (
+            <ImportModelCard
+              onImported={async (id) => {
+                await refresh();
+                onSelectModel(id);
+              }}
+            />
+          )}
+
+          {!localCompany && <CloudTimeoutPanel />}
+        </div>
       </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {rows.map((row) => {
-          const current = isRowCurrent(row, source);
-          switch (row.type) {
-            case "whisper":
-              return (
-                <WhisperModelCard
-                  key={row.key}
-                  model={row.model}
-                  isCurrent={current}
-                  progress={whisperProgress[row.model.id] ?? null}
-                  error={whisperErrors[row.model.id] ?? null}
-                  onDownload={() => downloadWhisper(row.model.id)}
-                  onCancelDownload={() => api.cancelDownloadWhisperModel(row.model.id)}
-                  onDelete={() => deleteWhisper(row.model.id)}
-                  onSetDefault={() => setDefaultWhisper(row.model.id)}
-                />
-              );
-            case "parakeet":
-              return (
-                <ParakeetModelCard
-                  key={row.key}
-                  model={row.model}
-                  isCurrent={current}
-                  progress={parakeetProgress[row.model.id] ?? null}
-                  status={parakeetStatus[row.model.id] || null}
-                  onDownload={() => downloadParakeet(row.model.id)}
-                  onCancelDownload={() => api.cancelDownloadParakeetModel(row.model.id)}
-                  onDelete={() => deleteParakeet(row.model.id)}
-                  onSetDefault={() => setDefaultParakeet(row.model.id)}
-                />
-              );
-            case "cloud": {
-              const provider = providerById.get(row.model.provider_id);
-              return (
-                <CloudModelCard
-                  key={row.key}
-                  model={row.model}
-                  providerName={provider?.display_name ?? row.model.provider_id}
-                  apiKeyUrl={provider?.api_key_url ?? null}
-                  isConfigured={provider?.has_api_key ?? false}
-                  isCurrent={current}
-                  onVerifyAndSave={(key) => verifyAndSaveKey(row.model.provider_id, key)}
-                  onSetDefault={() => setDefaultCloud(row.model)}
-                  onRemoveKey={() => removeKey(row.model.provider_id)}
-                />
-              );
-            }
-          }
-        })}
-      </div>
-
-      {filter === "local" && (
-        <ImportModelCard
-          onImported={async (id) => {
-            await refresh();
-            onSelectModel(id);
-          }}
-        />
-      )}
-
-      {filter === "cloud" && <CloudTimeoutPanel />}
     </div>
+  );
+}
+
+function GroupLabel({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={cn("px-1 font-mono text-[11px] leading-4 text-muted-foreground", className)}>{children}</span>
+  );
+}
+
+function CompanyButton({
+  name,
+  note,
+  selected,
+  inUse,
+  onClick,
+}: {
+  name: string;
+  note?: string;
+  selected: boolean;
+  inUse: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={selected ? "true" : undefined}
+      className={cn(
+        "flex flex-col items-start gap-0.5 rounded-md border-[1.5px] bg-card px-3 py-2 text-left transition-colors",
+        selected ? "border-edge bg-accent shadow-[var(--sel-shadow)]" : "border-input hover:border-edge",
+      )}
+    >
+      <span className="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+        {name}
+        {inUse && <span className="h-2 w-2 flex-none rounded-full bg-highlight" aria-label={t("speech.inUseBadge")} />}
+      </span>
+      {note && <span className="text-xs leading-4 text-muted-foreground">{note}</span>}
+    </button>
   );
 }

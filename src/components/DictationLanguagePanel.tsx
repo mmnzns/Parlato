@@ -12,12 +12,20 @@ import { selectClass } from "@/components/ui/section";
 import { languageLabel } from "@/lib/languages";
 import { api, type TranscriptionSource } from "@/lib/tauri";
 
-/** `bare` renders only the select, for use inside a labelled Row. */
-export function DictationLanguagePanel({ bare = false }: { bare?: boolean } = {}) {
+/** `bare` renders only the select, for use inside a labelled Row.
+ *  `onLanguage` (Parlato) reports the effective language code. */
+export function DictationLanguagePanel({
+  bare = false,
+  onLanguage,
+}: { bare?: boolean; onLanguage?: (code: string) => void } = {}) {
   const { t } = useTranslation();
   const [supportedCodes, setSupportedCodes] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("auto");
   const [activeLabel, setActiveLabel] = useState<string>("");
+
+  useEffect(() => {
+    onLanguage?.(selected);
+  }, [selected, onLanguage]);
 
   useEffect(() => {
     refresh();

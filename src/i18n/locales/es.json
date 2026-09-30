@@ -989,9 +989,6 @@
     "inUse": "en uso",
     "noneYet": "Aun no hay modelo. Descarga uno abajo para empezar a dictar.",
     "language": "Idioma que hablas",
-    "tabRecommended": "Recomendados",
-    "tabLocal": "En este PC",
-    "tabCloud": "En linea",
     "onPc": "En este PC",
     "online": "En linea",
     "use": "Usar",
@@ -1022,7 +1019,22 @@
     "browse": "Examinar",
     "keyNote": "Se verifica con el proveedor y se guarda en el Administrador de credenciales de Windows.",
     "hwGpu": "tu pc · {{device}} · funciona en el procesador",
-    "hwCpu": "tu pc · funciona en el procesador"
+    "hwCpu": "tu pc · funciona en el procesador",
+    "companies": "Empresas",
+    "groupLocal": "en este PC, gratis y privado",
+    "groupOnline": "en linea, necesita una clave de cuenta",
+    "runsWhisper": "usa Whisper de OpenAI",
+    "keyAdded": "clave anadida",
+    "localIntro": "Funciona en este PC. Gratis y privado tras una sola descarga.",
+    "onlineIntro": "Funciona en linea. Necesita una clave de cuenta de {{name}}, y tu audio se les envia.",
+    "pickBestEnglish": "El mejor para ingles",
+    "pickManyLanguages": "Ingles, frances, espanol y mas",
+    "pickFastest": "El mas rapido",
+    "pickBalanced": "Equilibrado",
+    "pickMostAccurate": "El mas preciso",
+    "showVersions_one": "Ver todas las versiones ({{count}} mas)",
+    "showVersions_other": "Ver todas las versiones ({{count}} mas)",
+    "hideVersions": "Ocultar las demas versiones"
   },
   "tf": {
     "dropTitle": "Suelta aqui un archivo de audio o video",
@@ -1200,11 +1212,11 @@
     },
     "parakeet_tdt_0_6b_v3": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, F16)",
-      "notes": "Ingles y 25 idiomas europeos. Unos 2,5 GB."
+      "notes": "Ingles y otros 24 idiomas europeos, y detecta cual hablas. Unos 2,5 GB."
     },
     "parakeet_tdt_0_6b_v3_int8": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, int8)",
-      "notes": "Multilingue, comprimido. Unos 680 MB."
+      "notes": "Ingles y otros 24 idiomas europeos, y detecta cual hablas. Unos 680 MB."
     },
     "whisper_large_v3_turbo": {
       "notes": "Whisper v3 Turbo en los servidores de Groq. Muy rapido."

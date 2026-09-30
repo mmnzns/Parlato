@@ -43,30 +43,14 @@ export type ParakeetDownloadProgress = {
   current_file: string;
 };
 
-export type ModelFilter = "recommended" | "local" | "cloud";
-
 /// Row unifiee de la liste de modeles (dispatch par card).
 export type ModelRow =
   | { type: "whisper"; key: string; model: WhisperModelState }
   | { type: "parakeet"; key: string; model: ParakeetModelState }
   | { type: "cloud"; key: string; model: CloudModel };
 
-/// Modeles recommandes, memes ids et meme ordre que VoiceInk
-/// ModelManagementView.filteredModels (.recommended). Le 4e est le modele
-/// cloud Groq (model_id, unique dans le catalogue).
-/// Parlato : Parakeet Unified EN (int8, 660 MB) remplace Parakeet TDT v2.
-export const RECOMMENDED_MODELS = [
-  "ggml-base.en",
-  "parakeet-unified-en-0.6b-int8",
-  "ggml-large-v3-turbo-q5_0",
-  "whisper-large-v3-turbo",
-];
-
-/// Nom canonique d'une row pour le matching Recommended (id local,
-/// model_id cloud - equivalent du `model.name` VoiceInk).
-export function rowName(row: ModelRow): string {
-  return row.type === "cloud" ? row.model.model_id : row.model.id;
-}
+// Parlato : la liste Recommended et les filtres ont disparu ; les choix
+// par entreprise vivent dans companies.ts.
 
 /// Equivalent du `isCurrent` VoiceInk : la row est-elle le modele que le
 /// pipeline utilisera a l'enregistrement ?

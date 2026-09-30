@@ -19,6 +19,8 @@ function formatBytes(bytes: number | null | undefined): string {
 }
 
 type Props = {
+  /** Parlato: plain title from companies.ts ("Best for English"). */
+  pick?: string;
   model: WhisperModelState;
   isCurrent: boolean;
   progress: DownloadProgress | null;
@@ -31,6 +33,7 @@ type Props = {
 
 export function WhisperModelCard({
   model: m,
+  pick,
   isCurrent,
   progress: p,
   error,
@@ -70,7 +73,7 @@ export function WhisperModelCard({
   return (
     <ModelTile
       current={isCurrent}
-      kind="Whisper"
+      pick={pick}
       local
       name={modelName(t, m.id, m.display_name)}
       tech={m.id}

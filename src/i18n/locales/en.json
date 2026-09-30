@@ -989,9 +989,6 @@
     "inUse": "in use",
     "noneYet": "No model yet. Download one below to start dictating.",
     "language": "Language you speak",
-    "tabRecommended": "Recommended",
-    "tabLocal": "On this PC",
-    "tabCloud": "Online",
     "onPc": "On this PC",
     "online": "Online",
     "use": "Use",
@@ -1022,7 +1019,22 @@
     "browse": "Browse",
     "keyNote": "Checked with the provider, then saved in Windows Credential Manager.",
     "hwGpu": "your pc · {{device}} · runs on the processor",
-    "hwCpu": "your pc · runs on the processor"
+    "hwCpu": "your pc · runs on the processor",
+    "companies": "Companies",
+    "groupLocal": "on this PC, free and private",
+    "groupOnline": "online, needs an account key",
+    "runsWhisper": "runs OpenAI's Whisper",
+    "keyAdded": "key added",
+    "localIntro": "Runs on this PC. Free and private after one download.",
+    "onlineIntro": "Runs online. Needs an account key from {{name}}, and your audio is sent to them.",
+    "pickBestEnglish": "Best for English",
+    "pickManyLanguages": "English, French, Spanish and more",
+    "pickFastest": "Fastest",
+    "pickBalanced": "Balanced",
+    "pickMostAccurate": "Most accurate",
+    "showVersions_one": "Show all versions ({{count}} more)",
+    "showVersions_other": "Show all versions ({{count}} more)",
+    "hideVersions": "Hide other versions"
   },
   "tf": {
     "dropTitle": "Drop an audio or video file here",
@@ -1200,11 +1212,11 @@
     },
     "parakeet_tdt_0_6b_v3": {
       "name": "Parakeet TDT 0.6B v3 (multilingual, F16)",
-      "notes": "English plus 25 European languages. About 2.5 GB."
+      "notes": "English and 24 other European languages, and it detects which one you speak. About 2.5 GB."
     },
     "parakeet_tdt_0_6b_v3_int8": {
       "name": "Parakeet TDT 0.6B v3 (multilingual, int8)",
-      "notes": "Multilingual, compressed. About 680 MB."
+      "notes": "English and 24 other European languages, and it detects which one you speak. About 680 MB."
     },
     "whisper_large_v3_turbo": {
       "notes": "Whisper v3 Turbo on Groq's servers. Very fast."

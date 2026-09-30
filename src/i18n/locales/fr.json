@@ -989,9 +989,6 @@
     "inUse": "utilise",
     "noneYet": "Pas encore de modele. Telechargez-en un ci-dessous pour dicter.",
     "language": "Langue parlee",
-    "tabRecommended": "Recommandes",
-    "tabLocal": "Sur ce PC",
-    "tabCloud": "En ligne",
     "onPc": "Sur ce PC",
     "online": "En ligne",
     "use": "Utiliser",
@@ -1022,7 +1019,22 @@
     "browse": "Parcourir",
     "keyNote": "Verifiee aupres du fournisseur, puis stockee dans le Gestionnaire d'identification Windows.",
     "hwGpu": "votre pc · {{device}} · tourne sur le processeur",
-    "hwCpu": "votre pc · tourne sur le processeur"
+    "hwCpu": "votre pc · tourne sur le processeur",
+    "companies": "Entreprises",
+    "groupLocal": "sur ce PC, gratuit et prive",
+    "groupOnline": "en ligne, cle de compte requise",
+    "runsWhisper": "utilise Whisper d'OpenAI",
+    "keyAdded": "cle ajoutee",
+    "localIntro": "Tourne sur ce PC. Gratuit et prive apres un seul telechargement.",
+    "onlineIntro": "Tourne en ligne. Demande une cle de compte {{name}}, et votre audio leur est envoye.",
+    "pickBestEnglish": "Le meilleur pour l'anglais",
+    "pickManyLanguages": "Anglais, francais, espagnol et plus",
+    "pickFastest": "Le plus rapide",
+    "pickBalanced": "Equilibre",
+    "pickMostAccurate": "Le plus precis",
+    "showVersions_one": "Voir toutes les versions ({{count}} de plus)",
+    "showVersions_other": "Voir toutes les versions ({{count}} de plus)",
+    "hideVersions": "Masquer les autres versions"
   },
   "tf": {
     "dropTitle": "Deposez un fichier audio ou video ici",
@@ -1200,11 +1212,11 @@
     },
     "parakeet_tdt_0_6b_v3": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, F16)",
-      "notes": "Anglais et 25 langues europeennes. Environ 2,5 Go."
+      "notes": "L'anglais et 24 autres langues europeennes, et il detecte celle que vous parlez. Environ 2,5 Go."
     },
     "parakeet_tdt_0_6b_v3_int8": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, int8)",
-      "notes": "Multilingue, compresse. Environ 680 Mo."
+      "notes": "L'anglais et 24 autres langues europeennes, et il detecte celle que vous parlez. Environ 680 Mo."
     },
     "whisper_large_v3_turbo": {
       "notes": "Whisper v3 Turbo sur les serveurs de Groq. Tres rapide."

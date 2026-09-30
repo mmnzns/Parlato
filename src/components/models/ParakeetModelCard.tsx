@@ -21,6 +21,8 @@ function formatBytes(b: number): string {
 }
 
 type Props = {
+  /** Parlato: plain title from companies.ts ("Best for English"). */
+  pick?: string;
   model: ParakeetModelState;
   isCurrent: boolean;
   progress: ParakeetDownloadProgress | null;
@@ -33,6 +35,7 @@ type Props = {
 
 export function ParakeetModelCard({
   model: m,
+  pick,
   isCurrent,
   progress: prog,
   status: st,
@@ -57,7 +60,7 @@ export function ParakeetModelCard({
   return (
     <ModelTile
       current={isCurrent}
-      kind="Parakeet"
+      pick={pick}
       local
       name={modelName(t, m.id, m.display_name)}
       tech={m.id}

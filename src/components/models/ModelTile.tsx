@@ -2,6 +2,8 @@
 // (docs/design/v1, screen "model"). The Whisper, Parakeet and cloud cards
 // keep their own logic and render through this shell: kind + where on top,
 // name + technical id, speed / accuracy bars, a meta line, then the action.
+// Inside a company view the kind row is dropped and a plain pick title can
+// replace the name (see companies.ts).
 
 import type * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +15,7 @@ export function ModelTile({
   current,
   kind,
   local,
+  pick,
   name,
   tech,
   description,
@@ -24,9 +27,13 @@ export function ModelTile({
   children,
 }: {
   current: boolean;
-  /** Short family label, e.g. "Whisper", "Parakeet", a provider name. */
-  kind: string;
+  /** Short family label, e.g. "Whisper", "Parakeet", a provider name.
+   *  Omitted inside a company view, where the company header says it. */
+  kind?: string;
   local: boolean;
+  /** Parlato: plain title ("Best for English"); the model name then moves
+   *  to the small line under it in place of the technical id. */
+  pick?: string;
   name: string;
   tech?: string;
   description?: string;
@@ -48,17 +55,23 @@ export function ModelTile({
         current ? "border-edge bg-accent shadow-[var(--sel-shadow)]" : "border-input",
       )}
     >
-      <div className="flex items-center justify-between gap-2 text-[11px]">
-        <span className="rounded-full bg-muted px-2 py-px font-semibold">{kind}</span>
-        <span className="flex items-center gap-1 text-muted-foreground">
-          {local ? <Laptop className="h-3 w-3" /> : <Cloud className="h-3 w-3" />}
-          {local ? t("speech.onPc") : t("speech.online")}
-        </span>
-      </div>
+      {kind && (
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="rounded-full bg-muted px-2 py-px font-semibold">{kind}</span>
+          <span className="flex items-center gap-1 text-muted-foreground">
+            {local ? <Laptop className="h-3 w-3" /> : <Cloud className="h-3 w-3" />}
+            {local ? t("speech.onPc") : t("speech.online")}
+          </span>
+        </div>
+      )}
 
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-display text-[15px] leading-5 font-bold">{name}</span>
-        {tech && <span className="truncate font-mono text-[11px] text-muted-foreground">{tech}</span>}
+        <span className="font-display text-[15px] leading-5 font-bold">{pick ?? name}</span>
+        {pick ? (
+          <span className="truncate font-mono text-[11px] text-muted-foreground">{name}</span>
+        ) : (
+          tech && <span className="truncate font-mono text-[11px] text-muted-foreground">{tech}</span>
+        )}
       </div>
 
       {description && (

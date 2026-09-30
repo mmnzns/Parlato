@@ -21,6 +21,8 @@ import type { CloudModel } from "./types";
 type VerifyStatus = "none" | "success" | "failure";
 
 type Props = {
+  /** Parlato: plain title from companies.ts ("Best for English"). */
+  pick?: string;
   model: CloudModel;
   providerName: string;
   apiKeyUrl: string | null;
@@ -34,6 +36,7 @@ type Props = {
 
 export function CloudModelCard({
   model: m,
+  pick,
   providerName,
   apiKeyUrl,
   isConfigured,
@@ -83,7 +86,7 @@ export function CloudModelCard({
   return (
     <ModelTile
       current={isCurrent}
-      kind={providerName}
+      pick={pick}
       local={false}
       name={m.display_name}
       tech={`${m.provider_id} · ${m.model_id}`}
