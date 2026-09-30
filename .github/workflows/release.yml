@@ -89,17 +89,15 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Parla ${{ github.ref_name }}"
+          releaseName: "Parlato ${{ github.ref_name }}"
           releaseBody: |
-            See the [changelog](https://github.com/LitteRabbit-37/Parla/blob/main/CHANGELOG.md) for details.
+            See the [changelog](https://github.com/mmnzns/Parlato/blob/main/CHANGELOG.md) for what's new.
 
-            This release ships CPU variants for both x64 and ARM64:
-            - `Parla_x.y.z_x64-setup.exe` — for standard x86-64 Windows PCs
-            - `Parla_x.y.z_arm64-setup.exe` — for Windows on ARM devices (Snapdragon, etc.)
+            **Which file do I download?**
+            - `Parlato_x.y.z_x64-setup.exe`: almost every Windows PC.
+            - `Parlato_x.y.z_arm64-setup.exe`: Windows on ARM (Snapdragon laptops).
 
-            Both variants run Whisper, Parakeet and llama.cpp on CPU and work on every Windows 10 / 11 machine of their respective architecture. Auto-updater is wired via `latest.json` so future releases install themselves.
-
-            Users with an NVIDIA GPU who want CUDA acceleration can build Parla themselves from source - see [BUILDING.md](https://github.com/LitteRabbit-37/Parla/blob/main/BUILDING.md#cuda-build) for the recipe.
+            Parlato is free and not code-signed, so Windows shows "Windows protected your PC" the first time. Click **More info**, then **Run anyway**. Once installed, Parlato updates itself from this page.
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.rust-target }} ${{ matrix.cargo-args }}
@@ -107,7 +105,7 @@ jobs:
       - name: Upload ${{ matrix.arch }} artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: parla-${{ matrix.arch }}-installer
+          name: parlato-${{ matrix.arch }}-installer
           path: src-tauri/target/${{ matrix.rust-target }}/release/bundle/nsis/
           if-no-files-found: error
 
