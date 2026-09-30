@@ -9,7 +9,8 @@
 //    curseur apres 0.15 s.
 //  - retryLastTranscription : retranscrit le dernier fichier audio avec le
 //    modele courant (enhancement compris), copie le resultat dans le
-//    presse-papiers et cree une nouvelle entree d'historique.
+//    presse-papiers et cree une nouvelle entree d'historique (Parlato : avec
+//    sa propre copie du WAV).
 // Ces actions sont declenchees par le menu tray et par les raccourcis
 // additionnels (hotkeys::keyboard_hook::UtilityAction).
 
@@ -131,8 +132,13 @@ pub fn retry_last(app: &AppHandle) -> Result<()> {
     if !path.exists() {
         anyhow::bail!("PARLA_ERR:audioMissing");
     }
-    info!(path = %path.display(), "Retrying last transcription");
-    pipeline::run_retry(app.clone(), path);
+    // Parlato : copie du WAV sous un nouveau nom, pour que la nouvelle
+    // entree possede son propre fichier (supprimer l'une ne casse pas la
+    // reecoute de l'autre). Meme regle que retranscribe_history_item.
+    let copy = path.with_file_name(format!("{}.wav", uuid::Uuid::new_v4()));
+    std::fs::copy(&path, &copy).map_err(|e| anyhow!("copy wav: {e}"))?;
+    info!(path = %copy.display(), "Retrying last transcription");
+    pipeline::run_retry(app.clone(), copy);
     Ok(())
 }
 

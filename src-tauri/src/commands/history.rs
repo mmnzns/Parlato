@@ -96,7 +96,8 @@ pub fn read_history_audio(app: AppHandle, id: String) -> Result<tauri::ipc::Resp
 /// Parlato : retranscrit une entree de l'historique avec la source
 /// courante (meme chemin que "Retry last transcription", pour n'importe
 /// quelle entree). Le WAV est copie sous un nouveau nom : la nouvelle
-/// entree possede son propre fichier, supprimer l'une ne casse pas l'autre.
+/// entree possede son propre fichier, supprimer l'une ne casse pas l'autre
+/// (retry_last fait de meme).
 #[command]
 pub fn retranscribe_history_item(app: AppHandle, id: String) -> Result<(), String> {
     let recording = app
