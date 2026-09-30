@@ -1,5 +1,6 @@
-// Parlato : gere aussi `parakeet_rs::ParakeetUnified` (Parakeet Unified EN),
-// selon le ParakeetKind de la variante.
+// Parlato : gere aussi `parakeet_rs::ParakeetUnified` (Parakeet Unified EN)
+// et `parakeet_rs::Nemotron` (Nemotron 3.5 ASR), selon le ParakeetKind de la
+// variante.
 //
 // Wrapper autour de `parakeet_rs::ParakeetTDT` pour reproduire l'API
 // publique de WhisperEngine (load paresseux + transcribe_samples).
@@ -15,7 +16,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
-use parakeet_rs::{ParakeetTDT, ParakeetUnified, Transcriber};
+use parakeet_rs::{Nemotron, ParakeetTDT, ParakeetUnified, Transcriber};
 
 use super::parakeet_model_manager::ParakeetKind;
 
@@ -23,6 +24,7 @@ use super::parakeet_model_manager::ParakeetKind;
 enum Engine {
     Tdt(ParakeetTDT),
     Unified(ParakeetUnified),
+    Nemotron(Nemotron),
 }
 
 struct Loaded {
@@ -82,6 +84,10 @@ impl ParakeetEngine {
                 ParakeetUnified::from_pretrained(model_dir, cfg)
                     .map_err(|e| anyhow!("parakeet unified load: {e:?}"))?,
             ),
+            ParakeetKind::Nemotron => Engine::Nemotron(
+                Nemotron::from_pretrained(model_dir, cfg)
+                    .map_err(|e| anyhow!("nemotron load: {e:?}"))?,
+            ),
         };
         *guard = Some(Loaded {
             path: model_dir.to_path_buf(),
@@ -91,9 +97,9 @@ impl ParakeetEngine {
     }
 
     /// Transcrit un buffer PCM Float32 mono 16 kHz. Bloquant (inference).
-    /// `language` est accepte mais non-utilise : parakeet TDT v2 est anglais
-    /// uniquement, v3 detecte la langue automatiquement.
-    pub fn transcribe_samples(&self, samples: &[f32], _language: Option<&str>) -> Result<String> {
+    /// `language` n'est utilise que par Nemotron : parakeet TDT v2 et Unified
+    /// sont anglais uniquement, v3 detecte la langue automatiquement.
+    pub fn transcribe_samples(&self, samples: &[f32], language: Option<&str>) -> Result<String> {
         let mut guard = self.current.lock();
         let loaded = guard
             .as_mut()
@@ -103,6 +109,7 @@ impl ParakeetEngine {
         let result = match &mut loaded.engine {
             Engine::Tdt(e) => e.transcribe_samples(samples.to_vec(), 16000, 1, None),
             Engine::Unified(e) => e.transcribe_samples(samples.to_vec(), 16000, 1, None),
+            Engine::Nemotron(e) => return transcribe_nemotron(e, samples, language),
         }
         .map_err(|e| anyhow!("parakeet transcribe: {e:?}"))?;
         Ok(result.text)
@@ -112,6 +119,51 @@ impl ParakeetEngine {
     /// modele ou desactive la source.
     pub fn unload(&self) {
         *self.current.lock() = None;
+    }
+}
+
+/// Parlato : La langue de dictee ("fr") est passee au modele, sinon "auto"
+/// (le modele choisit seul). Force sur une langue qui n'est pas celle parlee,
+/// Nemotron rend un texte vide : dans ce cas on refait un passage en "auto",
+/// pour qu'une phrase en anglais dictee en mode francais ne soit pas perdue.
+fn transcribe_nemotron(
+    e: &mut Nemotron,
+    samples: &[f32],
+    language: Option<&str>,
+) -> Result<String> {
+    let text = nemotron_pass(e, samples, nemotron_lang(language))?;
+    if !text.is_empty() {
+        return Ok(text);
+    }
+    nemotron_pass(e, samples, "auto")
+}
+
+/// Un passage complet ; Nemotron garde un etat de flux entre deux appels, on
+/// le remet a zero a chaque fois.
+fn nemotron_pass(e: &mut Nemotron, samples: &[f32], lang: &str) -> Result<String> {
+    e.reset();
+    if e.set_target_lang(lang).is_err() {
+        // Code inconnu du modele : on retombe sur la detection automatique.
+        let _ = e.set_target_lang("auto");
+    }
+    let text = e
+        .transcribe_audio(samples)
+        .map_err(|err| anyhow!("nemotron transcribe: {err:?}"))?;
+    // Le decodeur laisse parfois deux espaces entre deux phrases.
+    Ok(text.split_whitespace().collect::<Vec<_>>().join(" "))
+}
+
+fn nemotron_lang(language: Option<&str>) -> &str {
+    // Quelques langues n'existent chez Nemotron que sous forme "xx-YY".
+    match language {
+        Some("ja") => "ja-JP",
+        Some("zh") => "zh-CN",
+        Some("vi") => "vi-VN",
+        Some("he") => "he-IL",
+        Some("th") => "th-TH",
+        Some("mt") => "mt-MT",
+        Some(l) if !l.is_empty() => l,
+        _ => "auto",
     }
 }
 
@@ -128,8 +180,18 @@ pub struct ParakeetEngineState(pub Arc<ParakeetEngine>);
 mod tests {
     use super::*;
 
+    #[test]
+    fn nemotron_lang_maps_short_codes() {
+        assert_eq!(nemotron_lang(Some("fr")), "fr");
+        assert_eq!(nemotron_lang(Some("ja")), "ja-JP");
+        assert_eq!(nemotron_lang(Some("zh")), "zh-CN");
+        assert_eq!(nemotron_lang(Some("auto")), "auto");
+        assert_eq!(nemotron_lang(Some("")), "auto");
+        assert_eq!(nemotron_lang(None), "auto");
+    }
+
     /// Smoke test against a real model directory :
-    /// `PARLATO_PARAKEET_DIR=<dir> PARLATO_PARAKEET_KIND=unified|tdt
+    /// `PARLATO_PARAKEET_DIR=<dir> PARLATO_PARAKEET_KIND=unified|nemotron|tdt
     /// PARLATO_WAV=<16 kHz wav> cargo test --lib parakeet_smoke -- --ignored --nocapture`.
     #[test]
     #[ignore]
@@ -138,6 +200,7 @@ mod tests {
         let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
         let kind = match std::env::var("PARLATO_PARAKEET_KIND").as_deref() {
             Ok("unified") => ParakeetKind::Unified,
+            Ok("nemotron") => ParakeetKind::Nemotron,
             _ => ParakeetKind::Tdt,
         };
         let engine = ParakeetEngine::new();
@@ -146,7 +209,10 @@ mod tests {
         let loaded_in = t0.elapsed().as_secs_f32();
         let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
         let t1 = std::time::Instant::now();
-        let text = engine.transcribe_samples(&samples, None).unwrap();
+        let lang = std::env::var("PARLATO_LANG").ok();
+        let text = engine
+            .transcribe_samples(&samples, lang.as_deref())
+            .unwrap();
         println!(
             "--- load {loaded_in:.1}s, {:.1}s audio in {:.1}s ---\n{text}\n---",
             samples.len() as f32 / 16000.0,

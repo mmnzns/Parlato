@@ -1034,7 +1034,8 @@
     "pickMostAccurate": "Most accurate",
     "showVersions_one": "Show all versions ({{count}} more)",
     "showVersions_other": "Show all versions ({{count}} more)",
-    "hideVersions": "Hide other versions"
+    "hideVersions": "Hide other versions",
+    "pickMostLanguages": "The most languages, including Asian languages"
   },
   "tf": {
     "dropTitle": "Drop an audio or video file here",
@@ -1308,6 +1309,10 @@
     "parakeet_unified_en_0_6b_int8": {
       "name": "Parakeet Unified EN 0.6B (English, int8)",
       "notes": "NVIDIA's newest English model, compressed to about 660 MB with the same results in our tests. Licensed by NVIDIA Corporation under the NVIDIA Open Model License."
+    },
+    "nemotron_3_5_asr_streaming_0_6b": {
+      "name": "Nemotron 3.5 ASR 0.6B (multilingual)",
+      "notes": "NVIDIA's newest speech model: 35 languages, including Chinese, Japanese, Korean, Hindi and Arabic, and it detects which one you speak. About 2.6 GB. Provided by NVIDIA under the OpenMDW-1.1 license."
     }
   }
 }

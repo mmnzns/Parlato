@@ -27,6 +27,19 @@ Licensed by NVIDIA Corporation under the NVIDIA Open Model License.
   labelled CC-BY-4.0; as a conversion of NVIDIA's model it remains subject to
   the NVIDIA Open Model License.
 
+### NVIDIA Nemotron 3.5 ASR Streaming 0.6B
+
+Provided by NVIDIA Corporation under the OpenMDW License Agreement,
+version 1.1 (OpenMDW-1.1).
+
+- Model: https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
+- License: https://openmdw.ai/license/1-1/ (copy in `licenses/OpenMDW-1.1.txt`)
+- ONNX export by altunenes, the author of parakeet-rs, downloaded from the
+  `nemotron-3.5-asr-streaming-0.6b-onnx` folder of
+  https://huggingface.co/altunenes/parakeet-rs at the fixed revision
+  `4d2a8bc71f5c896ec40faa59732e6716295edaf2`. As an export of NVIDIA's model
+  it remains subject to OpenMDW-1.1.
+
 ### NVIDIA Parakeet TDT 0.6B v2 and v3
 
 Copyright NVIDIA Corporation, licensed under CC-BY-4.0

@@ -1034,7 +1034,8 @@
     "pickMostAccurate": "Le plus precis",
     "showVersions_one": "Voir toutes les versions ({{count}} de plus)",
     "showVersions_other": "Voir toutes les versions ({{count}} de plus)",
-    "hideVersions": "Masquer les autres versions"
+    "hideVersions": "Masquer les autres versions",
+    "pickMostLanguages": "Le plus de langues, y compris les langues asiatiques"
   },
   "tf": {
     "dropTitle": "Deposez un fichier audio ou video ici",
@@ -1308,6 +1309,10 @@
     "parakeet_unified_en_0_6b_int8": {
       "name": "Parakeet Unified EN 0.6B (anglais, int8)",
       "notes": "Le modele anglais le plus recent de NVIDIA, compresse a environ 660 Mo avec les memes resultats dans nos tests. Distribue par NVIDIA Corporation sous la NVIDIA Open Model License."
+    },
+    "nemotron_3_5_asr_streaming_0_6b": {
+      "name": "Nemotron 3.5 ASR 0.6B (multilingue)",
+      "notes": "Le modele vocal le plus recent de NVIDIA : 35 langues, dont le chinois, le japonais, le coreen, l'hindi et l'arabe, et il detecte celle que vous parlez. Environ 2.6 Go. Fourni par NVIDIA sous la licence OpenMDW-1.1."
     }
   }
 }

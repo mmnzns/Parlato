@@ -32,6 +32,8 @@ pub enum ParakeetKind {
     Tdt,
     /// Parakeet Unified EN (`parakeet_rs::ParakeetUnified`).
     Unified,
+    /// Nemotron 3.5 ASR multilingue (`parakeet_rs::Nemotron`).
+    Nemotron,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -43,6 +45,9 @@ pub struct ParakeetVariant {
     /// Parlato : revision HuggingFace ("main" ou sha de commit fige, pour
     /// qu'un depot tiers ne puisse pas changer les fichiers sous nos pieds).
     pub revision: &'static str,
+    /// Parlato : sous-dossier du depot ou sont les fichiers ("" = racine).
+    /// En local les fichiers restent a plat dans le dossier du modele.
+    pub subdir: &'static str,
     /// Parlato : architecture parakeet-rs a charger.
     pub kind: ParakeetKind,
     pub is_quantized: bool,
@@ -76,12 +81,26 @@ pub const PARAKEET_V3_LANGS: &[&str] = &[
 const UNIFIED_REPO: &str = "bobNight/parakeet-unified-en-0.6b-onnx";
 const UNIFIED_REVISION: &str = "09e9060322d99c5f070010724786e6ee090fd51d";
 
+/// Parlato : export ONNX de nvidia/nemotron-3.5-asr-streaming-0.6b publie par
+/// l'auteur de parakeet-rs, dans un sous-dossier de son depot. Fige sur le
+/// commit du 2026-09-29. Modele sous OpenMDW-1.1 (voir THIRD_PARTY_NOTICES.md).
+const NEMOTRON_REPO: &str = "altunenes/parakeet-rs";
+const NEMOTRON_REVISION: &str = "4d2a8bc71f5c896ec40faa59732e6716295edaf2";
+
+/// Langues de la fiche NVIDIA de Nemotron 3.5 ASR, "auto" en tete.
+pub const NEMOTRON_LANGS: &[&str] = &[
+    "auto", "ar", "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr",
+    "he", "hi", "hr", "hu", "it", "ja", "ko", "lt", "lv", "mt", "nl", "no",
+    "pl", "pt", "ro", "ru", "sk", "sl", "sv", "th", "tr", "uk", "vi", "zh",
+];
+
 pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
     ParakeetVariant {
         id: "parakeet-unified-en-0.6b",
         display_name: "Parakeet Unified EN 0.6B (anglais, F16)",
         repo: UNIFIED_REPO,
         revision: UNIFIED_REVISION,
+        subdir: "",
         kind: ParakeetKind::Unified,
         is_quantized: false,
         multilingual: false,
@@ -102,6 +121,7 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         display_name: "Parakeet Unified EN 0.6B (anglais, int8)",
         repo: UNIFIED_REPO,
         revision: UNIFIED_REVISION,
+        subdir: "",
         kind: ParakeetKind::Unified,
         is_quantized: true,
         multilingual: false,
@@ -118,10 +138,32 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         language_codes: &["en"],
     },
     ParakeetVariant {
+        id: "nemotron-3.5-asr-streaming-0.6b",
+        display_name: "Nemotron 3.5 ASR 0.6B (multilingue)",
+        repo: NEMOTRON_REPO,
+        revision: NEMOTRON_REVISION,
+        subdir: "nemotron-3.5-asr-streaming-0.6b-onnx",
+        kind: ParakeetKind::Nemotron,
+        is_quantized: false,
+        multilingual: true,
+        size_bytes: 2_594_566_700,
+        files: &[
+            "tokenizer.model",
+            "encoder.onnx",
+            "encoder.onnx.data",
+            "decoder_joint.onnx",
+        ],
+        notes: "Le plus recent modele multilingue de NVIDIA (septembre 2026). 35 langues. ~2.6 GB.",
+        speed: 0.97,
+        accuracy: 0.95,
+        language_codes: NEMOTRON_LANGS,
+    },
+    ParakeetVariant {
         id: "parakeet-tdt-0.6b-v2",
         display_name: "Parakeet TDT 0.6B v2 (anglais, F16)",
         repo: "istupakov/parakeet-tdt-0.6b-v2-onnx",
         revision: "main",
+        subdir: "",
         kind: ParakeetKind::Tdt,
         is_quantized: false,
         multilingual: false,
@@ -144,6 +186,7 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         display_name: "Parakeet TDT 0.6B v2 (anglais, int8)",
         repo: "istupakov/parakeet-tdt-0.6b-v2-onnx",
         revision: "main",
+        subdir: "",
         kind: ParakeetKind::Tdt,
         is_quantized: true,
         multilingual: false,
@@ -165,6 +208,7 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         display_name: "Parakeet TDT 0.6B v3 (multilingue, F16)",
         repo: "istupakov/parakeet-tdt-0.6b-v3-onnx",
         revision: "main",
+        subdir: "",
         kind: ParakeetKind::Tdt,
         is_quantized: false,
         multilingual: true,
@@ -187,6 +231,7 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         display_name: "Parakeet TDT 0.6B v3 (multilingue, int8)",
         repo: "istupakov/parakeet-tdt-0.6b-v3-onnx",
         revision: "main",
+        subdir: "",
         kind: ParakeetKind::Tdt,
         is_quantized: true,
         multilingual: true,
@@ -403,7 +448,7 @@ impl ParakeetModelManager {
                 continue;
             }
             missing.push(f);
-            let url = file_url(v.repo, v.revision, f);
+            let url = file_url(v.repo, v.revision, v.subdir, f);
             if let Ok(resp) = client.head(&url).send().await {
                 if let Some(len) = resp.content_length() {
                     total_global += len;
@@ -421,7 +466,7 @@ impl ParakeetModelManager {
             if cancel.load(std::sync::atomic::Ordering::SeqCst) {
                 return Err(anyhow!("telechargement annule"));
             }
-            let url = file_url(v.repo, v.revision, f);
+            let url = file_url(v.repo, v.revision, v.subdir, f);
             let target = dir.join(f);
             let tmp = target.with_extension("part");
             let _ = fs::remove_file(&tmp);
@@ -481,8 +526,12 @@ impl ParakeetModelManager {
     }
 }
 
-fn file_url(repo: &str, revision: &str, file: &str) -> String {
-    format!("https://huggingface.co/{repo}/resolve/{revision}/{file}")
+fn file_url(repo: &str, revision: &str, subdir: &str, file: &str) -> String {
+    if subdir.is_empty() {
+        format!("https://huggingface.co/{repo}/resolve/{revision}/{file}")
+    } else {
+        format!("https://huggingface.co/{repo}/resolve/{revision}/{subdir}/{file}")
+    }
 }
 
 pub struct ParakeetModelManagerState(pub Arc<ParakeetModelManager>);
