@@ -106,6 +106,7 @@ pub const BROWSER_EXES: &[&str] = &[
     "firefox",
     "arc",
     "zen",
+    "comet", // Parlato : Perplexity Comet (Chromium), VoiceInk 2.21 d7b528a.
     "browser", // Safari sous Windows n'existe plus, mais Yandex / autres.
 ];
 
