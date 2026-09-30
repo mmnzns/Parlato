@@ -1153,5 +1153,114 @@
     "continue": "Continuar",
     "start": "Empezar a usar Parlato",
     "skip": "Saltar la configuracion"
+  },
+  "modelText": {
+    "imported": "Un modelo que importaste.",
+    "ggml_tiny": {
+      "name": "Tiny (multilingue)",
+      "notes": "Muy rapido, precision limitada. Util para hacer una prueba."
+    },
+    "ggml_tiny_en": {
+      "name": "Tiny (ingles)",
+      "notes": "Solo ingles. Un poco mas preciso que Tiny multilingue en ingles."
+    },
+    "ggml_base": {
+      "name": "Base (multilingue)",
+      "notes": "Buen equilibrio entre tamano y precision en un procesador normal."
+    },
+    "ggml_base_en": {
+      "name": "Base (ingles)",
+      "notes": "Solo ingles. Mas preciso que Base multilingue en ingles."
+    },
+    "ggml_large_v2": {
+      "name": "Large v2 (multilingue)",
+      "notes": "Muy preciso, pero necesita mucha memoria."
+    },
+    "ggml_large_v3": {
+      "name": "Large v3 (multilingue)",
+      "notes": "Ultima generacion y el mas preciso. Exigente para el procesador."
+    },
+    "ggml_large_v3_turbo": {
+      "notes": "Large v3 optimizado para la velocidad. Ideal con una tarjeta grafica."
+    },
+    "ggml_large_v3_turbo_q5_0": {
+      "notes": "Comprimido. Muy buena calidad para su tamano en un procesador normal."
+    },
+    "parakeet_tdt_0_6b_v2": {
+      "name": "Parakeet TDT 0.6B v2 (ingles, F16)",
+      "notes": "El modelo de referencia. Solo ingles. Unos 2,5 GB de descarga."
+    },
+    "parakeet_tdt_0_6b_v2_int8": {
+      "name": "Parakeet TDT 0.6B v2 (ingles, int8)",
+      "notes": "Version comprimida. Unos 680 MB. Solo ingles."
+    },
+    "parakeet_tdt_0_6b_v3": {
+      "name": "Parakeet TDT 0.6B v3 (multilingue, F16)",
+      "notes": "Ingles y 25 idiomas europeos. Unos 2,5 GB."
+    },
+    "parakeet_tdt_0_6b_v3_int8": {
+      "name": "Parakeet TDT 0.6B v3 (multilingue, int8)",
+      "notes": "Multilingue, comprimido. Unos 680 MB."
+    },
+    "whisper_large_v3_turbo": {
+      "notes": "Whisper v3 Turbo en los servidores de Groq. Muy rapido."
+    },
+    "scribe_v1": {
+      "notes": "Transcribe cuando terminas de hablar. Uso general."
+    },
+    "scribe_v2": {
+      "notes": "Muestra tus palabras en vivo mientras hablas."
+    },
+    "nova_3": {
+      "notes": "El modelo principal de Deepgram. Funciona en vivo o despues, y aprende tus palabras personalizadas."
+    },
+    "nova_3_medical": {
+      "notes": "Ajustado al vocabulario medico. Solo ingles."
+    },
+    "voxtral_mini_latest": {
+      "notes": "Transcribe cuando terminas de hablar. Detecta el idioma por si solo."
+    },
+    "voxtral_mini_transcribe_realtime_2602": {
+      "notes": "Muestra tus palabras en vivo mientras hablas."
+    },
+    "stt_async_v5": {
+      "notes": "Transcribe cuando terminas de hablar. 60 idiomas."
+    },
+    "stt_rt_v5": {
+      "notes": "Muestra tus palabras en vivo, una a una, mientras hablas."
+    },
+    "speechmatics_enhanced": {
+      "notes": "Funciona en vivo o despues de hablar."
+    },
+    "gemini_2_5_pro": {
+      "notes": "La IA general de Google, usada aqui para transcribir."
+    },
+    "gemini_2_5_flash": {
+      "notes": "Mas rapido y barato que Gemini 2.5 Pro."
+    },
+    "grok_stt": {
+      "notes": "La transcripcion de voz de xAI. Funciona en vivo o despues."
+    },
+    "ink_2": {
+      "notes": "Solo en vivo, el mas rapido de Cartesia. Solo ingles, sin deteccion automatica del idioma."
+    },
+    "universal_3_5_pro": {
+      "notes": "El modelo mas preciso de AssemblyAI. Puede mostrar tus palabras en vivo."
+    },
+    "universal_2": {
+      "notes": "Mas de 90 idiomas. Mas rapido que Universal-3.5 Pro, pero sin palabras en vivo."
+    },
+    "qwen2_5_3b_instruct_q4": {
+      "notes": "Versatil, con una excelente relacion calidad / tamano."
+    },
+    "llama_3_2_3b_instruct_q4": {
+      "notes": "Maneja bien los textos largos."
+    },
+    "gemma_2_2b_it_q4": {
+      "notes": "Ligero y rapido en un procesador normal."
+    },
+    "phi_3_5_mini_instruct_q4": {
+      "notes": "Bueno razonando y siguiendo instrucciones."
+    }
   }
 }

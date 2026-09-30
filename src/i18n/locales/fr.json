@@ -1153,5 +1153,114 @@
     "continue": "Continuer",
     "start": "Commencer avec Parlato",
     "skip": "Passer la configuration"
+  },
+  "modelText": {
+    "imported": "Un modele que vous avez importe.",
+    "ggml_tiny": {
+      "name": "Tiny (multilingue)",
+      "notes": "Tres rapide, precision limitee. Pratique pour faire un essai."
+    },
+    "ggml_tiny_en": {
+      "name": "Tiny (anglais)",
+      "notes": "Anglais uniquement. Un peu plus precis que Tiny multilingue en anglais."
+    },
+    "ggml_base": {
+      "name": "Base (multilingue)",
+      "notes": "Bon equilibre entre taille et precision sur un processeur ordinaire."
+    },
+    "ggml_base_en": {
+      "name": "Base (anglais)",
+      "notes": "Anglais uniquement. Plus precis que Base multilingue en anglais."
+    },
+    "ggml_large_v2": {
+      "name": "Large v2 (multilingue)",
+      "notes": "Tres precis, mais demande beaucoup de memoire."
+    },
+    "ggml_large_v3": {
+      "name": "Large v3 (multilingue)",
+      "notes": "Derniere generation et le plus precis. Exigeant pour le processeur."
+    },
+    "ggml_large_v3_turbo": {
+      "notes": "Large v3 optimise pour la vitesse. Ideal avec une carte graphique."
+    },
+    "ggml_large_v3_turbo_q5_0": {
+      "notes": "Compresse. Tres bonne qualite pour sa taille sur un processeur ordinaire."
+    },
+    "parakeet_tdt_0_6b_v2": {
+      "name": "Parakeet TDT 0.6B v2 (anglais, F16)",
+      "notes": "Le modele de reference. Anglais uniquement. Environ 2,5 Go a telecharger."
+    },
+    "parakeet_tdt_0_6b_v2_int8": {
+      "name": "Parakeet TDT 0.6B v2 (anglais, int8)",
+      "notes": "Version compressee. Environ 680 Mo. Anglais uniquement."
+    },
+    "parakeet_tdt_0_6b_v3": {
+      "name": "Parakeet TDT 0.6B v3 (multilingue, F16)",
+      "notes": "Anglais et 25 langues europeennes. Environ 2,5 Go."
+    },
+    "parakeet_tdt_0_6b_v3_int8": {
+      "name": "Parakeet TDT 0.6B v3 (multilingue, int8)",
+      "notes": "Multilingue, compresse. Environ 680 Mo."
+    },
+    "whisper_large_v3_turbo": {
+      "notes": "Whisper v3 Turbo sur les serveurs de Groq. Tres rapide."
+    },
+    "scribe_v1": {
+      "notes": "Transcrit une fois que vous avez fini de parler. Usage general."
+    },
+    "scribe_v2": {
+      "notes": "Affiche vos mots en direct pendant que vous parlez."
+    },
+    "nova_3": {
+      "notes": "Le modele principal de Deepgram. Fonctionne en direct ou apres, et apprend vos mots personnalises."
+    },
+    "nova_3_medical": {
+      "notes": "Adapte au vocabulaire medical. Anglais uniquement."
+    },
+    "voxtral_mini_latest": {
+      "notes": "Transcrit une fois que vous avez fini de parler. Detecte la langue tout seul."
+    },
+    "voxtral_mini_transcribe_realtime_2602": {
+      "notes": "Affiche vos mots en direct pendant que vous parlez."
+    },
+    "stt_async_v5": {
+      "notes": "Transcrit une fois que vous avez fini de parler. 60 langues."
+    },
+    "stt_rt_v5": {
+      "notes": "Affiche vos mots en direct, un par un, pendant que vous parlez."
+    },
+    "speechmatics_enhanced": {
+      "notes": "Fonctionne en direct ou apres que vous avez parle."
+    },
+    "gemini_2_5_pro": {
+      "notes": "L'IA generaliste de Google, utilisee ici pour transcrire."
+    },
+    "gemini_2_5_flash": {
+      "notes": "Plus rapide et moins cher que Gemini 2.5 Pro."
+    },
+    "grok_stt": {
+      "notes": "La transcription vocale de xAI. Fonctionne en direct ou apres."
+    },
+    "ink_2": {
+      "notes": "En direct uniquement, le plus rapide de Cartesia. Anglais uniquement, sans detection automatique de la langue."
+    },
+    "universal_3_5_pro": {
+      "notes": "Le modele le plus precis d'AssemblyAI. Peut afficher vos mots en direct."
+    },
+    "universal_2": {
+      "notes": "Plus de 90 langues. Plus rapide que Universal-3.5 Pro, mais sans mots en direct."
+    },
+    "qwen2_5_3b_instruct_q4": {
+      "notes": "Polyvalent, excellent rapport qualite / taille."
+    },
+    "llama_3_2_3b_instruct_q4": {
+      "notes": "A l'aise avec les textes longs."
+    },
+    "gemma_2_2b_it_q4": {
+      "notes": "Leger et rapide sur un processeur ordinaire."
+    },
+    "phi_3_5_mini_instruct_q4": {
+      "notes": "Fort en raisonnement et pour suivre les consignes."
+    }
   }
 }

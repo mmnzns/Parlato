@@ -4,6 +4,8 @@
 // base : le filtre (Recommended / Local / Cloud) est purement visuel et
 // l'activation passe toujours par "Definir par defaut" sur une card.
 
+import type { TFunction } from "i18next";
+import { modelName } from "@/lib/modelText";
 import type {
   ParakeetModelState,
   TranscriptionSource,
@@ -96,19 +98,18 @@ export function resolveDefaultDisplayName(
   whisper: WhisperModelState[],
   parakeet: ParakeetModelState[],
   cloudModels: CloudModel[],
+  t: TFunction,
 ): string | null {
   if (!source) return null;
   switch (source.kind) {
-    case "local":
-      return (
-        whisper.find((m) => m.id === source.whisper_model_id)?.display_name ??
-        null
-      );
-    case "parakeet":
-      return (
-        parakeet.find((m) => m.id === source.parakeet_model_id)
-          ?.display_name ?? null
-      );
+    case "local": {
+      const m = whisper.find((m) => m.id === source.whisper_model_id);
+      return m ? modelName(t, m.id, m.display_name) : null;
+    }
+    case "parakeet": {
+      const m = parakeet.find((m) => m.id === source.parakeet_model_id);
+      return m ? modelName(t, m.id, m.display_name) : null;
+    }
     case "cloud":
       return (
         cloudModels.find(

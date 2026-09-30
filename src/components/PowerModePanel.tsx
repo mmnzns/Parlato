@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Block, Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { cn, powerShortcutLabel } from "@/lib/utils";
 import { promptTitle } from "@/lib/promptLabels";
+import { modelName } from "@/lib/modelText";
 import type { CloudModel } from "@/components/models/types";
 import {
   api,
@@ -423,7 +424,7 @@ function ModeEditor({
               <optgroup label={t("pm.localWhisper")}>
                 {whisper.map((m) => (
                   <option key={m.id} value={`local:${m.id}`}>
-                    {m.display_name}
+                    {modelName(t, m.id, m.display_name)}
                   </option>
                 ))}
               </optgroup>
@@ -432,7 +433,7 @@ function ModeEditor({
               <optgroup label={t("pm.localParakeet")}>
                 {parakeet.map((m) => (
                   <option key={m.id} value={`parakeet:${m.id}`}>
-                    {m.display_name}
+                    {modelName(t, m.id, m.display_name)}
                   </option>
                 ))}
               </optgroup>

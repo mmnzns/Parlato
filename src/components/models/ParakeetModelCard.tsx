@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Download, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelTile, TileProgress } from "@/components/models/ModelTile";
+import { modelName, modelNotes } from "@/lib/modelText";
 import { cn } from "@/lib/utils";
 import type { ParakeetModelState } from "@/lib/tauri";
 import type { ParakeetDownloadProgress } from "./types";
@@ -58,9 +59,9 @@ export function ParakeetModelCard({
       current={isCurrent}
       kind="Parakeet"
       local
-      name={m.display_name}
+      name={modelName(t, m.id, m.display_name)}
       tech={m.id}
-      description={m.notes || undefined}
+      description={modelNotes(t, m.id, m.notes) || undefined}
       speed={m.speed}
       accuracy={m.accuracy}
       meta={meta}

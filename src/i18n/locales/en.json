@@ -1153,5 +1153,114 @@
     "continue": "Continue",
     "start": "Start using Parlato",
     "skip": "Skip setup"
+  },
+  "modelText": {
+    "imported": "A model you imported.",
+    "ggml_tiny": {
+      "name": "Tiny (multilingual)",
+      "notes": "Very fast, limited accuracy. Good for trying things out."
+    },
+    "ggml_tiny_en": {
+      "name": "Tiny (English)",
+      "notes": "English only. A little more accurate than multilingual Tiny for English."
+    },
+    "ggml_base": {
+      "name": "Base (multilingual)",
+      "notes": "Good balance of size and accuracy on a regular processor."
+    },
+    "ggml_base_en": {
+      "name": "Base (English)",
+      "notes": "English only. More accurate than multilingual Base for English."
+    },
+    "ggml_large_v2": {
+      "name": "Large v2 (multilingual)",
+      "notes": "Very accurate, but needs a lot of memory."
+    },
+    "ggml_large_v3": {
+      "name": "Large v3 (multilingual)",
+      "notes": "Latest generation and the most accurate. Heavy on the processor."
+    },
+    "ggml_large_v3_turbo": {
+      "notes": "Large v3 tuned for speed. Best with a graphics card."
+    },
+    "ggml_large_v3_turbo_q5_0": {
+      "notes": "Compressed. Very good quality for its size on a regular processor."
+    },
+    "parakeet_tdt_0_6b_v2": {
+      "name": "Parakeet TDT 0.6B v2 (English, F16)",
+      "notes": "The reference model. English only. About 2.5 GB to download."
+    },
+    "parakeet_tdt_0_6b_v2_int8": {
+      "name": "Parakeet TDT 0.6B v2 (English, int8)",
+      "notes": "Compressed version. About 680 MB. English only."
+    },
+    "parakeet_tdt_0_6b_v3": {
+      "name": "Parakeet TDT 0.6B v3 (multilingual, F16)",
+      "notes": "English plus 25 European languages. About 2.5 GB."
+    },
+    "parakeet_tdt_0_6b_v3_int8": {
+      "name": "Parakeet TDT 0.6B v3 (multilingual, int8)",
+      "notes": "Multilingual, compressed. About 680 MB."
+    },
+    "whisper_large_v3_turbo": {
+      "notes": "Whisper v3 Turbo on Groq's servers. Very fast."
+    },
+    "scribe_v1": {
+      "notes": "Transcribes once you finish speaking. General purpose."
+    },
+    "scribe_v2": {
+      "notes": "Shows your words live as you speak."
+    },
+    "nova_3": {
+      "notes": "Deepgram's main model. Works live or after you speak, and learns your custom words."
+    },
+    "nova_3_medical": {
+      "notes": "Tuned for medical vocabulary. English only."
+    },
+    "voxtral_mini_latest": {
+      "notes": "Transcribes once you finish speaking. Detects the language on its own."
+    },
+    "voxtral_mini_transcribe_realtime_2602": {
+      "notes": "Shows your words live as you speak."
+    },
+    "stt_async_v5": {
+      "notes": "Transcribes once you finish speaking. 60 languages."
+    },
+    "stt_rt_v5": {
+      "notes": "Shows your words live, one by one, as you speak."
+    },
+    "speechmatics_enhanced": {
+      "notes": "Works live or after you speak."
+    },
+    "gemini_2_5_pro": {
+      "notes": "Google's general-purpose AI, used here to transcribe."
+    },
+    "gemini_2_5_flash": {
+      "notes": "Faster and cheaper than Gemini 2.5 Pro."
+    },
+    "grok_stt": {
+      "notes": "xAI's speech-to-text. Works live or after you speak."
+    },
+    "ink_2": {
+      "notes": "Live only, and Cartesia's fastest. English only, no automatic language detection."
+    },
+    "universal_3_5_pro": {
+      "notes": "AssemblyAI's most accurate model. Can show your words live."
+    },
+    "universal_2": {
+      "notes": "Over 90 languages. Faster than Universal-3.5 Pro, but no live words."
+    },
+    "qwen2_5_3b_instruct_q4": {
+      "notes": "All-rounder with an excellent quality-to-size ratio."
+    },
+    "llama_3_2_3b_instruct_q4": {
+      "notes": "Handles long texts well."
+    },
+    "gemma_2_2b_it_q4": {
+      "notes": "Lightweight and fast on a regular processor."
+    },
+    "phi_3_5_mini_instruct_q4": {
+      "notes": "Strong at reasoning and following instructions."
+    }
   }
 }

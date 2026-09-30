@@ -364,8 +364,8 @@ export function ModelsPage({
   );
 
   const defaultDisplayName = useMemo(
-    () => resolveDefaultDisplayName(source, whisper, parakeet, cloudModels),
-    [source, whisper, parakeet, cloudModels],
+    () => resolveDefaultDisplayName(source, whisper, parakeet, cloudModels, t),
+    [source, whisper, parakeet, cloudModels, t],
   );
 
   return (

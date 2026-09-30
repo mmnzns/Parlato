@@ -71,7 +71,7 @@ export function TranscribePanel({ onNavigate }: { onNavigate: (view: "models" | 
         api.getEnhancementEnabled(),
       ]);
       setSource(src);
-      setModelName(resolveDefaultDisplayName(src, w, pk, cm));
+      setModelName(resolveDefaultDisplayName(src, w, pk, cm, t));
       setAiOn(en);
     } catch (e) {
       console.error(e);

@@ -24,9 +24,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { TFunction } from "i18next";
 import type { View } from "@/components/Sidebar";
 import { useCopyButton } from "@/hooks/useCopyButton";
 import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
+import { modelName } from "@/lib/modelText";
 import { api, type HotkeyMode, type TranscriptionRecord } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 
@@ -94,7 +96,7 @@ type SetupState = {
   aiModel: string | null;
 };
 
-async function loadSetup(t: (k: string) => string): Promise<SetupState> {
+async function loadSetup(t: TFunction): Promise<SetupState> {
   const [devices, selectedDevice, source, aiEnabled, llm] = await Promise.all([
     api.listAudioDevices().catch(() => []),
     api.getSelectedInputDevice().catch(() => null),
@@ -114,10 +116,12 @@ async function loadSetup(t: (k: string) => string): Promise<SetupState> {
   let model: string | null = null;
   if (source?.kind === "local" && source.whisper_model_id) {
     const models = await api.listWhisperModels().catch(() => []);
-    model = models.find((m) => m.id === source.whisper_model_id)?.display_name ?? source.whisper_model_id;
+    const found = models.find((m) => m.id === source.whisper_model_id);
+    model = found ? modelName(t, found.id, found.display_name) : source.whisper_model_id;
   } else if (source?.kind === "parakeet" && source.parakeet_model_id) {
     const models = await api.listParakeetModels().catch(() => []);
-    model = models.find((m) => m.id === source.parakeet_model_id)?.display_name ?? source.parakeet_model_id;
+    const found = models.find((m) => m.id === source.parakeet_model_id);
+    model = found ? modelName(t, found.id, found.display_name) : source.parakeet_model_id;
   } else if (source?.kind === "cloud" && source.cloud_provider) {
     const providers = await api.listCloudProviders().catch(() => []);
     const name = providers.find((p) => p.id === source.cloud_provider)?.display_name ?? source.cloud_provider;

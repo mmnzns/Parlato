@@ -15,6 +15,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, KeyRound, Loader2, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelTile } from "@/components/models/ModelTile";
+import { modelNotes } from "@/lib/modelText";
 import type { CloudModel } from "./types";
 
 type VerifyStatus = "none" | "success" | "failure";
@@ -86,7 +87,7 @@ export function CloudModelCard({
       local={false}
       name={m.display_name}
       tech={`${m.provider_id} · ${m.model_id}`}
-      description={m.notes || undefined}
+      description={modelNotes(t, m.model_id, m.notes) || undefined}
       speed={m.speed}
       accuracy={m.accuracy}
       meta={meta}

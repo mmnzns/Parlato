@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Download, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelTile, TileProgress } from "@/components/models/ModelTile";
+import { modelName, modelNotes } from "@/lib/modelText";
 import type { DownloadProgress, WhisperModelState } from "@/lib/tauri";
 
 function formatBytes(bytes: number | null | undefined): string {
@@ -71,11 +72,11 @@ export function WhisperModelCard({
       current={isCurrent}
       kind="Whisper"
       local
-      name={m.display_name}
+      name={modelName(t, m.id, m.display_name)}
       tech={m.id}
       speed={m.speed}
       accuracy={m.accuracy}
-      description={m.notes || undefined}
+      description={modelNotes(t, m.id, m.notes) || undefined}
       meta={meta}
       trailing={m.downloaded ? deleteButton : undefined}
       action={

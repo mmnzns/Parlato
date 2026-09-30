@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Check, ChevronRight, Download, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Row } from "@/components/ui/section";
+import { modelNotes } from "@/lib/modelText";
 import { cn } from "@/lib/utils";
 import {
   api,
@@ -194,7 +195,7 @@ export function LlmLocalPanel() {
               }
               description={
                 <>
-                  {m.notes && <span className="block">{m.notes}</span>}
+                  {m.notes && <span className="block">{modelNotes(t, m.id, m.notes)}</span>}
                   <span className="font-mono text-xs">{meta}</span>
                 </>
               }
