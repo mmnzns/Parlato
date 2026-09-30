@@ -18,14 +18,15 @@ pub const DEFAULT_FILLER_WORDS: &[&str] = &[
     "hmm", "hm", "mmm", "mm", "mh", "ehh",
 ];
 
+/// Parlato : actif par defaut (VoiceInk : desactive).
 pub fn is_enabled(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
-        return false;
+        return true;
     };
     store
         .get(ENABLED_KEY)
         .and_then(|v| v.as_bool())
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 pub fn set_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {

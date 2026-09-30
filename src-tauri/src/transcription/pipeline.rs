@@ -206,24 +206,27 @@ pub fn get_restore_clipboard(app: &AppHandle) -> bool {
         .unwrap_or(true)
 }
 
+/// Parlato : actif par defaut, le mot tape ensuite ne se colle pas au texte
+/// dicte.
 pub fn get_append_trailing_space(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
-        return false;
+        return true;
     };
     store
         .get(APPEND_TRAILING_SPACE_KEY)
         .and_then(|v| v.as_bool())
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
+/// Parlato : actif par defaut, les longues dictees arrivent en paragraphes.
 pub fn get_text_formatting_enabled(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
-        return false;
+        return true;
     };
     store
         .get(TEXT_FORMATTING_KEY)
         .and_then(|v| v.as_bool())
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 fn is_vad_enabled(app: &AppHandle) -> bool {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- New users start with "Add a space after the text", "Tidy up paragraphs"
+  and "Remove filler words" turned on ("Put my clipboard back" already
+  was). Anyone who has set these switches keeps their choice.
+
 ### Fixed
 - Text boxes and dropdowns no longer show a double border when selected:
   their own border darkens instead of a second ring appearing around it.
