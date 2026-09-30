@@ -28,6 +28,9 @@ pub struct GgufModelInfo {
     pub size_bytes: u64,
     pub context_length: u32,
     pub notes: &'static str,
+    /// Parlato : retire du catalogue. Liste seulement si deja telecharge
+    /// (l'utilisateur garde son modele), plus propose au telechargement.
+    pub retired: bool,
 }
 
 /// Catalogue des modeles recommandes pour l'enhancement LLM local.
@@ -44,6 +47,7 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
         size_bytes: 2_244_011_552,
         context_length: 131072,
         notes: "Modele recent d'IBM, precis et fidele au texte dicte.",
+        retired: false,
     },
     GgufModelInfo {
         id: "qwen2.5-3b-instruct-q4",
@@ -52,6 +56,9 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
         size_bytes: 2_018_000_000,
         context_length: 32768,
         notes: "Polyvalent, excellent rapport qualite / taille.",
+        // Parlato : Qwen Research License (usage non commercial, recherche
+        // ou evaluation seulement) ; Granite 4.2 le remplace.
+        retired: true,
     },
     GgufModelInfo {
         id: "llama-3.2-3b-instruct-q4",
@@ -60,6 +67,7 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
         size_bytes: 2_020_000_000,
         context_length: 131072,
         notes: "Longue fenetre de contexte.",
+        retired: false,
     },
     GgufModelInfo {
         id: "gemma-2-2b-it-q4",
@@ -68,6 +76,7 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
         size_bytes: 1_710_000_000,
         context_length: 8192,
         notes: "Modele leger, rapide en CPU.",
+        retired: false,
     },
     GgufModelInfo {
         id: "phi-3.5-mini-instruct-q4",
@@ -76,6 +85,7 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
         size_bytes: 2_390_000_000,
         context_length: 131072,
         notes: "3.8B, fort en raisonnement et instructions.",
+        retired: false,
     },
 ];
 
@@ -167,6 +177,9 @@ impl GgufModelManager {
         for m in GGUF_MODELS {
             let p = dir.join(format!("{}.gguf", m.id));
             let downloaded = p.exists();
+            if m.retired && !downloaded {
+                continue;
+            }
             let on_disk_bytes = p.metadata().ok().map(|meta| meta.len());
             out.push(GgufModelState {
                 id: m.id.to_string(),

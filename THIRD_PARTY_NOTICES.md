@@ -59,7 +59,10 @@ Required notices:
 
 - Qwen is licensed under the Qwen RESEARCH LICENSE AGREEMENT, Copyright (c)
   Alibaba Cloud. All Rights Reserved. The Qwen Research License permits
-  non-commercial use only (research or evaluation).
+  non-commercial use only (research or evaluation). For that reason Parlato
+  no longer offers Qwen 2.5 3B for download (since 2026-09-29); it stays
+  usable only for people who downloaded it earlier. Granite 4.2 3B
+  (Apache-2.0) replaces it.
 - Built with Llama. Llama 3.2 is licensed under the Llama 3.2 Community
   License, Copyright (c) Meta Platforms, Inc. All Rights Reserved.
 
