@@ -1,15 +1,19 @@
+// Parlato: AI cleanup page, rebuilt to the Workbench design (docs/design/v1,
+// screen "ai"). The page header carries the On/Off switch; below it:
+//   [01] where the AI runs (this PC vs an online service)
+//   [02] the engine / service, model and account key for that choice
+//   [03] writing style (prompts)
+//   then the screen-context toggle.
+// Provider, key and prompt logic is unchanged from upstream.
+
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Key, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, KeyRound, Laptop, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Block, Row, Section, SectionHeading, Switch, selectClass } from "@/components/ui/section";
+import { CompactHero } from "@/components/CompactHero";
 import { EnhancementScreenContext } from "@/components/EnhancementScreenContext";
+import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { PromptEditor } from "@/components/PromptEditor";
 import { cn } from "@/lib/utils";
 import {
@@ -18,9 +22,13 @@ import {
   type LLMProviderInfo,
   type LLMSelection,
 } from "@/lib/tauri";
-import { promptDescription, promptTitle } from "@/lib/promptLabels";
 
-export function EnhancementPanel() {
+/** Providers that run on this PC. Everything else is an online service. */
+const LOCAL_IDS = ["llamacpp", "ollama", "localcli"];
+
+const inputClass = "h-[34px] w-full rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
+
+export function EnhancementPanel({ crumb }: { crumb?: string }) {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(false);
   const [providers, setProviders] = useState<LLMProviderInfo[]>([]);
@@ -194,310 +202,364 @@ export function EnhancementPanel() {
     }
   }
 
+  const [advanced, setAdvanced] = useState(false);
+  const where = !selection?.provider_id
+    ? null
+    : LOCAL_IDS.includes(selection.provider_id)
+      ? "local"
+      : "cloud";
+  const cloudProviders = providers.filter((p) => !LOCAL_IDS.includes(p.id));
+  const isBuiltin = selection?.provider_id === "llamacpp";
+
+  async function chooseWhere(next: "local" | "cloud") {
+    if (next === where) return;
+    if (next === "local") {
+      await selectProvider("llamacpp");
+    } else {
+      // Prefer a service the user already has a key for.
+      const pick =
+        cloudProviders.find((p) => p.has_api_key) ??
+        cloudProviders.find((p) => p.id === "anthropic") ??
+        cloudProviders[0];
+      if (pick) await selectProvider(pick.id);
+    }
+  }
+
+  const whereCards = [
+    { id: "local" as const, Icon: Laptop, title: t("ai.localTitle"), desc: t("ai.localDesc"), eg: t("ai.localEg"), rec: true },
+    { id: "cloud" as const, Icon: Cloud, title: t("ai.cloudTitle"), desc: t("ai.cloudDesc"), eg: t("ai.cloudEg"), rec: false },
+  ];
+
+  const keyStatus = currentProvider ? status[currentProvider.id] : undefined;
+  const keyIsError = !!keyStatus && keyStatus.startsWith(t("common.error"));
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-base">{t("enhancement.title")}</CardTitle>
-        </div>
-        <CardDescription>{t("enhancement.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <label className="flex items-center justify-between rounded-md border p-3">
-          <div>
-            <p className="font-medium">{t("enhancement.enableTitle")}</p>
-            <p className="text-xs text-muted-foreground">
-              {t("enhancement.enableDescription")}
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={enabled}
-            onChange={(e) => toggleEnabled(e.target.checked)}
-            className="h-5 w-5"
-          />
-        </label>
+    <>
+      <CompactHero
+        crumb={crumb}
+        title={t("hero.enhancementTitle")}
+        description={t("hero.enhancementDescription")}
+        action={
+          <>
+            <span className="text-[13px] font-semibold">{enabled ? t("ai.on") : t("ai.off")}</span>
+            <Switch checked={enabled} onChange={toggleEnabled} label={t("ai.toggleLabel")} />
+          </>
+        }
+      />
 
-        <div className="grid gap-2">
-          <label className="text-sm font-medium">{t("enhancement.provider")}</label>
-          <select
-            value={selection?.provider_id ?? ""}
-            onChange={(e) => selectProvider(e.target.value)}
-            className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
-          >
-            <option value="">{t("enhancement.selectPlaceholder")}</option>
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label} {p.has_api_key ? t("enhancement.keyOk") : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {currentProvider && currentProvider.models.length > 0 && !isCustom && !isLocalcli && !isOllama && (
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">{t("enhancement.model")}</label>
-            <select
-              value={selection?.model ?? ""}
-              onChange={(e) => selectModel(e.target.value)}
-              className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
-            >
-              {selection?.model &&
-                !currentProvider.models.includes(selection.model) && (
-                  <option value={selection.model}>
-                    {t("enhancement.currentModel", { model: selection.model })}
-                  </option>
-                )}
-              {currentProvider.models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              {t("enhancement.endpoint")} <code>{currentProvider.endpoint}</code>
-            </p>
-          </div>
+      <div
+        className={cn(
+          "flex flex-col gap-[22px] transition-opacity",
+          !enabled && "pointer-events-none opacity-45",
         )}
-
-        {isOllama && (
-          <div className="grid gap-2 rounded-md border p-3">
-            <label className="text-sm font-medium">{t("enhancement.ollamaBaseUrl")}</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={ollamaBaseUrl}
-                onChange={(e) => setOllamaBaseUrl(e.target.value)}
-                placeholder="http://localhost:11434"
-                className="flex h-9 flex-1 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
-              />
-              <Button size="sm" onClick={saveOllamaBaseUrl}>
-                {t("enhancement.save")}
-              </Button>
-              <Button size="sm" variant="outline" onClick={refreshOllamaModels}>
-                {t("enhancement.refreshModels")}
-              </Button>
-            </div>
-            {ollamaStatus && (
-              <p className="text-xs text-muted-foreground">{ollamaStatus}</p>
-            )}
-            <label className="text-sm font-medium">{t("enhancement.model")}</label>
-            <select
-              value={selection?.model ?? ""}
-              onChange={(e) => selectModel(e.target.value)}
-              className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
-            >
-              {!ollamaModels.includes(selection?.model ?? "") && selection?.model && (
-                <option value={selection.model}>{selection.model}</option>
-              )}
-              {ollamaModels.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {isLocalcli && (
-          <div className="grid gap-2 rounded-md border p-3">
-            <p className="text-sm font-medium">{t("enhancement.localcliTemplate")}</p>
-            <select
-              value={selection?.model ?? "pi"}
-              onChange={(e) => selectModel(e.target.value)}
-              className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
-            >
-              <option value="pi">pi</option>
-              <option value="claude">claude</option>
-              <option value="codex">codex</option>
-              <option value="custom">custom</option>
-            </select>
-            <p className="text-xs text-muted-foreground">
-              {t("enhancement.localcliHelpA")}{" "}
-              <code>powershell.exe -NoProfile -Command</code>
-              {t("enhancement.localcliHelpB")}{" "}
-              <code>$env:PARLA_SYSTEM_PROMPT</code>,{" "}
-              <code>$env:PARLA_USER_PROMPT</code>,{" "}
-              <code>$env:PARLA_FULL_PROMPT</code>.
-            </p>
-
-            {isLocalcliCustom && (
-              <div className="grid gap-2">
-                <label className="text-sm font-medium">{t("enhancement.customCommandLabel")}</label>
-                <textarea
-                  value={localcliCustomCmd}
-                  onChange={(e) => setLocalcliCustomCmd(e.target.value)}
-                  placeholder="& mon-cli -p $env:PARLA_FULL_PROMPT"
-                  className="min-h-[80px] rounded-md border-[1.5px] border-input bg-background px-3 py-2 text-sm font-mono"
-                />
-                <Button size="sm" onClick={saveLocalcliCustomCmd}>
-                  {t("enhancement.saveCommand")}
-                </Button>
-              </div>
-            )}
-
-            <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium">{t("enhancement.timeoutLabel")}</label>
-                <input
-                  type="number"
-                  min={5}
-                  max={300}
-                  value={localcliTimeout}
-                  onChange={(e) => setLocalcliTimeout(Number(e.target.value) || 45)}
-                  className="h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
-                />
-              </div>
-              <Button size="sm" onClick={saveLocalcliTimeout}>
-                {t("enhancement.saveTimeout")}
-              </Button>
-            </div>
-
-            {localcliStatus && (
-              <p className="text-xs text-muted-foreground">{localcliStatus}</p>
-            )}
-          </div>
-        )}
-
-        {isCustom && (
-          <div className="grid gap-2 rounded-md border p-3">
-            <label className="text-sm font-medium">{t("enhancement.customBaseUrlLabel")}</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customBaseUrl}
-                onChange={(e) => setCustomBaseUrl(e.target.value)}
-                placeholder="https://my-llm.example.com/v1"
-                className="flex h-9 flex-1 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
-              />
-              <Button size="sm" onClick={saveCustomBaseUrl}>
-                {t("enhancement.saveUrl")}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("enhancement.customBaseUrlHelp")}
-              <code>/chat/completions</code>
-              {t("enhancement.customBaseUrlHelpEnd")}
-            </p>
-            <label className="text-sm font-medium">{t("enhancement.model")}</label>
-            <input
-              type="text"
-              value={customModel}
-              onChange={(e) => setCustomModel(e.target.value)}
-              onBlur={(e) => selectCustomModel(e.target.value)}
-              placeholder={t("enhancement.customModelPlaceholder")}
-              className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
-            />
-            {status.custom && (
-              <p className="text-xs text-muted-foreground">{status.custom}</p>
-            )}
-          </div>
-        )}
-
-        {currentProvider && currentProvider.requires_api_key && (
-          <div
-            className={cn(
-              "rounded-lg border p-3",
-              currentProvider.has_api_key && "border-green-500/40 bg-green-500/5",
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <Key className="h-4 w-4 text-muted-foreground" />
-              <p className="font-medium">
-                {t("enhancement.apiKeyLabel", { provider: currentProvider.label })}
-              </p>
-              {currentProvider.has_api_key && (
-                <span className="flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400">
-                  <Check className="h-3 w-3" /> {t("enhancement.configured")}
-                </span>
-              )}
-            </div>
-            <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
-              <input
-                type="password"
-                placeholder={
-                  currentProvider.has_api_key
-                    ? t("enhancement.apiKeySavedPlaceholder")
-                    : t("enhancement.apiKey")
-                }
-                value={apiKeyInputs[currentProvider.id] ?? ""}
-                onChange={(e) =>
-                  setApiKeyInputs((i) => ({
-                    ...i,
-                    [currentProvider.id]: e.target.value,
-                  }))
-                }
-                className="flex h-9 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
-                autoComplete="off"
-              />
-              <Button
-                size="sm"
-                onClick={() => saveApiKey(currentProvider.id)}
-                disabled={verifying[currentProvider.id]}
-              >
-                {verifying[currentProvider.id] ? (
-                  <Loader2 className="animate-spin" />
-                ) : null}
-                {t("enhancement.saveKey")}
-              </Button>
-              {currentProvider.has_api_key && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => deleteKey(currentProvider.id)}
+        aria-disabled={!enabled}
+      >
+        <section className="flex flex-col gap-2.5">
+          <SectionHeading title={t("ai.whereTitle")} />
+          <div role="radiogroup" aria-label={t("ai.whereTitle")} className="grid gap-3 sm:grid-cols-2">
+            {whereCards.map((w) => {
+              const sel = where === w.id;
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={sel}
+                  onClick={() => chooseWhere(w.id)}
+                  className={cn(
+                    "flex items-start gap-3.5 rounded-lg border-[1.5px] bg-card p-4 text-left transition-colors",
+                    sel ? "border-edge bg-accent shadow-[var(--sel-shadow)]" : "border-input hover:border-edge",
+                  )}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-            {status[currentProvider.id] && (
-              <p
-                className={cn(
-                  "mt-2 text-xs",
-                  status[currentProvider.id].startsWith(t("common.error"))
-                    ? "text-destructive"
-                    : "text-muted-foreground",
-                )}
-              >
-                {status[currentProvider.id]}
-              </p>
-            )}
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full border-[1.5px] bg-card",
+                      sel ? "border-foreground" : "border-input",
+                    )}
+                  >
+                    <span className={cn("h-2 w-2 rounded-full bg-foreground", !sel && "opacity-0")} />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="flex flex-wrap items-center gap-2 font-display font-bold">
+                      <w.Icon className="h-4 w-4" />
+                      {w.title}
+                      {w.rec && (
+                        <span className="rounded-full bg-highlight px-2 py-px font-sans text-[11px] font-semibold text-[#141416]">
+                          {t("ai.recommended")}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[13px] leading-[18px] text-pretty text-muted-foreground">{w.desc}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">{w.eg}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
+        </section>
+
+        {where === "local" && (
+          <Section title={t("ai.localTitle")}>
+            <Row label={t("ai.engine")}>
+              <select
+                aria-label={t("ai.engine")}
+                value={selection?.provider_id ?? "llamacpp"}
+                onChange={(e) => selectProvider(e.target.value)}
+                className={selectClass}
+              >
+                <option value="llamacpp">{t("ai.engineBuiltin")}</option>
+                <option value="ollama">{t("ai.engineOllama")}</option>
+                <option value="localcli">{t("ai.engineCli")}</option>
+              </select>
+            </Row>
+
+            {isBuiltin && <LlmLocalPanel />}
+
+            {isOllama && (
+              <>
+                <Row label={t("enhancement.ollamaBaseUrl")} description={ollamaStatus || undefined}>
+                  <input
+                    type="text"
+                    value={ollamaBaseUrl}
+                    onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                    placeholder="http://localhost:11434"
+                    className={cn(inputClass, "w-[220px]")}
+                  />
+                  <Button size="sm" variant="outline" onClick={saveOllamaBaseUrl}>
+                    {t("enhancement.save")}
+                  </Button>
+                </Row>
+                <Row label={t("ai.model")}>
+                  <select
+                    aria-label={t("ai.model")}
+                    value={selection?.model ?? ""}
+                    onChange={(e) => selectModel(e.target.value)}
+                    className={selectClass}
+                  >
+                    {!ollamaModels.includes(selection?.model ?? "") && selection?.model && (
+                      <option value={selection.model}>{selection.model}</option>
+                    )}
+                    {ollamaModels.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <Button size="sm" variant="ghost" onClick={refreshOllamaModels}>
+                    {t("enhancement.refreshModels")}
+                  </Button>
+                </Row>
+              </>
+            )}
+
+            {isLocalcli && (
+              <>
+                <Row label={t("enhancement.localcliTemplate")}>
+                  <select
+                    aria-label={t("enhancement.localcliTemplate")}
+                    value={selection?.model ?? "pi"}
+                    onChange={(e) => selectModel(e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="pi">pi</option>
+                    <option value="claude">claude</option>
+                    <option value="codex">codex</option>
+                    <option value="custom">custom</option>
+                  </select>
+                </Row>
+                <Block className="flex flex-col gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t("enhancement.localcliHelpA")} <code>powershell.exe -NoProfile -Command</code>
+                    {t("enhancement.localcliHelpB")} <code>$env:PARLA_SYSTEM_PROMPT</code>,{" "}
+                    <code>$env:PARLA_USER_PROMPT</code>, <code>$env:PARLA_FULL_PROMPT</code>.
+                  </p>
+                  {isLocalcliCustom && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium">{t("enhancement.customCommandLabel")}</label>
+                      <textarea
+                        value={localcliCustomCmd}
+                        onChange={(e) => setLocalcliCustomCmd(e.target.value)}
+                        placeholder="& mon-cli -p $env:PARLA_FULL_PROMPT"
+                        className="min-h-[80px] rounded-sm border-[1.5px] border-input bg-background px-3 py-2 font-mono text-sm"
+                      />
+                      <Button size="sm" className="self-start" onClick={saveLocalcliCustomCmd}>
+                        {t("enhancement.saveCommand")}
+                      </Button>
+                    </div>
+                  )}
+                </Block>
+                <Row label={t("enhancement.timeoutLabel")} description={localcliStatus || undefined}>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    value={localcliTimeout}
+                    onChange={(e) => setLocalcliTimeout(Number(e.target.value) || 45)}
+                    className={cn(inputClass, "w-[90px]")}
+                  />
+                  <Button size="sm" variant="outline" onClick={saveLocalcliTimeout}>
+                    {t("enhancement.saveTimeout")}
+                  </Button>
+                </Row>
+              </>
+            )}
+          </Section>
         )}
 
-        <div className="grid gap-2">
-          <label className="text-sm font-medium">{t("enhancement.activePrompt")}</label>
-          <select
-            value={activePromptId ?? ""}
-            onChange={(e) => selectPrompt(e.target.value)}
-            className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
-          >
-            {prompts.map((p) => (
-              <option key={p.id} value={p.id}>
-                {promptTitle(t, p)} {p.is_predefined ? t("enhancement.predefined") : ""}
-              </option>
-            ))}
-          </select>
-          {(() => {
-            const active = prompts.find((p) => p.id === activePromptId);
-            if (!active) return null;
-            const desc = promptDescription(t, active);
-            return desc ? (
-              <p className="text-xs text-muted-foreground">{desc}</p>
-            ) : null;
-          })()}
-        </div>
+        {where === "cloud" && (
+          <Section title={t("ai.cloudTitle")}>
+            <Row label={t("ai.service")}>
+              <select
+                aria-label={t("ai.service")}
+                value={selection?.provider_id ?? ""}
+                onChange={(e) => selectProvider(e.target.value)}
+                className={selectClass}
+              >
+                {cloudProviders.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                    {p.has_api_key ? ` - ${t("ai.keyStored")}` : ""}
+                  </option>
+                ))}
+              </select>
+            </Row>
 
-        <EnhancementScreenContext />
+            {currentProvider && !isCustom && currentProvider.models.length > 0 && (
+              <Row label={t("ai.model")}>
+                <select
+                  aria-label={t("ai.model")}
+                  value={selection?.model ?? ""}
+                  onChange={(e) => selectModel(e.target.value)}
+                  className={selectClass}
+                >
+                  {selection?.model && !currentProvider.models.includes(selection.model) && (
+                    <option value={selection.model}>
+                      {t("enhancement.currentModel", { model: selection.model })}
+                    </option>
+                  )}
+                  {currentProvider.models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </Row>
+            )}
+
+            {isCustom && (
+              <>
+                <Row label={t("enhancement.customBaseUrlLabel")} description={status.custom || undefined}>
+                  <input
+                    type="text"
+                    value={customBaseUrl}
+                    onChange={(e) => setCustomBaseUrl(e.target.value)}
+                    placeholder="https://my-llm.example.com/v1"
+                    className={cn(inputClass, "w-[240px]")}
+                  />
+                  <Button size="sm" variant="outline" onClick={saveCustomBaseUrl}>
+                    {t("enhancement.saveUrl")}
+                  </Button>
+                </Row>
+                <Row label={t("ai.model")}>
+                  <input
+                    type="text"
+                    value={customModel}
+                    onChange={(e) => setCustomModel(e.target.value)}
+                    onBlur={(e) => selectCustomModel(e.target.value)}
+                    placeholder={t("enhancement.customModelPlaceholder")}
+                    className={cn(inputClass, "w-[240px]")}
+                  />
+                </Row>
+              </>
+            )}
+
+            {currentProvider?.requires_api_key && (
+              <Block className="flex flex-col gap-2">
+                <span className="font-medium">{t("ai.key")}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-[34px] min-w-0 flex-1 items-center gap-2 rounded-sm border-[1.5px] border-input bg-background px-3">
+                    <KeyRound
+                      className={cn(
+                        "h-4 w-4 flex-none",
+                        currentProvider.has_api_key ? "text-positive" : "text-muted-foreground",
+                      )}
+                    />
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      aria-label={t("ai.key")}
+                      placeholder={currentProvider.has_api_key ? t("ai.keyStored") : t("ai.keyPlaceholder")}
+                      value={apiKeyInputs[currentProvider.id] ?? ""}
+                      onChange={(e) =>
+                        setApiKeyInputs((i) => ({ ...i, [currentProvider.id]: e.target.value }))
+                      }
+                      className="h-full min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:font-sans placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => saveApiKey(currentProvider.id)}
+                    disabled={verifying[currentProvider.id] || !(apiKeyInputs[currentProvider.id] ?? "").trim()}
+                  >
+                    {verifying[currentProvider.id] && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {t("enhancement.saveKey")}
+                  </Button>
+                  {currentProvider.has_api_key && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      onClick={() => deleteKey(currentProvider.id)}
+                      title={t("ai.keyRemove")}
+                      aria-label={t("ai.keyRemove")}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {keyStatus && (
+                  <span
+                    role={keyIsError ? "alert" : undefined}
+                    className={cn("text-xs", keyIsError ? "text-destructive" : "text-muted-foreground")}
+                  >
+                    {keyStatus}
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground">{t("ai.keyNote")}</span>
+              </Block>
+            )}
+
+            <Block className="flex flex-col gap-2 py-3">
+              <button
+                type="button"
+                onClick={() => setAdvanced((a) => !a)}
+                aria-expanded={advanced}
+                className="flex items-center gap-1.5 self-start text-[13px] font-semibold text-muted-foreground hover:text-foreground"
+              >
+                <ChevronRight className={cn("h-4 w-4 transition-transform", advanced && "rotate-90")} />
+                {t("ai.advanced")}
+              </button>
+              {advanced && currentProvider && (
+                <div className="flex flex-wrap items-center gap-3 pl-5 text-[13px]">
+                  <span className="text-muted-foreground">{t("ai.serverAddress")}</span>
+                  <code className="rounded-sm bg-muted px-2 py-1 font-mono text-xs">
+                    {isCustom ? customBaseUrl || "-" : currentProvider.endpoint}
+                  </code>
+                </div>
+              )}
+            </Block>
+          </Section>
+        )}
 
         <PromptEditor
           prompts={prompts}
           activeId={activePromptId}
+          onSelect={selectPrompt}
           onChange={refresh}
         />
-      </CardContent>
-    </Card>
+
+        <EnhancementScreenContext />
+      </div>
+    </>
   );
 }

@@ -14,7 +14,6 @@ import { EnhancementPanel } from "@/components/EnhancementPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { HotkeyCard } from "@/components/HotkeyCard";
 import { AdditionalShortcutsCard } from "@/components/AdditionalShortcutsCard";
-import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { ModelsPage } from "@/components/ModelsPage";
 import { ModelPerformancePanel } from "@/components/ModelPerformancePanel";
 import { Onboarding } from "@/components/Onboarding";
@@ -166,17 +165,7 @@ function App() {
             </>
           )}
 
-          {view === "enhancement" && (
-            <>
-              <CompactHero
-                crumb={crumb}
-                title={t("hero.enhancementTitle")}
-                description={t("hero.enhancementDescription")}
-              />
-              <EnhancementPanel />
-              <LlmLocalPanel />
-            </>
-          )}
+          {view === "enhancement" && <EnhancementPanel crumb={crumb} />}
 
           {view === "powermode" && (
             <>

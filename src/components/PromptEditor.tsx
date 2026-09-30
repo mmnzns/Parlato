@@ -2,11 +2,16 @@
 //
 // Reference VoiceInk PromptEditorView + SlidingPanel 400pt.
 // shadcn pur : Sheet depuis la droite.
+//
+// Parlato: rendered as the "Writing style" section of the AI cleanup page,
+// a radio list that also sets the active prompt.
 
+import type * as React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Block, RadioRow, Section, selectClass } from "@/components/ui/section";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +28,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   prompts: CustomPrompt[];
   activeId: string | null;
+  onSelect: (id: string) => void;
   onChange: () => void | Promise<void>;
 };
 
@@ -39,7 +45,7 @@ function emptyPrompt(defaultTitle: string): CustomPrompt {
   };
 }
 
-export function PromptEditor({ prompts, activeId, onChange }: Props) {
+export function PromptEditor({ prompts, activeId, onSelect, onChange }: Props) {
   const { t } = useTranslation();
   const [templates, setTemplates] = useState<CustomPrompt[]>([]);
   const [editing, setEditing] = useState<CustomPrompt | null>(null);
@@ -106,19 +112,21 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
   }
 
   return (
-    <div className="grid gap-3 rounded-md border p-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">{t("promptEditor.title")}</p>
-        <div className="flex gap-2">
+    <Section
+      title={t("ai.stylesTitle")}
+      description={t("ai.stylesDesc")}
+      action={
+        <div className="flex items-center gap-2">
           {templates.length > 0 && (
             <select
+              aria-label={t("promptEditor.fromTemplate")}
               onChange={(e) => {
                 const tpl = templates.find((x) => x.title === e.target.value);
                 if (tpl) startFromTemplate(tpl);
                 e.target.value = "";
               }}
               defaultValue=""
-              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2 text-xs"
+              className={cn(selectClass, "min-w-0")}
             >
               <option value="" disabled>
                 {t("promptEditor.fromTemplate")}
@@ -130,76 +138,51 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
               ))}
             </select>
           )}
-          <Button size="sm" onClick={startNew}>
+          <Button size="sm" variant="outline" onClick={startNew}>
             <Plus className="h-3.5 w-3.5" />
-            {t("promptEditor.newPrompt")}
+            {t("ai.newStyle")}
           </Button>
         </div>
-      </div>
-
-      <ul className="grid gap-1.5">
+      }
+    >
+      <div role="radiogroup" aria-label={t("ai.stylesTitle")} className="flex flex-col divide-y">
         {prompts.map((p) => (
-          <li
-            key={p.id}
-            className={cn(
-              "flex items-center justify-between rounded-md border p-2",
-              p.id === activeId && "border-primary/60 bg-primary/5",
-            )}
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {promptTitle(t, p)}
-                {p.is_predefined && (
-                  <span className="ml-2 text-[10px] text-muted-foreground">
-                    {t("promptEditor.predefined")}
-                  </span>
-                )}
-              </p>
-              {(() => {
-                const desc = promptDescription(t, p);
-                return desc ? (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {desc}
-                  </p>
-                ) : null;
-              })()}
-            </div>
-            <div className="flex shrink-0 gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => startEdit(p)}
-                title={t("promptEditor.editTooltip")}
-              >
+          <div key={p.id} className="relative">
+            <RadioRow
+              selected={p.id === (activeId ?? prompts[0]?.id)}
+              onSelect={() => onSelect(p.id)}
+              title={promptTitle(t, p)}
+              description={promptDescription(t, p) || undefined}
+              trailing={<span aria-hidden className="block w-[92px]" />}
+            />
+            {/* Actions sit on top of the row so they are not nested in its button. */}
+            <div className="absolute top-1/2 right-4 flex -translate-y-1/2 gap-0.5">
+              <IconAction label={t("ai.edit")} onClick={() => startEdit(p)}>
                 <Pencil className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
+              </IconAction>
+              <IconAction
+                label={t("ai.duplicate")}
                 onClick={() =>
                   startFromTemplate({
                     ...p,
                     title: `${p.title} ${t("promptEditor.duplicateSuffix")}`,
                   })
                 }
-                title={t("promptEditor.duplicateTooltip")}
               >
                 <Copy className="h-3.5 w-3.5" />
-              </Button>
+              </IconAction>
               {!p.is_predefined && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => remove(p)}
-                  title={t("promptEditor.deleteTooltip")}
-                >
+                <IconAction label={t("ai.delete")} onClick={() => remove(p)}>
                   <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                </IconAction>
               )}
             </div>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
+      {status && !editing && (
+        <Block className="py-3 text-xs text-muted-foreground">{status}</Block>
+      )}
 
       <Sheet
         open={editing !== null}
@@ -318,6 +301,28 @@ export function PromptEditor({ prompts, activeId, onChange }: Props) {
           </SheetFooter>
         </SheetContent>
       </Sheet>
-    </div>
+    </Section>
+  );
+}
+
+function IconAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="flex h-[30px] w-[30px] items-center justify-center rounded-sm text-muted-foreground hover:bg-card hover:text-foreground"
+    >
+      {children}
+    </button>
   );
 }

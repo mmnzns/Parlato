@@ -1,28 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import {
-  Check,
-  Cpu,
-  Download,
-  Loader2,
-  Trash2,
-  Upload,
-  Zap,
-} from "lucide-react";
+import { Check, ChevronRight, Download, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Block, Row } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import {
   api,
   type GgufModelState,
-  type GpuInfo,
   type LlamaCppSettings,
 } from "@/lib/tauri";
 
@@ -40,7 +25,6 @@ export function LlmLocalPanel() {
   const [models, setModels] = useState<GgufModelState[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cudaEnabled, setCudaEnabled] = useState(false);
-  const [gpu, setGpu] = useState<GpuInfo | null>(null);
   const [settings, setSettings] = useState<LlamaCppSettings>({
     n_gpu_layers: 0,
     context_size: 4096,
@@ -91,17 +75,15 @@ export function LlmLocalPanel() {
 
   async function refresh() {
     try {
-      const [list, sel, cuda, g, st] = await Promise.all([
+      const [list, sel, cuda, st] = await Promise.all([
         api.listGgufModels(),
         api.getSelectedGguf(),
         api.llamacppCudaEnabled(),
-        api.getGpuInfo(),
         api.getLlamacppSettings(),
       ]);
       setModels(list);
       setSelectedId(sel);
       setCudaEnabled(cuda);
-      setGpu(g);
       setSettings(st);
     } catch (e) {
       console.error(e);
@@ -170,39 +152,126 @@ export function LlmLocalPanel() {
     }
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Cpu className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-base">{t("llmLocal.title")}</CardTitle>
-        </div>
-        <CardDescription>{t("llmLocal.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-xs">
-          {cudaEnabled ? (
-            <span className="flex items-center gap-1 font-medium text-green-600 dark:text-green-400">
-              <Zap className="h-3.5 w-3.5" /> {t("llmLocal.cudaBuild")}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">
-              {t("llmLocal.cpuBuildPrefix")}<code>cuda-llama</code>{t("llmLocal.cpuBuildSuffix")}
-            </span>
-          )}
-          {gpu?.has_nvidia && (
-            <span className="text-muted-foreground">
-              {t("llmLocal.gpuDetected", {
-                device: gpu.device_name ?? "",
-                cuda: gpu.cuda_version ?? "?",
-              })}
-            </span>
-          )}
-        </div>
+  const [tuning, setTuning] = useState(false);
 
-        <div className="grid gap-2 rounded-md border p-3">
-          <p className="text-sm font-medium">{t("llmLocal.inferenceParams")}</p>
-          <div className="grid grid-cols-3 gap-3 text-xs">
+  // Parlato: rendered inside the "On this PC" section of the AI cleanup page
+  // (rows only, no card of its own) when the built-in engine is selected.
+  return (
+    <>
+      <Block className="flex flex-col gap-1 py-3">
+        <span className="font-medium">{t("ai.builtinTitle")}</span>
+        <span className="text-[13px] leading-[18px] text-pretty text-muted-foreground">
+          {t("ai.builtinDesc")}{" "}
+          {cudaEnabled ? t("llmLocal.cudaBuild") : t("ai.runsOnCpu")}
+        </span>
+      </Block>
+
+      {models.map((m) => {
+        const prog = progress[m.id];
+        const st = status[m.id];
+        const isSelected = m.id === selectedId;
+        const pct = prog && prog.total > 0 ? Math.round((prog.downloaded / prog.total) * 100) : null;
+        const meta = [
+          formatBytes(m.size_bytes),
+          m.context_length > 0 ? t("llmLocal.ctx", { count: m.context_length.toLocaleString() }) : null,
+          m.imported ? t("llmLocal.imported") : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <div key={m.id} className={cn(isSelected && "bg-accent")}>
+            <Row
+              label={
+                <span className="flex flex-wrap items-center gap-2">
+                  {m.display_name}
+                  {isSelected && (
+                    <span className="flex items-center gap-1 text-xs font-semibold text-positive">
+                      <Check className="h-3.5 w-3.5" />
+                      {t("ai.inUse")}
+                    </span>
+                  )}
+                </span>
+              }
+              description={
+                <>
+                  {m.notes && <span className="block">{m.notes}</span>}
+                  <span className="font-mono text-xs">{meta}</span>
+                </>
+              }
+            >
+              {m.downloaded && !isSelected && (
+                <Button size="sm" onClick={() => select(m.id)}>
+                  {t("ai.use")}
+                </Button>
+              )}
+              {!m.downloaded && !prog && (
+                <Button size="sm" variant="outline" onClick={() => download(m.id)}>
+                  <Download className="h-3.5 w-3.5" />
+                  {t("llmLocal.download")}
+                </Button>
+              )}
+              {prog && (
+                <Button size="sm" variant="ghost" onClick={() => cancelDownload(m.id)}>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {pct !== null ? `${pct}%` : ""} {t("llmLocal.cancel")}
+                </Button>
+              )}
+              {m.downloaded && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={() => remove(m.id)}
+                  title={t("ai.delete")}
+                  aria-label={t("ai.delete")}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </Row>
+            {prog && pct !== null && (
+              <div className="px-5 pb-3">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-full bg-primary transition-[width]" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                  {formatBytes(prog.downloaded)} / {formatBytes(prog.total)}
+                </p>
+              </div>
+            )}
+            {st && (
+              <p
+                className={cn(
+                  "px-5 pb-3 text-xs",
+                  st.startsWith(t("common.error")) ? "text-destructive" : "text-muted-foreground",
+                )}
+              >
+                {st}
+              </p>
+            )}
+          </div>
+        );
+      })}
+
+      <Block className="flex flex-col gap-3 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setTuning((v) => !v)}
+            aria-expanded={tuning}
+            className="flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className={cn("h-4 w-4 transition-transform", tuning && "rotate-90")} />
+            {t("ai.tuning")}
+          </button>
+          <Button size="sm" variant="ghost" onClick={importModel}>
+            <Upload className="h-3.5 w-3.5" />
+            {t("ai.import")}
+          </Button>
+        </div>
+        {status.import && <p className="text-xs text-destructive">{status.import}</p>}
+        {tuning && (
+          <div className="grid grid-cols-1 gap-3 pl-5 text-xs sm:grid-cols-3">
             <label className="grid gap-1">
               <span className="font-medium">{t("llmLocal.nGpuLayers")}</span>
               <input
@@ -210,16 +279,10 @@ export function LlmLocalPanel() {
                 min={0}
                 max={200}
                 value={settings.n_gpu_layers}
-                onChange={(e) =>
-                  updateSetting({
-                    n_gpu_layers: Number(e.target.value) || 0,
-                  })
-                }
-                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
+                onChange={(e) => updateSetting({ n_gpu_layers: Number(e.target.value) || 0 })}
+                className="h-8 rounded-sm border-[1.5px] border-input bg-background px-2"
               />
-              <span className="text-muted-foreground">
-                {t("llmLocal.nGpuLayersHelp")}
-              </span>
+              <span className="text-muted-foreground">{t("llmLocal.nGpuLayersHelp")}</span>
             </label>
             <label className="grid gap-1">
               <span className="font-medium">{t("llmLocal.contextSize")}</span>
@@ -229,12 +292,8 @@ export function LlmLocalPanel() {
                 max={131072}
                 step={512}
                 value={settings.context_size}
-                onChange={(e) =>
-                  updateSetting({
-                    context_size: Number(e.target.value) || 4096,
-                  })
-                }
-                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
+                onChange={(e) => updateSetting({ context_size: Number(e.target.value) || 4096 })}
+                className="h-8 rounded-sm border-[1.5px] border-input bg-background px-2"
               />
             </label>
             <label className="grid gap-1">
@@ -245,145 +304,13 @@ export function LlmLocalPanel() {
                 max={8192}
                 step={32}
                 value={settings.max_tokens}
-                onChange={(e) =>
-                  updateSetting({
-                    max_tokens: Number(e.target.value) || 1024,
-                  })
-                }
-                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
+                onChange={(e) => updateSetting({ max_tokens: Number(e.target.value) || 1024 })}
+                className="h-8 rounded-sm border-[1.5px] border-input bg-background px-2"
               />
             </label>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">{t("llmLocal.ggufModels")}</p>
-          <Button size="sm" variant="outline" onClick={importModel}>
-            <Upload className="h-3.5 w-3.5" />
-            {t("llmLocal.importGguf")}
-          </Button>
-        </div>
-
-        <ul className="grid gap-2">
-          {models.map((m) => {
-            const prog = progress[m.id];
-            const st = status[m.id];
-            const isSelected = m.id === selectedId;
-            const pct = prog && prog.total > 0
-              ? Math.round((prog.downloaded / prog.total) * 100)
-              : null;
-            return (
-              <li
-                key={m.id}
-                className={cn(
-                  "rounded-md border p-3",
-                  isSelected && "border-primary/60 bg-primary/5",
-                  m.downloaded && !isSelected && "border-green-500/30",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {m.display_name}
-                      {m.imported && (
-                        <span className="ml-2 text-[10px] text-muted-foreground">
-                          {t("llmLocal.imported")}
-                        </span>
-                      )}
-                      {isSelected && (
-                        <span className="ml-2 text-[10px] text-positive">
-                          {t("llmLocal.active")}
-                        </span>
-                      )}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {m.notes}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {formatBytes(m.size_bytes)}
-                      {m.context_length > 0 &&
-                        ` - ${t("llmLocal.ctx", {
-                          count: m.context_length.toLocaleString(),
-                        })}`}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    {m.downloaded && !isSelected && (
-                      <Button size="sm" onClick={() => select(m.id)}>
-                        <Check className="h-3.5 w-3.5" />
-                        {t("llmLocal.choose")}
-                      </Button>
-                    )}
-                    {m.downloaded && isSelected && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => select(null)}
-                      >
-                        {t("llmLocal.deactivate")}
-                      </Button>
-                    )}
-                    {!m.downloaded && !prog && (
-                      <Button size="sm" onClick={() => download(m.id)}>
-                        <Download className="h-3.5 w-3.5" />
-                        {t("llmLocal.download")}
-                      </Button>
-                    )}
-                    {prog && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => cancelDownload(m.id)}
-                      >
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        {t("llmLocal.cancel")}
-                      </Button>
-                    )}
-                    {m.downloaded && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => remove(m.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {prog && pct !== null && (
-                  <div className="mt-2">
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-primary transition-[width]"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {formatBytes(prog.downloaded)} /
-                      {" "}{formatBytes(prog.total)} ({pct}%)
-                    </p>
-                  </div>
-                )}
-                {st && (
-                  <p
-                    className={cn(
-                      "mt-2 text-xs",
-                      st.startsWith(t("common.error"))
-                        ? "text-destructive"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {st}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        {status.import && (
-          <p className="text-xs text-destructive">{status.import}</p>
         )}
-      </CardContent>
-    </Card>
+      </Block>
+    </>
   );
 }

@@ -6,7 +6,9 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ScanText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/tauri";
 
@@ -59,51 +61,44 @@ export function EnhancementScreenContext() {
     setStatus(t("screenContext.cacheCleared"));
   }
 
+  // Parlato: one Workbench bar (icon, text, Test, switch) with the
+  // captured preview underneath when there is one.
   return (
-    <div className="grid gap-2 rounded-md border p-3">
-      <label className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium">{t("screenContext.title")}</p>
-          <p className="text-xs text-muted-foreground">
-            {t("screenContext.description")}
-            <code>&lt;CURRENT_WINDOW_CONTEXT&gt;</code>
-            {t("screenContext.descriptionEnd")}
-          </p>
+    <div className="rounded-lg border-[1.5px] border-edge bg-card">
+      <div className="flex items-center gap-4 px-5 py-4">
+        <ScanText className="h-5 w-5 flex-none text-muted-foreground" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-medium">{t("ai.screenTitle")}</span>
+          <span className="text-[13px] leading-[18px] text-pretty text-muted-foreground">{t("ai.screenDesc")}</span>
         </div>
-        <input
-          type="checkbox"
-          role="switch"
-          checked={enabled}
-          onChange={(e) => toggle(e.target.checked)}
-          className="h-5 w-5"
-        />
-      </label>
-      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={runPreview}>
-          {t("screenContext.testCapture")}
+          {t("ai.test")}
         </Button>
-        {preview && (
-          <Button size="sm" variant="ghost" onClick={clearCache}>
-            {t("screenContext.clearCache")}
-          </Button>
-        )}
-        {status && (
-          <span
-            className={cn(
-              "text-xs",
-              status.startsWith(t("common.error"))
-                ? "text-destructive"
-                : "text-muted-foreground",
-            )}
-          >
-            {status}
-          </span>
-        )}
+        <Switch checked={enabled} onChange={toggle} label={t("ai.screenTitle")} />
       </div>
-      {preview && (
-        <pre className="max-h-40 overflow-auto rounded bg-muted/40 p-2 text-[11px] font-mono whitespace-pre-wrap">
-          {preview}
-        </pre>
+      {(status || preview) && (
+        <div className="flex flex-col gap-2 border-t px-5 py-3">
+          {status && (
+            <span
+              className={cn(
+                "text-xs",
+                status.startsWith(t("common.error")) ? "text-destructive" : "text-muted-foreground",
+              )}
+            >
+              {status}
+            </span>
+          )}
+          {preview && (
+            <>
+              <pre className="max-h-40 overflow-auto rounded-sm bg-muted p-2 font-mono text-[11px] whitespace-pre-wrap">
+                {preview}
+              </pre>
+              <Button size="sm" variant="ghost" className="self-start" onClick={clearCache}>
+                {t("ai.clear")}
+              </Button>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

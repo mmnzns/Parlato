@@ -36,6 +36,31 @@ export function Section({
   );
 }
 
+/** Numbered heading for content that is not a card (e.g. a row of choice cards). */
+export function SectionHeading({
+  title,
+  description,
+  action,
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div data-slot="card-header" className="flex items-end justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h2 data-slot="card-title" className="flex items-center gap-2 font-display text-base leading-5 font-bold">
+          {title}
+        </h2>
+        {description && (
+          <p className="text-[13px] leading-[18px] text-pretty text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {action && <div className="flex-none">{action}</div>}
+    </div>
+  );
+}
+
 export function Row({
   label,
   description,
