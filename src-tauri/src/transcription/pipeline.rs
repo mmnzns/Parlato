@@ -378,18 +378,34 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
 /// AudioTranscriptionService.retranscribeAudio. Pas de mini-recorder, pas
 /// de session Power Mode : c'est une action utilitaire hors dictee.
 pub fn run_retry(app: AppHandle, wav_path: PathBuf) {
+    spawn_copy_only(app, wav_path, true);
+}
+
+/// Parlato : transcrit un fichier importe ("Transcribe a file"), deja
+/// converti en WAV 16 kHz par transcription::audio_file. Meme chemin que
+/// run_retry (source courante, enhancement, historique, presse-papiers)
+/// mais sans notice tray : la page suit l'avancement via pipeline:state.
+pub fn run_file(app: AppHandle, wav_path: PathBuf) {
+    spawn_copy_only(app, wav_path, false);
+}
+
+fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, tray_notice: bool) {
     insert_pending_row(&app, Some(&wav_path));
     let app_bg = app.clone();
     tauri::async_runtime::spawn(async move {
         let result = run_pipeline(app_bg.clone(), wav_path, Delivery::CopyOnly).await;
         match result {
             Ok(()) => {
-                let _ = app_bg.emit("tray:notice", "Retry done, copied to clipboard");
+                if tray_notice {
+                    let _ = app_bg.emit("tray:notice", "Retry done, copied to clipboard");
+                }
             }
             Err(e) => {
                 warn!("Retry pipeline echec: {e}");
                 mark_failed(&app_bg, &e.to_string());
-                let _ = app_bg.emit("tray:notice", format!("Retry failed: {e}"));
+                if tray_notice {
+                    let _ = app_bg.emit("tray:notice", format!("Retry failed: {e}"));
+                }
                 let _ = app_bg.emit(
                     "pipeline:state",
                     PipelineEvent {

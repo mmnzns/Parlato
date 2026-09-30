@@ -318,6 +318,10 @@ export const api = {
 
   transcribeWav: (req: TranscribeRequest) =>
     invoke<TranscribeResponse>("transcribe_wav", { req }),
+  // Parlato: convert any audio/video file to 16 kHz and run the full
+  // pipeline on it. Progress and result arrive via pipeline:state.
+  transcribeFile: (path: string) =>
+    invoke<{ duration_sec: number }>("transcribe_file", { path }),
 
   setSelectedWhisperModel: (id: string | null) =>
     invoke<void>("set_selected_whisper_model", { id }),

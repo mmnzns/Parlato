@@ -41,6 +41,10 @@ ringbuf = "0.4"
 # Lecture des sons de feedback (start / stop / cancel). rodio 0.20 partage
 # le meme cpal 0.15 que la capture, donc pas de doublon dans l'arbre.
 rodio = "0.20"
+# Parlato: decodage des fichiers audio/video pour "Transcribe a file"
+# (mp3, m4a/aac, alac, flac, ogg/vorbis, wav, aiff, caf, mp4/mkv audio).
+# Meme version que celle tiree par rodio, donc pas de doublon.
+symphonia = { version = "0.5", features = ["all"] }
 uuid = { version = "1", features = ["v4"] }
 arboard = "3"
 

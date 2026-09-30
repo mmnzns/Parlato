@@ -20,12 +20,11 @@ import { Onboarding } from "@/components/Onboarding";
 import { PermissionsPanel } from "@/components/PermissionsPanel";
 import { PowerModePanel } from "@/components/PowerModePanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
-import { RecorderPanel } from "@/components/RecorderPanel";
 import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { TranscribePanel } from "@/components/TranscribePanel";
 import { UpdateChecker } from "@/components/UpdateChecker";
 import { VadPanel } from "@/components/VadPanel";
-import { api, type GpuInfo, type RecordingStopped } from "@/lib/tauri";
+import { api, type GpuInfo } from "@/lib/tauri";
 import "./App.css";
 
 function App() {
@@ -33,7 +32,6 @@ function App() {
   const [view, setView] = useState<View>("dashboard");
   const [gpu, setGpu] = useState<GpuInfo | null>(null);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [lastWavPath, setLastWavPath] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const crumb = useCrumb(view);
 
@@ -47,10 +45,6 @@ function App() {
       .getOnboardingCompleted()
       .then(setOnboarded)
       .catch(() => setOnboarded(true));
-
-    const unlisten = listen<RecordingStopped>("recording:stopped", (e) => {
-      setLastWavPath(e.payload.wav_path);
-    });
 
     // Tray menu triggers (navigate to a panel, copy notification, update check).
     const unNav = listen<string>("tray:navigate", (e) => {
@@ -73,7 +67,6 @@ function App() {
     i18n.on("languageChanged", syncLanguage);
 
     return () => {
-      unlisten.then((fn) => fn());
       unNav.then((fn) => fn());
       unNotice.then((fn) => fn());
       i18n.off("languageChanged", syncLanguage);
@@ -120,11 +113,7 @@ function App() {
                 title={t("hero.transcribeTitle")}
                 description={t("hero.transcribeDescription")}
               />
-              <RecorderPanel />
-              <TranscribePanel
-                lastWavPath={lastWavPath}
-                selectedModelId={selectedModelId}
-              />
+              <TranscribePanel onNavigate={setView} />
             </>
           )}
 

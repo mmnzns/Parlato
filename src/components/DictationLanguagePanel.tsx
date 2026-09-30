@@ -12,7 +12,8 @@ import { selectClass } from "@/components/ui/section";
 import { languageLabel } from "@/lib/languages";
 import { api, type TranscriptionSource } from "@/lib/tauri";
 
-export function DictationLanguagePanel() {
+/** `bare` renders only the select, for use inside a labelled Row. */
+export function DictationLanguagePanel({ bare = false }: { bare?: boolean } = {}) {
   const { t } = useTranslation();
   const [supportedCodes, setSupportedCodes] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("auto");
@@ -73,22 +74,27 @@ export function DictationLanguagePanel() {
   });
 
   // Parlato: compact labelled select for the Speech model "in use" bar.
+  const select = (
+    <select
+      aria-label={t("speech.language")}
+      value={selected}
+      onChange={(e) => change(e.target.value)}
+      className={selectClass}
+    >
+      {sorted.map((code) => (
+        <option key={code} value={code}>
+          {code === "auto" ? t("dictationLanguage.auto") : languageLabel(code)}
+        </option>
+      ))}
+    </select>
+  );
+  if (bare) return select;
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground" title={t("dictationLanguage.description", { model: activeLabel })}>
         {t("speech.language")}
       </span>
-      <select
-        value={selected}
-        onChange={(e) => change(e.target.value)}
-        className={selectClass}
-      >
-        {sorted.map((code) => (
-          <option key={code} value={code}>
-            {code === "auto" ? t("dictationLanguage.auto") : languageLabel(code)}
-          </option>
-        ))}
-      </select>
+      {select}
     </label>
   );
 }

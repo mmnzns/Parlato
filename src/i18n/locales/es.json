@@ -79,7 +79,7 @@
     "dashboardTitle": "Listo cuando tu lo estes",
     "dashboardDescription": "Parlato funciona en segundo plano. Manten pulsada tu tecla de dictado en cualquier aplicacion para empezar a hablar.",
     "transcribeTitle": "Transcribir un archivo",
-    "transcribeDescription": "Convierte una grabacion de audio en texto.",
+    "transcribeDescription": "Convierte un archivo de audio o video en texto.",
     "historyTitle": "Historial",
     "historyDescription": "Todo lo que has dictado, lo mas reciente primero. Guardado solo en este PC.",
     "modelsTitle": "Modelo de voz",
@@ -768,8 +768,8 @@
     "apiKeyMissing": "Clave API ausente para {{provider}}.",
     "modelNotDownloaded": "El modelo {{model}} aun no esta descargado.",
     "generic": "Ha ocurrido un error: {{message}}",
-    "noWhisper": "Ningun modelo Whisper seleccionado. Abre Modelos IA y elige uno.",
-    "noParakeet": "Ningun modelo Parakeet seleccionado. Abre Modelos IA y elige uno.",
+    "noWhisper": "Aun no hay modelo de voz. Abre Modelo de voz y elige uno.",
+    "noParakeet": "Ningun modelo Parakeet seleccionado. Abre Modelo de voz y elige uno.",
     "parakeetIncomplete": "El modelo Parakeet {{model}} esta incompleto. Vuelve a descargarlo desde Modelos IA.",
     "cloudUnconfigured": "Ningun proveedor de nube o modelo seleccionado. Abre Modelos IA y configura uno.",
     "shortcutConflict": "Atajo ya utilizado por {{b}} ({{a}}).",
@@ -778,7 +778,10 @@
     "historyEmpty": "El historial esta vacio.",
     "lastTranscriptionEmpty": "La ultima transcripcion esta vacia.",
     "audioMissing": "No se puede reintentar: falta el archivo de audio de la ultima transcripcion.",
-    "recordingInProgress": "Hay una grabacion en curso."
+    "recordingInProgress": "Hay una grabacion en curso.",
+    "fileUnsupported": "No se puede leer este tipo de archivo. Prueba MP3, WAV, M4A, FLAC, OGG o MP4.",
+    "fileNoAudio": "Este archivo no tiene pista de audio o esta en silencio.",
+    "fileTooLong": "Este archivo dura mas de 2 horas. Dividelo en partes mas cortas."
   },
   "prompts": {
     "default": {
@@ -1008,5 +1011,33 @@
     "keyNote": "Se verifica con el proveedor y se guarda en el Administrador de credenciales de Windows.",
     "hwGpu": "tu pc · {{device}} · funciona en el procesador",
     "hwCpu": "tu pc · funciona en el procesador"
+  },
+  "tf": {
+    "dropTitle": "Suelta aqui un archivo de audio o video",
+    "choose": "elige un archivo",
+    "dropOr": "o {{choose}} de tu PC",
+    "formats": "mp3 · wav · m4a · flac · ogg · mp4 · mov · hasta 2 horas",
+    "dropActive": "Suelta para transcribir",
+    "optionsTitle": "Opciones",
+    "model": "Modelo de voz",
+    "noModel": "Ninguno aun",
+    "change": "Cambiar",
+    "aiCleanup": "Limpieza con IA",
+    "aiOn": "Activada: usa tu estilo de escritura de siempre.",
+    "aiOff": "Desactivada: obtienes las palabras tal como se dijeron.",
+    "filesTitle": "Tus archivos",
+    "filesDesc": "Cada resultado tambien se guarda en el historial y se copia al portapapeles.",
+    "emptyFiles": "Los archivos que transcribas apareceran aqui.",
+    "converting": "Leyendo el archivo...",
+    "transcribing": "Transcribiendo...",
+    "cleaning": "Limpiando con IA...",
+    "noSpeech": "No se encontro voz en este archivo.",
+    "copy": "Copiar texto",
+    "copied": "Copiado",
+    "remove": "Quitar",
+    "busyNote": "Un archivo a la vez. Espera a que termine este.",
+    "cloudNote": "Los servicios en linea limitan el tamano de subida, asi que los archivos largos funcionan mejor con un modelo en este PC.",
+    "dialogTitle": "Elige un archivo de audio o video",
+    "filterName": "Audio y video"
   }
 }

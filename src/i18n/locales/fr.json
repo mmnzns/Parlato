@@ -79,7 +79,7 @@
     "dashboardTitle": "Pret quand vous l'etes",
     "dashboardDescription": "Parlato tourne en arriere-plan. Maintenez votre touche de dictee dans n'importe quelle application pour commencer a parler.",
     "transcribeTitle": "Transcrire un fichier",
-    "transcribeDescription": "Transformez un enregistrement audio en texte.",
+    "transcribeDescription": "Transformez un fichier audio ou video en texte.",
     "historyTitle": "Historique",
     "historyDescription": "Tout ce que vous avez dicte, du plus recent au plus ancien. Stocke uniquement sur ce PC.",
     "modelsTitle": "Modele vocal",
@@ -768,8 +768,8 @@
     "apiKeyMissing": "Cle API manquante pour {{provider}}.",
     "modelNotDownloaded": "Le modele {{model}} n'est pas encore telecharge.",
     "generic": "Une erreur est survenue : {{message}}",
-    "noWhisper": "Aucun modele Whisper selectionne. Ouvre Modeles IA et choisis-en un.",
-    "noParakeet": "Aucun modele Parakeet selectionne. Ouvre Modeles IA et choisis-en un.",
+    "noWhisper": "Pas encore de modele vocal. Ouvrez Modele vocal et choisissez-en un.",
+    "noParakeet": "Aucun modele Parakeet selectionne. Ouvrez Modele vocal et choisissez-en un.",
     "parakeetIncomplete": "Le modele Parakeet {{model}} est incomplet. Re-telecharge-le depuis Modeles IA.",
     "cloudUnconfigured": "Aucun provider cloud ou modele selectionne. Ouvre Modeles IA et configure-en un.",
     "shortcutConflict": "Raccourci deja utilise par {{b}} ({{a}}).",
@@ -778,7 +778,10 @@
     "historyEmpty": "L'historique est vide.",
     "lastTranscriptionEmpty": "La derniere transcription est vide.",
     "audioMissing": "Impossible de reessayer : le fichier audio de la derniere transcription est introuvable.",
-    "recordingInProgress": "Un enregistrement est en cours."
+    "recordingInProgress": "Un enregistrement est en cours.",
+    "fileUnsupported": "Ce type de fichier ne peut pas etre lu. Essayez MP3, WAV, M4A, FLAC, OGG ou MP4.",
+    "fileNoAudio": "Ce fichier n'a pas de piste audio, ou il est silencieux.",
+    "fileTooLong": "Ce fichier depasse 2 heures. Coupez-le en parties plus courtes."
   },
   "prompts": {
     "default": {
@@ -1008,5 +1011,33 @@
     "keyNote": "Verifiee aupres du fournisseur, puis stockee dans le Gestionnaire d'identification Windows.",
     "hwGpu": "votre pc · {{device}} · tourne sur le processeur",
     "hwCpu": "votre pc · tourne sur le processeur"
+  },
+  "tf": {
+    "dropTitle": "Deposez un fichier audio ou video ici",
+    "choose": "choisissez un fichier",
+    "dropOr": "ou {{choose}} sur votre PC",
+    "formats": "mp3 · wav · m4a · flac · ogg · mp4 · mov · jusqu'a 2 heures",
+    "dropActive": "Deposez pour transcrire",
+    "optionsTitle": "Options",
+    "model": "Modele vocal",
+    "noModel": "Aucun pour l'instant",
+    "change": "Changer",
+    "aiCleanup": "Nettoyage IA",
+    "aiOn": "Active : utilise votre style d'ecriture habituel.",
+    "aiOff": "Desactive : vous obtenez les mots tels quels.",
+    "filesTitle": "Vos fichiers",
+    "filesDesc": "Chaque resultat est aussi enregistre dans l'historique et copie dans le presse-papiers.",
+    "emptyFiles": "Les fichiers transcrits apparaissent ici.",
+    "converting": "Lecture du fichier...",
+    "transcribing": "Transcription...",
+    "cleaning": "Nettoyage par l'IA...",
+    "noSpeech": "Aucune parole trouvee dans ce fichier.",
+    "copy": "Copier le texte",
+    "copied": "Copie",
+    "remove": "Retirer",
+    "busyNote": "Un fichier a la fois. Attendez la fin de celui-ci.",
+    "cloudNote": "Les services en ligne limitent la taille des envois : les longs fichiers marchent mieux avec un modele sur ce PC.",
+    "dialogTitle": "Choisir un fichier audio ou video",
+    "filterName": "Audio et video"
   }
 }

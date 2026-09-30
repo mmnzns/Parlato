@@ -79,7 +79,7 @@
     "dashboardTitle": "Ready when you are",
     "dashboardDescription": "Parlato is running in the background. Hold your dictation key in any app to start talking.",
     "transcribeTitle": "Transcribe a file",
-    "transcribeDescription": "Turn an audio recording into text.",
+    "transcribeDescription": "Turn an audio or video file into text.",
     "historyTitle": "History",
     "historyDescription": "Everything you have dictated, newest first. Stored only on this PC.",
     "modelsTitle": "Speech model",
@@ -768,8 +768,8 @@
     "apiKeyMissing": "API key missing for {{provider}}.",
     "modelNotDownloaded": "Model {{model}} is not downloaded yet.",
     "generic": "An error occurred: {{message}}",
-    "noWhisper": "No Whisper model selected. Open AI Models and pick one.",
-    "noParakeet": "No Parakeet model selected. Open AI Models and pick one.",
+    "noWhisper": "No speech model yet. Open Speech model and pick one.",
+    "noParakeet": "No Parakeet model selected. Open Speech model and pick one.",
     "parakeetIncomplete": "Parakeet model {{model}} is incomplete. Re-download it from AI Models.",
     "cloudUnconfigured": "No cloud provider or model selected. Open AI Models and configure one.",
     "shortcutConflict": "Shortcut already used by {{b}} ({{a}}).",
@@ -778,7 +778,10 @@
     "historyEmpty": "The history is empty.",
     "lastTranscriptionEmpty": "The last transcription is empty.",
     "audioMissing": "Cannot retry: the audio file of the last transcription is missing.",
-    "recordingInProgress": "A recording is in progress."
+    "recordingInProgress": "A recording is in progress.",
+    "fileUnsupported": "This file type can't be read. Try MP3, WAV, M4A, FLAC, OGG or MP4.",
+    "fileNoAudio": "This file has no audio track, or it is silent.",
+    "fileTooLong": "This file is longer than 2 hours. Split it into shorter parts."
   },
   "prompts": {
     "default": {
@@ -1008,5 +1011,33 @@
     "keyNote": "Checked with the provider, then saved in Windows Credential Manager.",
     "hwGpu": "your pc · {{device}} · runs on the processor",
     "hwCpu": "your pc · runs on the processor"
+  },
+  "tf": {
+    "dropTitle": "Drop an audio or video file here",
+    "choose": "choose a file",
+    "dropOr": "or {{choose}} from your PC",
+    "formats": "mp3 · wav · m4a · flac · ogg · mp4 · mov · up to 2 hours",
+    "dropActive": "Drop to transcribe",
+    "optionsTitle": "Options",
+    "model": "Speech model",
+    "noModel": "None yet",
+    "change": "Change",
+    "aiCleanup": "AI cleanup",
+    "aiOn": "On: uses your everyday writing style.",
+    "aiOff": "Off: you get the words exactly as spoken.",
+    "filesTitle": "Your files",
+    "filesDesc": "Each result is also saved to History and copied to the clipboard.",
+    "emptyFiles": "Files you transcribe show up here.",
+    "converting": "Reading the file...",
+    "transcribing": "Transcribing...",
+    "cleaning": "Cleaning up with AI...",
+    "noSpeech": "No speech found in this file.",
+    "copy": "Copy text",
+    "copied": "Copied",
+    "remove": "Remove",
+    "busyNote": "One file at a time. Wait for this one to finish.",
+    "cloudNote": "Online services limit upload size, so long files work best with a model on this PC.",
+    "dialogTitle": "Choose an audio or video file",
+    "filterName": "Audio and video"
   }
 }

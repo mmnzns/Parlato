@@ -49,7 +49,7 @@ use commands::settings::{
     set_sound_feedback_enabled, set_system_mute_enabled, set_text_formatting_enabled,
     set_transcription_kind, set_transcription_source, set_ui_language,
 };
-use commands::transcription::{transcribe_wav, WhisperEngineState};
+use commands::transcription::{transcribe_file, transcribe_wav, WhisperEngineState};
 use commands::cloud::{
     cloud_transcribe_wav, delete_api_key, has_api_key, list_cloud_models, list_cloud_providers,
     set_api_key, verify_api_key, CloudRegistryState,
@@ -302,6 +302,7 @@ pub fn run() {
             delete_whisper_model,
             import_whisper_model,
             transcribe_wav,
+            transcribe_file,
             set_selected_whisper_model,
             get_selected_whisper_model,
             get_dictation_language,

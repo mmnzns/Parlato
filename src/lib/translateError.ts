@@ -22,6 +22,9 @@ type ErrorMapping = {
 
 const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:noWhisper$/, { i18nKey: "errors.noWhisper" }],
+  [/^PARLA_ERR:fileUnsupported$/, { i18nKey: "errors.fileUnsupported" }],
+  [/^PARLA_ERR:fileNoAudio$/, { i18nKey: "errors.fileNoAudio" }],
+  [/^PARLA_ERR:fileTooLong$/, { i18nKey: "errors.fileTooLong" }],
   [/^PARLA_ERR:noParakeet$/, { i18nKey: "errors.noParakeet" }],
   [
     /^PARLA_ERR:modelNotDownloaded:(.+)$/,

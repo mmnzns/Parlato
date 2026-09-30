@@ -1,6 +1,6 @@
 // Parlato: microphone picker for the Microphone & shortcut page
 // (Workbench design, docs/design/v1). The selection is the same persisted
-// setting the tray "Audio input" submenu and RecorderPanel use.
+// setting the tray "Audio input" submenu uses.
 //
 // The level meter only reports while a recording runs, so "Test
 // microphone" starts a manual recording to drive it and cancels it when

@@ -85,3 +85,42 @@ pub async fn transcribe_wav(
         duration_ms,
     })
 }
+
+#[derive(Debug, Serialize)]
+pub struct FileTranscriptionStarted {
+    /// Duree de l'audio converti, en secondes.
+    pub duration_sec: f64,
+}
+
+/// Parlato : "Transcribe a file". Convertit le fichier choisi (audio ou
+/// video, voir transcription::audio_file) en WAV 16 kHz dans Recordings,
+/// puis lance le pipeline complet avec la source active. Retourne des que
+/// la conversion est faite ; le resultat arrive par les events
+/// pipeline:state (Transcribing / Enhancing / Done / Failed).
+#[tauri::command]
+pub async fn transcribe_file(
+    app: AppHandle,
+    path: String,
+) -> Result<FileTranscriptionStarted, String> {
+    let input = PathBuf::from(&path);
+    if !input.is_file() {
+        return Err("PARLA_ERR:audioMissing".into());
+    }
+    let dir = super::recording::recordings_dir(&app).map_err(|e| e.to_string())?;
+    let wav_path = dir.join(format!("{}.wav", uuid::Uuid::new_v4()));
+
+    let wav_clone = wav_path.clone();
+    let duration_sec = tokio::task::spawn_blocking(move || {
+        crate::transcription::audio_file::convert_to_wav(&input, &wav_clone)
+    })
+    .await
+    .map_err(|e| format!("tache conversion panic: {e}"))?
+    .map_err(|e| {
+        let _ = std::fs::remove_file(&wav_path);
+        e.to_string()
+    })?;
+
+    info!(path, duration_sec, "Fichier converti, lancement du pipeline");
+    crate::transcription::pipeline::run_file(app, wav_path);
+    Ok(FileTranscriptionStarted { duration_sec })
+}
