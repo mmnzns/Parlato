@@ -251,14 +251,21 @@ impl LlamaRuntime {
 
         // Detokenize : octets de chaque token concatenes puis decodes en une
         // fois, pour ne pas couper les sequences multi-byte UTF-8.
-        // Parlato : token_to_bytes agrandit le buffer si un token depasse
-        // 8 octets (tokens_to_str echouait en "Insufficient Buffer Space"),
-        // et un token sans texte (UnknownTokenType) est simplement ignore.
+        // Parlato : le buffer est agrandi si un token depasse 8 octets
+        // (tokens_to_str echouait en "Insufficient Buffer Space"), et un
+        // token sans texte (UnknownTokenType) est simplement ignore.
+        use llama_cpp_2::TokenToStringError as TokErr;
         let mut bytes: Vec<u8> = Vec::new();
         for token in &generated {
-            match model.token_to_bytes(*token, llama_cpp_2::model::Special::Plaintext) {
+            let piece = match model.token_to_piece_bytes(*token, 8, false, None) {
+                Err(TokErr::InsufficientBufferSpace(n)) => {
+                    model.token_to_piece_bytes(*token, n.unsigned_abs() as usize, false, None)
+                }
+                other => other,
+            };
+            match piece {
                 Ok(b) => bytes.extend_from_slice(&b),
-                Err(llama_cpp_2::TokenToStringError::UnknownTokenType) => {}
+                Err(TokErr::UnknownTokenType) => {}
                 Err(e) => return Err(anyhow!("detokenize: {e}")),
             }
         }
