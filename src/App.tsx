@@ -12,12 +12,13 @@ import { DashboardPanel } from "@/components/DashboardPanel";
 import { DictionaryPanel } from "@/components/DictionaryPanel";
 import { EnhancementPanel } from "@/components/EnhancementPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { HotkeyCard } from "@/components/HotkeyCard";
+import { AdditionalShortcutsCard } from "@/components/AdditionalShortcutsCard";
 import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { ModelsPage } from "@/components/ModelsPage";
 import { ModelPerformancePanel } from "@/components/ModelPerformancePanel";
 import { Onboarding } from "@/components/Onboarding";
 import { PermissionsPanel } from "@/components/PermissionsPanel";
-import { PostProcessingPanel } from "@/components/PostProcessingPanel";
 import { PowerModePanel } from "@/components/PowerModePanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { RecorderPanel } from "@/components/RecorderPanel";
@@ -97,7 +98,10 @@ function App() {
         style={{ backgroundImage: "var(--dot-grid)", backgroundSize: "18px 18px" }}
       >
         <UpdateChecker />
-        <div className="mx-auto flex max-w-[820px] flex-col gap-[22px] px-9 pt-7 pb-12">
+        <div
+          data-slot="page"
+          className="mx-auto flex max-w-[820px] flex-col gap-[22px] px-9 pt-7 pb-12"
+        >
           {view === "dashboard" && (
             <>
               <CompactHero
@@ -203,8 +207,10 @@ function App() {
                 description={t("hero.audioDescription")}
               />
               <RecorderPanel />
+              {/* Parlato: shortcuts moved here from Settings (design IA). */}
+              <HotkeyCard />
+              <AdditionalShortcutsCard />
               <VadPanel />
-              <PostProcessingPanel />
             </>
           )}
 
@@ -226,10 +232,8 @@ function App() {
                 title={t("hero.settingsTitle")}
                 description={t("hero.settingsDescription")}
               />
+              {/* Parlato: includes after-pasting, privacy, permissions and about. */}
               <SettingsPanel />
-              <PostProcessingPanel />
-              {/* Parlato: Permissions moved here from its own sidebar entry. */}
-              <PermissionsPanel />
             </>
           )}
         </div>

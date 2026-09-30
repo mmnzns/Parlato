@@ -5,27 +5,41 @@
 // Recording Feedback / Interface / Experimental / General / Privacy /
 // Backup / Diagnostics. Sur Parla on regroupe le minimum vital en
 // attendant un decoupage plus fin.
+//
+// Parlato: Workbench Settings (docs/design/v1). Sections: General, While
+// you dictate, After pasting, Privacy, Permissions, About. Shortcuts moved
+// to the Microphone & shortcut page; text post-processing and history
+// retention moved here from their own panels.
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { AdditionalShortcutsCard } from "@/components/AdditionalShortcutsCard";
-import { HotkeyCard } from "@/components/HotkeyCard";
+import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { check } from "@tauri-apps/plugin-updater";
+import { ArrowUpRight, CircleCheck, Loader2, MessageSquare, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Block, Row, Section, Segmented, Switch, selectClass } from "@/components/ui/section";
+import { PermissionsPanel } from "@/components/PermissionsPanel";
 import {
   LANGUAGE_LABELS,
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/i18n";
-import { api } from "@/lib/tauri";
+import { api, type RetentionSettings, type TextProcessingSettings } from "@/lib/tauri";
+import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+
+const REPO_URL = "https://github.com/mmnzns/Parlato";
+const UPSTREAM_URL = "https://github.com/LitteRabbit-37/Parla";
+const SITE_URL = "https://craftconceptsdigital.com";
+
+const DAY_MIN = 24 * 60;
+const DICTATION_PRESETS = [1, 7, 30, 90]; // days
+const AUDIO_PRESETS = [1, 7, 30, 90]; // days
+
+type UpdateState = "idle" | "checking" | "current" | "available" | "failed";
 
 export function SettingsPanel() {
   const { t, i18n } = useTranslation();
@@ -36,6 +50,14 @@ export function SettingsPanel() {
   const [resumeDelay, setResumeDelay] = useState(0.2);
   const [soundFeedback, setSoundFeedback] = useState(true);
   const [showLiveTranscript, setShowLiveTranscript] = useState(true);
+  const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref());
+  const [text, setText] = useState<TextProcessingSettings | null>(null);
+  const [fillers, setFillers] = useState("");
+  const [showFillers, setShowFillers] = useState(false);
+  const [retention, setRetention] = useState<RetentionSettings | null>(null);
+  const [version, setVersion] = useState("");
+  const [update, setUpdate] = useState<UpdateState>("idle");
+  const [updateVersion, setUpdateVersion] = useState("");
 
   useEffect(() => {
     api
@@ -51,6 +73,9 @@ export function SettingsPanel() {
     api.getAudioResumptionDelay().then(setResumeDelay).catch(console.error);
     api.getSoundFeedbackEnabled().then(setSoundFeedback).catch(console.error);
     api.getShowLiveTranscript().then(setShowLiveTranscript).catch(console.error);
+    api.getRetentionSettings().then(setRetention).catch(console.error);
+    getVersion().then(setVersion).catch(console.error);
+    refreshText();
     // La case "Lancer au demarrage" du menu tray modifie le meme reglage.
     const un = listen<boolean>("settings:autostart-changed", (e) => {
       setAutostart(e.payload);
@@ -60,66 +85,51 @@ export function SettingsPanel() {
     };
   }, []);
 
-  async function toggleShowLiveTranscript(next: boolean) {
-    setShowLiveTranscript(next);
+  async function refreshText() {
     try {
-      await api.setShowLiveTranscript(next);
-    } catch (e) {
-      console.error(e);
-      setShowLiveTranscript(!next);
-    }
-  }
-
-  async function changeStyle(next: "mini" | "notch") {
-    setRecorderStyle(next);
-    try {
-      await api.setRecorderStyle(next);
+      const s = await api.getTextProcessingSettings();
+      setText(s);
+      setFillers(s.filler_words.join(", "));
     } catch (e) {
       console.error(e);
     }
   }
 
-  async function changeLanguage(lng: SupportedLanguage) {
-    await i18n.changeLanguage(lng);
-  }
-
-  async function toggleAutostart(next: boolean) {
-    setAutostart(next);
+  // Optimistic toggle helper: flip the UI, persist, roll back on error.
+  async function persist(next: boolean, set: (v: boolean) => void, save: (v: boolean) => Promise<unknown>) {
+    set(next);
     try {
-      await api.setAutostartEnabled(next);
+      await save(next);
     } catch (e) {
       console.error(e);
-      setAutostart(!next);
+      set(!next);
     }
   }
 
-  async function toggleCloseToTray(next: boolean) {
-    setCloseToTray(next);
+  async function toggleText(key: keyof TextProcessingSettings) {
+    if (!text) return;
+    const value = !text[key];
     try {
-      await api.setCloseToTray(next);
+      if (key === "text_formatting_enabled") await api.setTextFormattingEnabled(value);
+      if (key === "remove_filler_words") await api.setRemoveFillerWords(value);
+      if (key === "append_trailing_space") await api.setAppendTrailingSpace(value);
+      if (key === "restore_clipboard_after_paste") await api.setRestoreClipboardAfterPaste(value);
+      setText({ ...text, [key]: value });
     } catch (e) {
       console.error(e);
-      setCloseToTray(!next);
     }
   }
 
-  async function toggleSystemMute(next: boolean) {
-    setSystemMute(next);
+  async function saveFillers() {
+    const words = fillers
+      .split(",")
+      .map((w) => w.trim())
+      .filter((w) => w.length > 0);
     try {
-      await api.setSystemMuteEnabled(next);
+      await api.setFillerWords(words);
+      await refreshText();
     } catch (e) {
       console.error(e);
-      setSystemMute(!next);
-    }
-  }
-
-  async function toggleSoundFeedback(next: boolean) {
-    setSoundFeedback(next);
-    try {
-      await api.setSoundFeedbackEnabled(next);
-    } catch (e) {
-      console.error(e);
-      setSoundFeedback(!next);
     }
   }
 
@@ -133,258 +143,383 @@ export function SettingsPanel() {
     }
   }
 
+  async function changeStyle(next: "mini" | "notch") {
+    setRecorderStyle(next);
+    try {
+      await api.setRecorderStyle(next);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function saveRetention(next: RetentionSettings) {
+    setRetention(next);
+    try {
+      await api.setRetentionSettings(next);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function checkForUpdates() {
+    setUpdate("checking");
+    try {
+      const u = await check();
+      if (u) {
+        setUpdateVersion(u.version);
+        setUpdate("available");
+      } else {
+        setUpdate("current");
+      }
+    } catch (e) {
+      console.warn("updater check:", e);
+      setUpdate("failed");
+    }
+  }
+
+  function changeTheme(pref: ThemePref) {
+    setThemePrefState(pref);
+    setThemePref(pref);
+  }
+
+  // Retention selects: map the stored minutes/days onto presets, keeping a
+  // non-preset value selectable so an existing custom choice is not lost.
+  const dictationValue = !retention?.transcription_cleanup
+    ? "never"
+    : String(retention.transcription_retention_minutes);
+  const dictationOptions = [
+    { value: "never", label: t("settings.retNever") },
+    ...DICTATION_PRESETS.map((d) => ({
+      value: String(d * DAY_MIN),
+      label: t(`settings.retAfter${d}d`),
+    })),
+  ];
+  if (retention?.transcription_cleanup && !dictationOptions.some((o) => o.value === dictationValue)) {
+    dictationOptions.push({
+      value: dictationValue,
+      label: t("settings.retMinutes", { n: retention.transcription_retention_minutes }),
+    });
+  }
+  const audioValue = !retention?.audio_cleanup ? "forever" : String(retention.audio_retention_days);
+  const audioOptions = [
+    { value: "forever", label: t("settings.audioForever") },
+    ...AUDIO_PRESETS.map((d) => ({ value: String(d), label: t(`settings.audio${d}d`) })),
+  ];
+  if (retention?.audio_cleanup && !audioOptions.some((o) => o.value === audioValue)) {
+    audioOptions.push({ value: audioValue, label: t("settings.audioDays", { n: retention.audio_retention_days }) });
+  }
+
+  const link = (label: string, url: string, Icon = ArrowUpRight) => (
+    <Button size="sm" variant="outline" onClick={() => openUrl(url)}>
+      {label}
+      <Icon className="h-3.5 w-3.5" />
+    </Button>
+  );
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.language")}</CardTitle>
-          <CardDescription>{t("settings.languageDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {SUPPORTED_LANGUAGES.map((lng) => {
-              const active = i18n.resolvedLanguage === lng;
-              return (
-                <button
-                  key={lng}
-                  type="button"
-                  onClick={() => changeLanguage(lng)}
-                  className={cn(
-                    "rounded-md border px-3 py-1.5 text-sm transition-colors",
-                    active
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                  )}
-                >
-                  {LANGUAGE_LABELS[lng]}
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.general")}</CardTitle>
-          <CardDescription>{t("settings.generalDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <label className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <p className="text-sm font-medium">{t("settings.autostart")}</p>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.autostartDescription")}
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={autostart}
-              onChange={(e) => toggleAutostart(e.target.checked)}
-              className="h-5 w-5"
-            />
-          </label>
-
-          <label className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <p className="text-sm font-medium">{t("settings.closeToTray")}</p>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.closeToTrayDescription")}
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={closeToTray}
-              onChange={(e) => toggleCloseToTray(e.target.checked)}
-              className="h-5 w-5"
-            />
-          </label>
-        </CardContent>
-      </Card>
-
-      <HotkeyCard />
-
-      <AdditionalShortcutsCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.recording")}</CardTitle>
-          <CardDescription>
-            {t("settings.recordingDescription")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <label className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <p className="text-sm font-medium">
-                {t("settings.soundFeedback")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.soundFeedbackDescription")}
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={soundFeedback}
-              onChange={(e) => toggleSoundFeedback(e.target.checked)}
-              className="h-5 w-5"
-            />
-          </label>
-
-          <label className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <p className="text-sm font-medium">
-                {t("settings.systemMute")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.systemMuteDescription")}
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={systemMute}
-              onChange={(e) => toggleSystemMute(e.target.checked)}
-              className="h-5 w-5"
-            />
-          </label>
-
-          <div
-            className={cn(
-              "rounded-md border p-3",
-              !systemMute && "opacity-50",
-            )}
+    <>
+      <Section title={t("settings.sectionGeneral")}>
+        <Row label={t("settings.appLanguage")} description={t("settings.appLanguageDescription")}>
+          <select
+            aria-label={t("settings.appLanguage")}
+            value={i18n.resolvedLanguage}
+            onChange={(e) => i18n.changeLanguage(e.target.value as SupportedLanguage)}
+            className={selectClass}
           >
-            <p className="text-sm font-medium">
-              {t("settings.resumeDelay")}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.resumeDelayDescription")}
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={10}
-                step={0.1}
-                value={resumeDelay}
+            {SUPPORTED_LANGUAGES.map((lng) => (
+              <option key={lng} value={lng}>
+                {LANGUAGE_LABELS[lng]}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label={t("settings.appearance")} description={t("settings.appearanceDescription")}>
+          <Segmented
+            value={themePref}
+            onChange={changeTheme}
+            options={[
+              { value: "system", label: t("settings.appearanceSystem") },
+              { value: "light", label: t("settings.appearanceLight") },
+              { value: "dark", label: t("settings.appearanceDark") },
+            ]}
+          />
+        </Row>
+        <Row htmlFor="set-autostart" label={t("settings.autostartLabel")} description={t("settings.autostartHint")}>
+          <Switch
+            id="set-autostart"
+            checked={autostart}
+            onChange={(v) => persist(v, setAutostart, api.setAutostartEnabled)}
+          />
+        </Row>
+        <Row htmlFor="set-tray" label={t("settings.trayLabel")} description={t("settings.trayHint")}>
+          <Switch id="set-tray" checked={closeToTray} onChange={(v) => persist(v, setCloseToTray, api.setCloseToTray)} />
+        </Row>
+      </Section>
+
+      <Section title={t("settings.sectionDictating")}>
+        <Row htmlFor="set-sound" label={t("settings.soundsLabel")} description={t("settings.soundsHint")}>
+          <Switch
+            id="set-sound"
+            checked={soundFeedback}
+            onChange={(v) => persist(v, setSoundFeedback, api.setSoundFeedbackEnabled)}
+          />
+        </Row>
+        <Row htmlFor="set-mute" label={t("settings.muteLabel")} description={t("settings.muteHint")}>
+          <Switch
+            id="set-mute"
+            checked={systemMute}
+            onChange={(v) => persist(v, setSystemMute, api.setSystemMuteEnabled)}
+          />
+        </Row>
+        {systemMute && (
+          <Row label={t("settings.resumeLabel")} description={t("settings.resumeHint")}>
+            <input
+              type="number"
+              aria-label={t("settings.resumeLabel")}
+              min={0}
+              max={10}
+              step={0.1}
+              value={resumeDelay}
+              onChange={(e) =>
+                setResumeDelay(Number.isFinite(e.target.valueAsNumber) ? e.target.valueAsNumber : 0)
+              }
+              onBlur={(e) => saveResumeDelay(e.target.valueAsNumber || 0)}
+              className="h-[34px] w-20 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm"
+            />
+            <span className="text-xs text-muted-foreground">{t("common.seconds")}</span>
+          </Row>
+        )}
+        <Row
+          htmlFor="set-live"
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              {t("settings.liveLabel")}
+              <InfoTip>{t("settings.liveTranscriptInfo")}</InfoTip>
+            </span>
+          }
+          description={t("settings.liveHint")}
+        >
+          <Switch
+            id="set-live"
+            checked={showLiveTranscript}
+            onChange={(v) => persist(v, setShowLiveTranscript, api.setShowLiveTranscript)}
+          />
+        </Row>
+        <Row
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              {t("settings.recorderPosLabel")}
+              <InfoTip>{t("settings.recorderStyleInfo")}</InfoTip>
+            </span>
+          }
+          description={t("settings.recorderPosHint")}
+        >
+          <StyleTile
+            active={recorderStyle === "mini"}
+            label={t("settings.recorderStyleMini")}
+            onClick={() => changeStyle("mini")}
+            orientation="bottom"
+          />
+          <StyleTile
+            active={recorderStyle === "notch"}
+            label={t("settings.recorderStyleNotch")}
+            onClick={() => changeStyle("notch")}
+            orientation="top"
+          />
+        </Row>
+      </Section>
+
+      <Section title={t("settings.sectionAfterPaste")}>
+        {text && (
+          <>
+            <Row htmlFor="set-space" label={t("settings.spaceLabel")} description={t("settings.spaceHint")}>
+              <Switch
+                id="set-space"
+                checked={text.append_trailing_space}
+                onChange={() => toggleText("append_trailing_space")}
+              />
+            </Row>
+            <Row htmlFor="set-clip" label={t("settings.clipLabel")} description={t("settings.clipHint")}>
+              <Switch
+                id="set-clip"
+                checked={text.restore_clipboard_after_paste}
+                onChange={() => toggleText("restore_clipboard_after_paste")}
+              />
+            </Row>
+            <Row htmlFor="set-format" label={t("settings.formatLabel")} description={t("settings.formatHint")}>
+              <Switch
+                id="set-format"
+                checked={text.text_formatting_enabled}
+                onChange={() => toggleText("text_formatting_enabled")}
+              />
+            </Row>
+            <Row htmlFor="set-fillers" label={t("settings.fillersLabel")} description={t("settings.fillersHint")}>
+              <Button size="sm" variant="ghost" onClick={() => setShowFillers((s) => !s)}>
+                {showFillers ? t("settings.hideList") : t("settings.editList")}
+              </Button>
+              <Switch
+                id="set-fillers"
+                checked={text.remove_filler_words}
+                onChange={() => toggleText("remove_filler_words")}
+              />
+            </Row>
+            {showFillers && (
+              <Block className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input
+                    aria-label={t("postProcessing.fillersLabel")}
+                    value={fillers}
+                    onChange={(e) => setFillers(e.target.value)}
+                    className="h-9 flex-1 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm"
+                  />
+                  <Button size="sm" variant="outline" onClick={saveFillers}>
+                    {t("postProcessing.save")}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.fillersListHint")} {t("postProcessing.fillersDefault")}
+                </p>
+              </Block>
+            )}
+          </>
+        )}
+      </Section>
+
+      <Section title={t("settings.sectionPrivacy")}>
+        {retention && (
+          <>
+            <Row label={t("settings.deleteDictations")} description={t("settings.deleteDictationsHint")}>
+              <select
+                aria-label={t("settings.deleteDictations")}
+                value={dictationValue}
                 onChange={(e) =>
-                  setResumeDelay(
-                    Number.isFinite(e.target.valueAsNumber)
-                      ? e.target.valueAsNumber
-                      : 0,
+                  saveRetention(
+                    e.target.value === "never"
+                      ? { ...retention, transcription_cleanup: false }
+                      : {
+                          ...retention,
+                          transcription_cleanup: true,
+                          transcription_retention_minutes: Number(e.target.value),
+                        },
                   )
                 }
-                onBlur={(e) => saveResumeDelay(e.target.valueAsNumber || 0)}
-                disabled={!systemMute}
-                className="h-9 w-24 rounded-md border-[1.5px] border-input bg-background px-3 text-sm"
-              />
-              <span className="text-xs text-muted-foreground">
-                {t("common.seconds")}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                className={selectClass}
+              >
+                {dictationOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </Row>
+            <Row
+              label={t("settings.keepAudio")}
+              description={
+                retention.transcription_cleanup ? t("settings.keepAudioFollows") : t("settings.keepAudioHint")
+              }
+              disabled={retention.transcription_cleanup}
+            >
+              <select
+                aria-label={t("settings.keepAudio")}
+                value={audioValue}
+                disabled={retention.transcription_cleanup}
+                onChange={(e) =>
+                  saveRetention(
+                    e.target.value === "forever"
+                      ? { ...retention, audio_cleanup: false }
+                      : { ...retention, audio_cleanup: true, audio_retention_days: Number(e.target.value) },
+                  )
+                }
+                className={selectClass}
+              >
+                {audioOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </Row>
+          </>
+        )}
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base">
-              {t("settings.recorderStyle")}
-            </CardTitle>
-            <InfoTip>{t("settings.recorderStyleInfo")}</InfoTip>
-          </div>
-          <CardDescription>
-            {t("settings.recorderStyleDescription")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <StyleTile
-              active={recorderStyle === "mini"}
-              label={t("settings.recorderStyleMini")}
-              caption={t("settings.recorderStyleMiniCaption")}
-              onClick={() => changeStyle("mini")}
-              orientation="bottom"
-            />
-            <StyleTile
-              active={recorderStyle === "notch"}
-              label={t("settings.recorderStyleNotch")}
-              caption={t("settings.recorderStyleNotchCaption")}
-              onClick={() => changeStyle("notch")}
-              orientation="top"
-            />
-          </div>
+      <PermissionsPanel />
 
-          <label className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium">{t("settings.liveTranscript")}</p>
-                <InfoTip>{t("settings.liveTranscriptInfo")}</InfoTip>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.liveTranscriptDescription")}
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={showLiveTranscript}
-              onChange={(e) => toggleShowLiveTranscript(e.target.checked)}
-              className="h-5 w-5"
-            />
-          </label>
-        </CardContent>
-      </Card>
-    </div>
+      <Section title={t("settings.sectionAbout")}>
+        <Row label={t("settings.versionLabel")} description={t("settings.versionHint", { version })}>
+          {update !== "idle" && (
+            <span
+              className={cn(
+                "flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap",
+                update === "current" && "text-positive",
+                update === "available" && "text-foreground",
+                (update === "checking" || update === "failed") && "text-muted-foreground",
+              )}
+            >
+              {update === "checking" && <Loader2 className="h-[15px] w-[15px] animate-spin" />}
+              {update === "current" && <CircleCheck className="h-[15px] w-[15px]" />}
+              {update === "checking" && t("settings.checking")}
+              {update === "current" && t("settings.upToDate")}
+              {update === "available" && t("settings.updateAvailable", { version: updateVersion })}
+              {update === "failed" && t("settings.checkFailed")}
+            </span>
+          )}
+          <Button size="sm" variant="outline" onClick={checkForUpdates} disabled={update === "checking"}>
+            {t("settings.checkUpdates")}
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </Row>
+        <Row label={t("settings.releaseNotesLabel")} description={t("settings.releaseNotesHint")}>
+          {link(t("settings.releaseNotesButton"), `${REPO_URL}/releases`)}
+        </Row>
+        <Row label={t("settings.feedbackLabel")} description={t("settings.feedbackHint")}>
+          {link(t("settings.feedbackButton"), `${REPO_URL}/issues`, MessageSquare)}
+        </Row>
+        <Row label={t("settings.madeByLabel")} description={t("settings.madeByHint")}>
+          {link(t("settings.madeByButton"), SITE_URL)}
+        </Row>
+        <Row label={t("settings.basedOnLabel")} description={t("settings.basedOnHint")}>
+          {link(t("settings.basedOnButton"), UPSTREAM_URL)}
+        </Row>
+        <Row label={t("settings.licenceLabel")} description={t("settings.licenceHint")}>
+          {link(t("settings.licenceButton"), REPO_URL)}
+        </Row>
+      </Section>
+    </>
   );
 }
 
 function StyleTile({
   active,
   label,
-  caption,
   orientation,
   onClick,
 }: {
   active: boolean;
   label: string;
-  caption: string;
   orientation: "top" | "bottom";
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={active}
       onClick={onClick}
       className={cn(
-        "rounded-lg border p-3 text-left transition-colors",
-        active
-          ? "border-primary bg-primary/5"
-          : "hover:border-accent hover:bg-accent/30",
+        "flex flex-col gap-1.5 rounded-lg border-[1.5px] bg-card p-1.5 text-xs font-medium transition-colors",
+        active ? "border-edge shadow-btn" : "border-border hover:bg-accent",
       )}
     >
-      <div className="flex h-16 items-center justify-center rounded-md border border-dashed bg-muted/40">
+      <span className="relative block h-14 w-[104px] rounded-sm border bg-muted">
         <span
           className={cn(
-            "h-3 w-16 bg-black",
-            orientation === "top"
-              ? "self-start rounded-b-md rounded-t-none"
-              : "self-end rounded-md",
+            "absolute left-1/2 h-2 w-9 -translate-x-1/2 rounded-full bg-[#141416] dark:bg-foreground",
+            orientation === "top" ? "top-0" : "bottom-1.5",
           )}
-          style={
-            orientation === "top"
-              ? { marginTop: 0 }
-              : { marginBottom: 4 }
-          }
         />
-      </div>
-      <p className="mt-2 text-sm font-medium">{label}</p>
-      <p className="text-xs text-muted-foreground">{caption}</p>
+      </span>
+      {label}
     </button>
   );
 }

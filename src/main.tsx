@@ -11,6 +11,7 @@ import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
 import "./index.css";
+import { initTheme } from "./lib/theme";
 
 // Selection de la vue en fonction du label de fenetre :
 // - "main" : app principale
@@ -33,12 +34,10 @@ if (isRecorder) {
   document.body.style.colorScheme = "dark";
 }
 
-// Parlato: the main window follows the Windows light/dark app theme.
+// Parlato: the main window follows the Windows light/dark app theme,
+// unless overridden in Settings > Appearance.
 if (!isRecorder && !isPopover) {
-  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  const applyTheme = () => document.documentElement.classList.toggle("dark", darkQuery.matches);
-  applyTheme();
-  darkQuery.addEventListener("change", applyTheme);
+  initTheme();
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

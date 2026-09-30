@@ -252,3 +252,20 @@ input[type="checkbox"][role="switch"]:checked::before {
   background: var(--primary-foreground);
   transform: translateX(17px);
 }
+
+/* Parlato: numbered section cards, e.g. "[01] Language". Each page
+   container resets the counter; every card header increments it. */
+[data-slot="page"] {
+  counter-reset: section;
+}
+[data-slot="card-header"] {
+  counter-increment: section;
+}
+[data-slot="card-title"]::before {
+  content: "[" counter(section, decimal-leading-zero) "]";
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted-foreground);
+}

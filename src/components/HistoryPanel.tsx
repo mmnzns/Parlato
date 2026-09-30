@@ -24,7 +24,6 @@ import { useCopyButton } from "@/hooks/useCopyButton";
 import { translateError } from "@/lib/translateError";
 import {
   api,
-  type RetentionSettings,
   type TranscriptionRecord,
 } from "@/lib/tauri";
 
@@ -67,20 +66,10 @@ export function HistoryPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
-  const [retention, setRetention] = useState<RetentionSettings>({
-    transcription_cleanup: false,
-    transcription_retention_minutes: 1440,
-    audio_cleanup: false,
-    audio_retention_days: 7,
-  });
   const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     refresh();
-    api
-      .getRetentionSettings()
-      .then(setRetention)
-      .catch(console.error);
 
     const unCreated = listen<string>("history:created", () => refresh());
     const unUpdated = listen<string>("history:updated", () => refresh());
@@ -169,15 +158,6 @@ export function HistoryPanel() {
     const ids = selected.size > 0 ? [...selected] : items.map((i) => i.id);
     try {
       await api.exportHistoryCsv(ids);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function saveRetention(next: RetentionSettings) {
-    setRetention(next);
-    try {
-      await api.setRetentionSettings(next);
     } catch (e) {
       console.error(e);
     }
@@ -417,68 +397,6 @@ export function HistoryPanel() {
           </div>
         )}
 
-        <fieldset className="grid gap-2 rounded-md border p-3 text-xs">
-          <legend className="px-1 font-medium">{t("history.retention")}</legend>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              role="switch"
-              checked={retention.transcription_cleanup}
-              onChange={(e) =>
-                saveRetention({
-                  ...retention,
-                  transcription_cleanup: e.target.checked,
-                })
-              }
-            />
-            {t("history.retentionSentenceA")}
-            <input
-              type="number"
-              min={0}
-              value={retention.transcription_retention_minutes}
-              onChange={(e) =>
-                saveRetention({
-                  ...retention,
-                  transcription_retention_minutes: Number(e.target.value) || 0,
-                })
-              }
-              className="h-7 w-20 rounded-md border-[1.5px] border-input bg-background px-2 text-xs"
-            />
-            {t("history.retentionSentenceB")}
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              role="switch"
-              checked={retention.audio_cleanup}
-              disabled={retention.transcription_cleanup}
-              onChange={(e) =>
-                saveRetention({
-                  ...retention,
-                  audio_cleanup: e.target.checked,
-                })
-              }
-            />
-            {t("history.retentionSentenceC")}
-            <input
-              type="number"
-              min={0}
-              value={retention.audio_retention_days}
-              onChange={(e) =>
-                saveRetention({
-                  ...retention,
-                  audio_retention_days: Number(e.target.value) || 0,
-                })
-              }
-              className="h-7 w-16 rounded-md border-[1.5px] border-input bg-background px-2 text-xs"
-              disabled={retention.transcription_cleanup}
-            />
-            {t("history.retentionSentenceD")}
-          </label>
-          <p className="text-muted-foreground">
-            {t("history.retentionHelp")}
-          </p>
-        </fieldset>
       </CardContent>
     </Card>
   );

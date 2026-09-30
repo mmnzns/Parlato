@@ -10,7 +10,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Check,
+  CircleAlert,
+  CircleCheck,
   ExternalLink,
   Keyboard,
   Languages,
@@ -18,11 +19,10 @@ import {
   Mic,
   Power,
   RefreshCw,
-  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Section } from "@/components/ui/section";
 import { InfoTip } from "@/components/ui/info-tip";
 import { api, type PermissionState, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
@@ -58,11 +58,10 @@ export function PermissionsPanel() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {t("permissions.intro")}
-        </p>
+    <Section
+      title={t("settings.sectionPermissions")}
+      description={t("permissions.intro")}
+      action={
         <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -71,37 +70,35 @@ export function PermissionsPanel() {
           )}
           {t("permissions.refresh")}
         </Button>
-      </div>
-
-      <PermissionCard
+      }
+    >
+      <PermissionRow
         icon={Mic}
         title={t("permissions.microphoneTitle")}
         description={t("permissions.microphoneDescription")}
         state={status?.microphone}
         action={
-          <Button size="sm" onClick={() => api.openPrivacyMicrophone()}>
-            <ExternalLink className="h-3.5 w-3.5" />
+          <Button size="sm" variant="outline" onClick={() => api.openPrivacyMicrophone()}>
             {t("permissions.microphoneAction")}
+            <ExternalLink className="h-3.5 w-3.5" />
           </Button>
         }
         tip={<InfoTip>{t("permissions.microphoneTip")}</InfoTip>}
       />
-
-      <PermissionCard
+      <PermissionRow
         icon={Languages}
         title={t("permissions.ocrTitle")}
         description={t("permissions.ocrDescription")}
         state={status?.ocr}
         action={
-          <Button size="sm" onClick={() => api.openLanguageSettings()}>
-            <ExternalLink className="h-3.5 w-3.5" />
+          <Button size="sm" variant="outline" onClick={() => api.openLanguageSettings()}>
             {t("permissions.ocrAction")}
+            <ExternalLink className="h-3.5 w-3.5" />
           </Button>
         }
         tip={<InfoTip>{t("permissions.ocrTip")}</InfoTip>}
       />
-
-      <PermissionCard
+      <PermissionRow
         icon={Power}
         title={t("permissions.autostartTitle")}
         description={t("permissions.autostartDescription")}
@@ -110,7 +107,7 @@ export function PermissionsPanel() {
           status?.autostart ? (
             <Button
               size="sm"
-              variant={status.autostart.ok ? "ghost" : "default"}
+              variant={status.autostart.ok ? "outline" : "default"}
               onClick={() => toggleAutostart(!status.autostart.ok)}
             >
               {status.autostart.ok
@@ -120,19 +117,18 @@ export function PermissionsPanel() {
           ) : null
         }
       />
-
-      <PermissionCard
+      <PermissionRow
         icon={Keyboard}
         title={t("permissions.hotkeyTitle")}
         description={t("permissions.hotkeyDescription")}
         state={status?.hotkey}
         tip={<InfoTip>{t("permissions.hotkeyTip")}</InfoTip>}
       />
-    </div>
+    </Section>
   );
 }
 
-function PermissionCard({
+function PermissionRow({
   icon: Icon,
   title,
   description,
@@ -150,49 +146,35 @@ function PermissionCard({
   const { t } = useTranslation();
   const ok = state?.ok ?? false;
   return (
-    <Card>
-      <CardContent className="flex items-start gap-3 p-4">
-        <div
-          className={cn(
-            "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-            ok
-              ? "bg-green-500/10 text-green-600 dark:text-green-400"
-              : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-          )}
-        >
-          <Icon className="h-4 w-4" />
+    <div className="flex items-center gap-5 px-5 py-[13px]">
+      <Icon className="h-4 w-4 flex-none text-muted-foreground" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium">{title}</span>
+          {tip}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium">{title}</p>
-            {tip}
-          </div>
-          <p className="text-xs text-muted-foreground">{description}</p>
-          {state && (
-            <p className="mt-1 flex items-center gap-1 text-xs">
-              {ok ? (
-                <Check className="h-3 w-3 text-green-500" />
-              ) : (
-                <X className="h-3 w-3 text-amber-500" />
-              )}
-              <span className={cn(ok ? "text-green-600" : "text-amber-600")}>
-                {t(state.label_key, state.label_args ?? undefined)}
-              </span>
-            </p>
-          )}
-          {state?.hint_key && !state.ok && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {t(state.hint_key)}
-            </p>
-          )}
-          {state?.diagnostic && !state.ok && (
-            <p className="mt-1 text-[10px] text-muted-foreground/70 font-mono break-all">
-              {state.diagnostic}
-            </p>
-          )}
-        </div>
-        {action && <div className="shrink-0">{action}</div>}
-      </CardContent>
-    </Card>
+        <span className="text-[13px] leading-[18px] text-pretty text-muted-foreground">{description}</span>
+        {state?.hint_key && !state.ok && (
+          <span className="text-xs text-muted-foreground">{t(state.hint_key)}</span>
+        )}
+        {state?.diagnostic && !state.ok && (
+          <span className="font-mono text-[10px] break-all text-muted-foreground/70">{state.diagnostic}</span>
+        )}
+      </div>
+      <div className="flex flex-none items-center gap-3">
+        {state && (
+          <span
+            className={cn(
+              "flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap",
+              ok ? "text-positive" : "text-warn-foreground",
+            )}
+          >
+            {ok ? <CircleCheck className="h-[15px] w-[15px]" /> : <CircleAlert className="h-[15px] w-[15px]" />}
+            {t(state.label_key, state.label_args ?? undefined)}
+          </span>
+        )}
+        {action}
+      </div>
+    </div>
   );
 }
