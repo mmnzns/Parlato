@@ -14,20 +14,17 @@ import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, X } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatReleaseDate, installUpdate } from "@/lib/updater";
 
 type Status = "idle" | "checking" | "available" | "downloading" | "installed";
 
 export function UpdateChecker() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [update, setUpdate] = useState<Update | null>(null);
   const [status, setStatus] = useState<Status>("idle");
-  const [progress, setProgress] = useState<{
-    downloaded: number;
-    total: number;
-  } | null>(null);
+  const [pct, setPct] = useState<number | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,20 +58,7 @@ export function UpdateChecker() {
     try {
       setStatus("downloading");
       setError(null);
-      let downloaded = 0;
-      let total = 0;
-      await update.downloadAndInstall((event) => {
-        if (event.event === "Started") {
-          total = event.data.contentLength ?? 0;
-          setProgress({ downloaded: 0, total });
-        } else if (event.event === "Progress") {
-          downloaded += event.data.chunkLength;
-          setProgress({ downloaded, total });
-        } else if (event.event === "Finished") {
-          setStatus("installed");
-        }
-      });
-      await relaunch();
+      await installUpdate(update, setPct, () => setStatus("installed"));
     } catch (e) {
       console.error("updater install:", e);
       setError(String(e));
@@ -84,10 +68,7 @@ export function UpdateChecker() {
 
   if (dismissed || status === "idle" || status === "checking") return null;
 
-  const pct =
-    progress && progress.total > 0
-      ? Math.round((progress.downloaded / progress.total) * 100)
-      : null;
+  const releaseDate = formatReleaseDate(update?.date, i18n.resolvedLanguage ?? "en");
 
   return (
     <div
@@ -100,10 +81,8 @@ export function UpdateChecker() {
         {status === "available" && update && (
           <span>
             {t("updater.newVersion", { version: update.version })}
-            {update.date && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                ({update.date})
-              </span>
+            {releaseDate && (
+              <span className="ml-2 text-xs text-muted-foreground">({releaseDate})</span>
             )}
           </span>
         )}
