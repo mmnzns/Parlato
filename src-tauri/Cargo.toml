@@ -19,6 +19,8 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-store = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
+# Parlato : notification Windows "Parlato tourne toujours" (fermeture vers le tray).
+tauri-plugin-notification = "2"
 tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"

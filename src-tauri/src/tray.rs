@@ -347,6 +347,22 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+/// Parlato: one-time Windows notification after the first close-to-tray,
+/// so closing the window does not look like quitting.
+pub fn notify_still_running(app: &AppHandle) {
+    use tauri_plugin_notification::NotificationExt;
+    let lang = settings::ui_language(app);
+    if let Err(e) = app
+        .notification()
+        .builder()
+        .title(tr(&lang, "stillRunningTitle"))
+        .body(tr(&lang, "stillRunningBody"))
+        .show()
+    {
+        warn!(error = %e, "tray: still-running notification failed");
+    }
+}
+
 /// Native menu labels. Mirrors the `tray.*` keys of the frontend locales
 /// (en / fr / es) ; the native menu cannot use react-i18next.
 fn tr(lang: &str, key: &str) -> String {
@@ -405,6 +421,16 @@ fn tr(lang: &str, key: &str) -> String {
             "Buscar actualizaciones",
         ],
         "quit" => ["Quit Parlato", "Quitter Parlato", "Salir de Parlato"],
+        "stillRunningTitle" => [
+            "Parlato is still running",
+            "Parlato tourne toujours",
+            "Parlato sigue funcionando",
+        ],
+        "stillRunningBody" => [
+            "Dictation keeps working. Parlato's icon is near the clock: click it to open, right-click to quit.",
+            "La dict\u{e9}e reste active. L'ic\u{f4}ne de Parlato est pr\u{e8}s de l'horloge : clic pour ouvrir, clic droit pour quitter.",
+            "El dictado sigue activo. El icono de Parlato est\u{e1} junto al reloj: clic para abrir, clic derecho para salir.",
+        ],
         _ => [key, key, key],
     };
     row[col].to_string()

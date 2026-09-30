@@ -219,6 +219,26 @@ pub fn set_close_to_tray(app: AppHandle, enabled: bool) -> Result<(), String> {
     store.save().map_err(|e| e.to_string())
 }
 
+const KEY_TRAY_NOTICE_SHOWN: &str = "close_to_tray_notice_shown";
+
+/// Parlato: true the first time the window is hidden to the tray, false
+/// afterwards. Marks the notice as shown so it appears only once.
+pub fn take_first_tray_hide(app: &AppHandle) -> bool {
+    let Ok(store) = app.store(STORE_FILE) else {
+        return false;
+    };
+    if store
+        .get(KEY_TRAY_NOTICE_SHOWN)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    store.set(KEY_TRAY_NOTICE_SHOWN, serde_json::Value::Bool(true));
+    let _ = store.save();
+    true
+}
+
 // -- Dictation language (whisper / cloud / parakeet) -----------------------
 
 /// Lit la langue de dictee active. "auto" = auto-detect, code ISO sinon.

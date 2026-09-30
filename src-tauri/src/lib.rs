@@ -174,6 +174,7 @@ pub fn run() {
         // resoudre AppLocalData.
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -284,6 +285,11 @@ pub fn run() {
                 if close_to_tray_enabled(app) {
                     api.prevent_close();
                     let _ = window.hide();
+                    // Parlato: the first time only, tell the user the app
+                    // is still running in the tray.
+                    if commands::settings::take_first_tray_hide(app) {
+                        tray::notify_still_running(app);
+                    }
                 }
             }
         })
