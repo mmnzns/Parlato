@@ -16,15 +16,9 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MinusCircle, RotateCcw } from "lucide-react";
+import { Plus, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Block, RadioRow, Row, Section, selectClass } from "@/components/ui/section";
 import { formatCombo, HotkeyRecorder } from "@/components/HotkeyRecorder";
 import {
   api,
@@ -48,6 +42,14 @@ const MODIFIER_OPTIONS: HotkeyOptionId[] = [
 ];
 
 const MODES: HotkeyMode[] = ["toggle", "pushToTalk", "hybrid"];
+
+// Parlato: the Workbench design lists the modes as a radio list, most
+// common first, with plain-language titles.
+const MODE_ROWS: { mode: HotkeyMode; title: string; desc: string }[] = [
+  { mode: "pushToTalk", title: "voice.holdTitle", desc: "voice.holdDesc" },
+  { mode: "toggle", title: "voice.toggleTitle", desc: "voice.toggleDesc" },
+  { mode: "hybrid", title: "voice.hybridTitle", desc: "voice.hybridDesc" },
+];
 
 type SelectValue =
   | { kind: "none" }
@@ -181,167 +183,140 @@ export function HotkeyCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("hotkey.cardTitle")}</CardTitle>
-        <CardDescription>{t("hotkey.cardDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!config ? (
-          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-        ) : (
-          <>
-            <SlotEditor
-              label={t("hotkey.primary")}
+    <Section
+      title={t("voice.shortcutTitle")}
+      description={t("voice.shortcutDescription")}
+      action={
+        <Button size="sm" variant="ghost" onClick={reset} disabled={!config}>
+          <RotateCcw className="h-3.5 w-3.5" />
+          {t("hotkey.resetDefaults")}
+        </Button>
+      }
+    >
+      {!config ? (
+        <Block className="text-sm text-muted-foreground">{t("common.loading")}</Block>
+      ) : (
+        <>
+          <Row label={t("voice.keyLabel")} description={t("voice.keyHint")}>
+            <TriggerPicker
               slot={config.primary}
-              onTriggerSelect={(v) => onTriggerChange("primary", v)}
-              onModeSelect={(m) => updateSlot("primary", { mode: m })}
+              onSelect={(v) => onTriggerChange("primary", v)}
               onEditCombo={() => setRecorderTarget("primary")}
             />
+          </Row>
 
-            {showSecondary && (
-              <div className="relative">
-                <SlotEditor
-                  label={t("hotkey.secondary")}
+          <div role="radiogroup" aria-label={t("voice.shortcutTitle")} className="flex flex-col divide-y">
+            {MODE_ROWS.map((r) => (
+              <RadioRow
+                key={r.mode}
+                selected={config.primary.mode === r.mode}
+                onSelect={() => updateSlot("primary", { mode: r.mode })}
+                disabled={config.primary.trigger.kind === "none"}
+                title={t(r.title)}
+                description={t(r.desc)}
+              />
+            ))}
+          </div>
+
+          <Row label={t("voice.secondLabel")} description={t("voice.secondHint")}>
+            {showSecondary ? (
+              <>
+                <TriggerPicker
                   slot={config.secondary}
-                  onTriggerSelect={(v) => onTriggerChange("secondary", v)}
-                  onModeSelect={(m) => updateSlot("secondary", { mode: m })}
+                  onSelect={(v) => onTriggerChange("secondary", v)}
                   onEditCombo={() => setRecorderTarget("secondary")}
                 />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute right-0 top-0 text-muted-foreground"
-                  onClick={removeSecondary}
-                  title={t("hotkey.removeSecondary")}
+                <select
+                  aria-label={t("voice.worksAs")}
+                  value={config.secondary.mode}
+                  onChange={(e) => updateSlot("secondary", { mode: e.target.value as HotkeyMode })}
+                  disabled={config.secondary.trigger.kind === "none"}
+                  className={cn(selectClass, "min-w-0")}
                 >
-                  <MinusCircle className="h-4 w-4" />
+                  {MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {t(`hotkey.modes.${m}`)}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={removeSecondary}
+                  title={t("voice.remove")}
+                  aria-label={t("voice.remove")}
+                >
+                  <X className="h-4 w-4" />
                 </Button>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {!showSecondary && (
-                <Button size="sm" variant="outline" onClick={addSecondary}>
-                  {t("hotkey.addSecondary")}
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={reset}>
-                <RotateCcw className="h-3.5 w-3.5" />
-                {t("hotkey.resetDefaults")}
+              </>
+            ) : (
+              <Button size="sm" variant="outline" onClick={addSecondary}>
+                <Plus className="h-3.5 w-3.5" />
+                {t("voice.add")}
               </Button>
-            </div>
-
-            {config.primary.trigger.kind === "modifier" &&
-              config.primary.trigger.option === "rightAlt" && (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  {t("hotkey.altGrTip")}
-                </p>
-              )}
-
-            {error && (
-              <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
-                {error}
-              </p>
             )}
-          </>
-        )}
-      </CardContent>
+          </Row>
+
+          {(config.primary.trigger.kind === "modifier" && config.primary.trigger.option === "rightAlt") ||
+          error ? (
+            <Block className="flex flex-col gap-2 py-3">
+              {config.primary.trigger.kind === "modifier" && config.primary.trigger.option === "rightAlt" && (
+                <p className="text-xs leading-relaxed text-muted-foreground">{t("hotkey.altGrTip")}</p>
+              )}
+              {error && <p className="rounded-sm bg-destructive/10 p-2 text-xs text-destructive">{error}</p>}
+            </Block>
+          ) : null}
+        </>
+      )}
 
       <HotkeyRecorder
         open={recorderTarget !== null}
         onCancel={() => setRecorderTarget(null)}
         onCapture={onComboCaptured}
       />
-    </Card>
+    </Section>
   );
 }
 
-function SlotEditor({
-  label,
+/** Key select, plus the recorded combo as an editable chip when "Custom" is used. */
+function TriggerPicker({
   slot,
-  onTriggerSelect,
-  onModeSelect,
+  onSelect,
   onEditCombo,
 }: {
-  label: string;
   slot: HotkeySlotConfig;
-  onTriggerSelect: (v: string) => void;
-  onModeSelect: (m: HotkeyMode) => void;
+  onSelect: (v: string) => void;
   onEditCombo: () => void;
 }) {
   const { t } = useTranslation();
-  const value = selectValueOf(slot.trigger);
-  const valueStr = selectValueToString(value);
+  const valueStr = selectValueToString(selectValueOf(slot.trigger));
 
   return (
-    <div className="rounded-md border p-3">
-      <p className="mb-2 text-sm font-medium">{label}</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr,1fr,auto]">
-        <select
-          value={valueStr}
-          onChange={(e) => onTriggerSelect(e.target.value)}
-          className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
+    <>
+      {slot.trigger.kind === "combo" && (
+        <button
+          type="button"
+          onClick={onEditCombo}
+          title={t("hotkey.editCombo")}
+          className="flex h-[34px] items-center rounded-sm border-[1.5px] border-edge bg-card px-2.5 font-mono text-xs font-semibold shadow-btn transition-colors hover:bg-muted"
         >
-          <option value="none">{t("hotkey.options.none")}</option>
-          {MODIFIER_OPTIONS.map((opt) => (
-            <option key={opt} value={`mod:${opt}`}>
-              {t(`hotkey.options.${opt}`)}
-            </option>
-          ))}
-          <option value="custom">{t("hotkey.options.custom")}</option>
-        </select>
-
-        <select
-          value={slot.mode}
-          onChange={(e) => onModeSelect(e.target.value as HotkeyMode)}
-          disabled={slot.trigger.kind === "none"}
-          className={cn(
-            "h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm",
-            slot.trigger.kind === "none" && "opacity-50",
-          )}
-        >
-          {MODES.map((m) => (
-            <option key={m} value={m}>
-              {t(`hotkey.modes.${m}`)}
-            </option>
-          ))}
-        </select>
-
-        {slot.trigger.kind === "combo" && (
-          <button
-            type="button"
-            onClick={onEditCombo}
-            title={t("hotkey.editCombo")}
-            className="flex h-9 items-center rounded-md border bg-muted/30 px-2 font-mono text-xs transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {formatCombo(slot.trigger)}
-          </button>
-        )}
-        {slot.trigger.kind === "modifier" && (
-          <span className="flex h-9 items-center px-2 text-xs text-muted-foreground">
-            {`VK ${vkOf(slot.trigger.option) ?? "-"}`}
-          </span>
-        )}
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-        {t(`hotkey.modeHints.${slot.mode}`)}
-      </p>
-    </div>
+          {formatCombo(slot.trigger)}
+        </button>
+      )}
+      <select
+        aria-label={t("voice.keyLabel")}
+        value={valueStr}
+        onChange={(e) => onSelect(e.target.value)}
+        className={selectClass}
+      >
+        <option value="none">{t("hotkey.options.none")}</option>
+        {MODIFIER_OPTIONS.map((opt) => (
+          <option key={opt} value={`mod:${opt}`}>
+            {t(`hotkey.options.${opt}`)}
+          </option>
+        ))}
+        <option value="custom">{t("hotkey.options.custom")}</option>
+      </select>
+    </>
   );
-}
-
-function vkOf(option: HotkeyOptionId): string | null {
-  const TABLE: Record<HotkeyOptionId, number | null> = {
-    none: null,
-    rightAlt: 0xa5,
-    leftAlt: 0xa4,
-    rightCtrl: 0xa3,
-    leftCtrl: 0xa2,
-    rightWin: 0x5c,
-    rightShift: 0xa1,
-    leftShift: 0xa0,
-  };
-  const n = TABLE[option];
-  return n === null ? null : `0x${n.toString(16).toUpperCase()}`;
 }

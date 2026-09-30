@@ -859,5 +859,34 @@
   "cloudTimeout": {
     "title": "Cloud transcription timeout",
     "description": "Maximum time to wait for a cloud provider to return a transcription. Default 30 seconds."
+  },
+  "voice": {
+    "micTitle": "Microphone",
+    "micDescription": "Which microphone Parlato listens to.",
+    "sameAsWindows": "Same as Windows",
+    "sameAsWindowsNote": "Follows your Windows default. Switches when you plug in a headset.",
+    "windowsDefault": "Current Windows default",
+    "noDevices": "No microphone found. Plug one in, then refresh.",
+    "levelLabel": "Level",
+    "test": "Test microphone",
+    "stopTest": "Stop test",
+    "hearing": "We can hear you",
+    "quiet": "Too quiet",
+    "levelHint": "Speak normally. The bar should reach about halfway. Too quiet? Move closer or pick another microphone.",
+    "shortcutTitle": "Dictation shortcut",
+    "shortcutDescription": "Your main key. The Default power mode uses it, and other power modes can add their own.",
+    "keyLabel": "Key",
+    "keyHint": "Change it any time. Custom lets you record a key combination.",
+    "holdTitle": "Hold to talk",
+    "holdDesc": "Hold the key while you speak, let go to paste. Best for quick notes.",
+    "toggleTitle": "Tap to start, tap to stop",
+    "toggleDesc": "Hands-free, for longer dictations.",
+    "hybridTitle": "Both",
+    "hybridDesc": "A quick tap goes hands-free, holding works like hold to talk.",
+    "secondLabel": "Second shortcut",
+    "secondHint": "An extra key that also starts dictation.",
+    "add": "Add",
+    "remove": "Remove",
+    "worksAs": "Works as"
   }
 }

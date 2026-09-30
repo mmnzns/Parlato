@@ -859,5 +859,34 @@
   "cloudTimeout": {
     "title": "Tiempo de espera de transcripcion cloud",
     "description": "Tiempo maximo de espera de la respuesta del proveedor cloud. 30 segundos por defecto."
+  },
+  "voice": {
+    "micTitle": "Microfono",
+    "micDescription": "El microfono que escucha Parlato.",
+    "sameAsWindows": "Igual que Windows",
+    "sameAsWindowsNote": "Sigue el microfono predeterminado de Windows. Cambia cuando conectas unos auriculares.",
+    "windowsDefault": "Predeterminado actual de Windows",
+    "noDevices": "No se detecto ningun microfono. Conecta uno y actualiza.",
+    "levelLabel": "Nivel",
+    "test": "Probar microfono",
+    "stopTest": "Detener prueba",
+    "hearing": "Te oimos",
+    "quiet": "Demasiado bajo",
+    "levelHint": "Habla con normalidad. La barra deberia llegar mas o menos a la mitad. Demasiado bajo? Acercate o elige otro microfono.",
+    "shortcutTitle": "Atajo de dictado",
+    "shortcutDescription": "Tu tecla principal. El modo Power predeterminado la usa, y los demas modos pueden anadir la suya.",
+    "keyLabel": "Tecla",
+    "keyHint": "Cambiala cuando quieras. Personalizado te deja grabar una combinacion.",
+    "holdTitle": "Mantener para hablar",
+    "holdDesc": "Manten la tecla mientras hablas y sueltala para pegar. Ideal para notas rapidas.",
+    "toggleTitle": "Pulsar para empezar, pulsar para parar",
+    "toggleDesc": "Manos libres, para dictados largos.",
+    "hybridTitle": "Ambos",
+    "hybridDesc": "Una pulsacion corta activa manos libres, mantenerla funciona como mantener para hablar.",
+    "secondLabel": "Segundo atajo",
+    "secondHint": "Una tecla extra que tambien inicia el dictado.",
+    "add": "Anadir",
+    "remove": "Quitar",
+    "worksAs": "Funciona como"
   }
 }

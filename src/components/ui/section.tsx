@@ -143,3 +143,50 @@ export function Segmented<T extends string>({
 
 export const selectClass =
   "h-[34px] min-w-[170px] rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
+
+/** One option in a radio list inside a Section: dot, title, description. */
+export function RadioRow({
+  selected,
+  onSelect,
+  title,
+  description,
+  trailing,
+  disabled,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  trailing?: React.ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      disabled={disabled}
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-start gap-3.5 px-5 py-[13px] text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        selected ? "bg-accent" : "hover:bg-muted/60",
+      )}
+    >
+      <span
+        className={cn(
+          "mt-0.5 flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full border-[1.5px] bg-card",
+          selected ? "border-foreground" : "border-input",
+        )}
+      >
+        <span className={cn("h-2 w-2 rounded-full bg-foreground", !selected && "opacity-0")} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="font-medium">{title}</span>
+        {description && (
+          <span className="text-[13px] leading-[18px] text-pretty text-muted-foreground">{description}</span>
+        )}
+      </span>
+      {trailing && <span className="flex-none self-center">{trailing}</span>}
+    </button>
+  );
+}

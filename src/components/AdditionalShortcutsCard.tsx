@@ -16,14 +16,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { InfoTip } from "@/components/ui/info-tip";
+import { Block, Row, Section } from "@/components/ui/section";
 import { formatCombo, HotkeyRecorder } from "@/components/HotkeyRecorder";
 import {
   api,
@@ -36,7 +29,13 @@ import { cn } from "@/lib/utils";
 
 type ActionKey = keyof UtilityShortcuts;
 
+// Parlato: cancel first, it is the one most people need.
 const ROWS: Array<{ key: ActionKey; labelKey: string; hintKey?: string }> = [
+  {
+    key: "cancel_recording",
+    labelKey: "hotkey.additional.cancelRecording",
+    hintKey: "hotkey.additional.cancelHint",
+  },
   {
     key: "copy_last_transcription",
     labelKey: "hotkey.additional.copyLast",
@@ -53,11 +52,6 @@ const ROWS: Array<{ key: ActionKey; labelKey: string; hintKey?: string }> = [
     hintKey: "hotkey.additional.retryLastHint",
   },
   { key: "open_history", labelKey: "hotkey.additional.openHistory" },
-  {
-    key: "cancel_recording",
-    labelKey: "hotkey.additional.cancelRecording",
-    hintKey: "hotkey.additional.cancelHint",
-  },
 ];
 
 export function triggerLabel(
@@ -112,79 +106,61 @@ export function AdditionalShortcutsCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          {t("hotkey.additional.cardTitle")}
-        </CardTitle>
-        <CardDescription>{t("hotkey.additional.cardDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {!config ? (
-          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-        ) : (
-          ROWS.map((row) => {
-            const trigger = config.actions[row.key];
-            const isCancel = row.key === "cancel_recording";
-            const label = triggerLabel(t, trigger);
-            return (
-              <div
-                key={row.key}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+    <Section title={t("hotkey.additional.cardTitle")} description={t("hotkey.additional.cardDescription")}>
+      {!config ? (
+        <Block className="text-sm text-muted-foreground">{t("common.loading")}</Block>
+      ) : (
+        ROWS.map((row) => {
+          const trigger = config.actions[row.key];
+          const isCancel = row.key === "cancel_recording";
+          const label = triggerLabel(t, trigger);
+          return (
+            <Row key={row.key} label={t(row.labelKey)} description={row.hintKey ? t(row.hintKey) : undefined}>
+              <button
+                type="button"
+                onClick={() => setTarget(row.key)}
+                title={t("hotkey.additional.record")}
+                className={cn(
+                  "flex h-[34px] min-w-[112px] items-center justify-center rounded-sm border-[1.5px] px-2.5 font-mono text-xs font-semibold transition-colors hover:bg-muted",
+                  label ? "border-edge bg-card shadow-btn" : "border-dashed border-input text-muted-foreground",
+                )}
               >
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium">{t(row.labelKey)}</p>
-                  {row.hintKey && <InfoTip>{t(row.hintKey)}</InfoTip>}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setTarget(row.key)}
-                    title={t("hotkey.additional.record")}
-                    className={cn(
-                      "flex h-8 min-w-[104px] items-center justify-center rounded-md border px-2 font-mono text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      label ? "bg-muted/30" : "text-muted-foreground",
-                    )}
-                  >
-                    {label ??
-                      (isCancel
-                        ? t("hotkey.additional.cancelDefault")
-                        : t("hotkey.additional.notSet"))}
-                  </button>
-                  {isCancel ? (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-muted-foreground"
-                      onClick={resetCancel}
-                      title={t("hotkey.additional.reset")}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-muted-foreground"
-                      disabled={trigger.kind === "none"}
-                      onClick={() => commitAction(row.key, { kind: "none" })}
-                      title={t("hotkey.additional.clear")}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
+                {label ?? (isCancel ? t("hotkey.additional.cancelDefault") : t("hotkey.additional.notSet"))}
+              </button>
+              {isCancel ? (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={resetCancel}
+                  title={t("hotkey.additional.reset")}
+                  aria-label={t("hotkey.additional.reset")}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              ) : (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  disabled={trigger.kind === "none"}
+                  onClick={() => commitAction(row.key, { kind: "none" })}
+                  title={t("hotkey.additional.clear")}
+                  aria-label={t("hotkey.additional.clear")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </Row>
+          );
+        })
+      )}
 
-        {error && (
-          <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
-            {error}
-          </p>
-        )}
-      </CardContent>
+      {error && (
+        <Block className="py-3">
+          <p className="rounded-sm bg-destructive/10 p-2 text-xs text-destructive">{error}</p>
+        </Block>
+      )}
 
       <HotkeyRecorder
         open={target !== null}
@@ -195,6 +171,6 @@ export function AdditionalShortcutsCard() {
           if (key) commitAction(key, trigger);
         }}
       />
-    </Card>
+    </Section>
   );
 }

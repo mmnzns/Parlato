@@ -22,6 +22,7 @@ import { PermissionsPanel } from "@/components/PermissionsPanel";
 import { PowerModePanel } from "@/components/PowerModePanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { RecorderPanel } from "@/components/RecorderPanel";
+import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { TranscribePanel } from "@/components/TranscribePanel";
 import { UpdateChecker } from "@/components/UpdateChecker";
 import { VadPanel } from "@/components/VadPanel";
@@ -206,7 +207,7 @@ function App() {
                 title={t("hero.audioTitle")}
                 description={t("hero.audioDescription")}
               />
-              <RecorderPanel />
+              <MicrophonePanel />
               {/* Parlato: shortcuts moved here from Settings (design IA). */}
               <HotkeyCard />
               <AdditionalShortcutsCard />

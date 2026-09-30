@@ -859,5 +859,34 @@
   "cloudTimeout": {
     "title": "Delai de transcription cloud",
     "description": "Temps maximum d'attente d'une reponse du provider cloud. 30 secondes par defaut."
+  },
+  "voice": {
+    "micTitle": "Micro",
+    "micDescription": "Le micro qu'ecoute Parlato.",
+    "sameAsWindows": "Comme Windows",
+    "sameAsWindowsNote": "Suit le micro par defaut de Windows. Change quand vous branchez un casque.",
+    "windowsDefault": "Micro par defaut de Windows",
+    "noDevices": "Aucun micro detecte. Branchez-en un, puis actualisez.",
+    "levelLabel": "Niveau",
+    "test": "Tester le micro",
+    "stopTest": "Arreter le test",
+    "hearing": "On vous entend",
+    "quiet": "Trop faible",
+    "levelHint": "Parlez normalement. La barre doit atteindre environ la moitie. Trop faible ? Rapprochez-vous ou choisissez un autre micro.",
+    "shortcutTitle": "Raccourci de dictee",
+    "shortcutDescription": "Votre touche principale. Le mode Power par defaut l'utilise, et les autres modes peuvent ajouter les leurs.",
+    "keyLabel": "Touche",
+    "keyHint": "Modifiable a tout moment. Personnalise permet d'enregistrer une combinaison.",
+    "holdTitle": "Maintenir pour parler",
+    "holdDesc": "Maintenez la touche pendant que vous parlez, relachez pour coller. Ideal pour les notes rapides.",
+    "toggleTitle": "Appuyer pour demarrer, appuyer pour arreter",
+    "toggleDesc": "Mains libres, pour les longues dictees.",
+    "hybridTitle": "Les deux",
+    "hybridDesc": "Un appui bref passe en mains libres, un appui long fonctionne comme maintenir pour parler.",
+    "secondLabel": "Deuxieme raccourci",
+    "secondHint": "Une touche supplementaire qui lance aussi la dictee.",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "worksAs": "Fonctionne en"
   }
 }
