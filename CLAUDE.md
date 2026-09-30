@@ -95,8 +95,24 @@ shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
 non-alphanumerics replaced by `_`), falling back to the catalog text. When
 porting a new model from upstream, add its en/fr/es `modelText` entry too.
 
+**Do not bump `llama-cpp-2` on its own.** `whisper-rs-sys` and
+`llama-cpp-sys-2` each bundle their own copy of ggml, linked together with
+`/FORCE:MULTIPLE` (`src-tauri/.cargo/config.toml`), so only one copy of each
+symbol survives. Tested 2026-09-29: llama-cpp-2 0.1.157 makes every GGUF abort
+in ggml (`GGML_ASSERT ... FLASH_ATTN_EXT`); 0.1.143 works. Newer LLM families
+(Qwen 3.5, Gemma 4) need a newer llama.cpp and so wait on a matching
+whisper.cpp / ggml. Always run the ignored smoke tests
+(`llamacpp_smoke`, `parakeet_smoke`) against real model files after touching
+an inference crate. Parakeet uses ONNX Runtime and is not affected.
+
+**Every downloadable model is credited in `THIRD_PARTY_NOTICES.md`.** Adding a
+model means adding its author, licence and any required notice there (and the
+licence text under `licenses/` if the licence asks for a copy). Parlato never
+bundles or hosts model files; they download from the original host. Pin
+third-party repositories to a commit (`revision` in the Parakeet catalog).
+
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-1072 keys each and exactly in sync. Any user-facing string means editing all three.
+1091 keys each and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
 are written without accents throughout (upstream convention); match it unless the
 whole set is converted at once.
