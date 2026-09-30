@@ -278,7 +278,7 @@
     "audio90d": "90 dias",
     "audioDays": "{{n}} dias",
     "versionLabel": "Version",
-    "versionHint": "Parlato {{version}} para Windows. Las actualizaciones se instalan la proxima vez que se inicie Parlato.",
+    "versionHint": "Parlato {{version}} para Windows. Instalar una actualizacion reinicia Parlato.",
     "checkUpdates": "Buscar actualizaciones",
     "upToDate": "Actualizado",
     "checking": "Buscando...",
@@ -302,7 +302,8 @@
     "modelLicencesLabel": "Licencias de los modelos",
     "modelLicencesHint": "Los modelos de voz y de IA son creados por otras empresas y tienen sus propias licencias. Parakeet Unified tiene licencia de NVIDIA Corporation bajo la NVIDIA Open Model License.",
     "modelLicencesButton": "Ver avisos",
-    "updateNow": "Actualizar ahora"
+    "updateNow": "Actualizar ahora",
+    "installFailed": "No se pudo instalar"
   },
   "onboarding": {
     "welcome": {

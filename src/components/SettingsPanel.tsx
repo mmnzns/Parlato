@@ -16,8 +16,15 @@ import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { check } from "@tauri-apps/plugin-updater";
-import { ArrowUpRight, CircleCheck, Loader2, MessageSquare, RefreshCw } from "lucide-react";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import {
+  ArrowUpRight,
+  CircleCheck,
+  Download,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Block, Row, Section, Segmented, Switch, selectClass } from "@/components/ui/section";
@@ -30,6 +37,7 @@ import {
 import { api, type RetentionSettings, type TextProcessingSettings } from "@/lib/tauri";
 import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { installUpdate } from "@/lib/updater";
 
 const REPO_URL = "https://github.com/mmnzns/Parlato";
 // Credit the upstream author (profile, not just the repo).
@@ -40,7 +48,14 @@ const DAY_MIN = 24 * 60;
 const DICTATION_PRESETS = [1, 7, 30, 90]; // days
 const AUDIO_PRESETS = [1, 7, 30, 90]; // days
 
-type UpdateState = "idle" | "checking" | "current" | "available" | "failed";
+type UpdateState =
+  | "idle"
+  | "checking"
+  | "current"
+  | "available"
+  | "downloading"
+  | "failed"
+  | "installFailed";
 
 export function SettingsPanel() {
   const { t, i18n } = useTranslation();
@@ -59,6 +74,8 @@ export function SettingsPanel() {
   const [version, setVersion] = useState("");
   const [update, setUpdate] = useState<UpdateState>("idle");
   const [updateVersion, setUpdateVersion] = useState("");
+  const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
+  const [updatePct, setUpdatePct] = useState<number | null>(null);
 
   useEffect(() => {
     api
@@ -168,6 +185,7 @@ export function SettingsPanel() {
       const u = await check();
       if (u) {
         setUpdateVersion(u.version);
+        setPendingUpdate(u);
         setUpdate("available");
       } else {
         setUpdate("current");
@@ -175,6 +193,18 @@ export function SettingsPanel() {
     } catch (e) {
       console.warn("updater check:", e);
       setUpdate("failed");
+    }
+  }
+
+  // Parlato : "Mettre a jour" telecharge, installe et redemarre, comme le bandeau.
+  async function installNow() {
+    if (!pendingUpdate) return;
+    setUpdate("downloading");
+    try {
+      await installUpdate(pendingUpdate, setUpdatePct);
+    } catch (e) {
+      console.error("updater install:", e);
+      setUpdate("installFailed");
     }
   }
 
@@ -454,22 +484,27 @@ export function SettingsPanel() {
                 "flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap",
                 update === "current" && "text-positive",
                 update === "available" && "text-foreground",
-                (update === "checking" || update === "failed") && "text-muted-foreground",
+                update !== "current" && update !== "available" && "text-muted-foreground",
               )}
             >
-              {update === "checking" && <Loader2 className="h-[15px] w-[15px] animate-spin" />}
+              {(update === "checking" || update === "downloading") && (
+                <Loader2 className="h-[15px] w-[15px] animate-spin" />
+              )}
               {update === "current" && <CircleCheck className="h-[15px] w-[15px]" />}
               {update === "checking" && t("settings.checking")}
               {update === "current" && t("settings.upToDate")}
               {update === "available" && t("settings.updateAvailable", { version: updateVersion })}
               {update === "failed" && t("settings.checkFailed")}
+              {update === "downloading" &&
+                t("updater.downloading", { percent: updatePct !== null ? ` (${updatePct}%)` : "" })}
+              {update === "installFailed" && t("settings.installFailed")}
             </span>
           )}
-          {update === "available" ? (
-            // Parlato : une mise a jour existe, on envoie vers la page des versions.
-            <Button size="sm" onClick={() => openUrl(`${REPO_URL}/releases`)}>
+          {update === "available" || update === "downloading" || update === "installFailed" ? (
+            // Parlato : une mise a jour existe, on l'installe directement.
+            <Button size="sm" onClick={installNow} disabled={update === "downloading"}>
               {t("settings.updateNow")}
-              <ArrowUpRight className="h-3.5 w-3.5" />
+              <Download className="h-3.5 w-3.5" />
             </Button>
           ) : (
             <Button size="sm" variant="outline" onClick={checkForUpdates} disabled={update === "checking"}>

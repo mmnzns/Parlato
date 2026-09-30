@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Settings: when an update is found, "Check for updates" turns into
-  "Update now", which opens the Parlato releases page.
+  "Update now", which downloads and installs it and restarts Parlato,
+  like the update banner does.
+
+### Fixed
+- The update banner shows the release date in a readable form
+  ("Sep 30, 2026") instead of a raw timestamp.
 
 ## [0.8.0] - 2026-09-30
 

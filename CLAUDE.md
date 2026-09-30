@@ -112,7 +112,7 @@ bundles or hosts model files; they download from the original host. Pin
 third-party repositories to a commit (`revision` in the Parakeet catalog).
 
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-1119 keys each and exactly in sync. Any user-facing string means editing all three.
+1120 keys each and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
 are written without accents throughout (upstream convention); match it unless the
 whole set is converted at once.
