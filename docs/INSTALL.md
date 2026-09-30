@@ -194,18 +194,65 @@ The log records timings and errors, never what you dictate.
 
 ## Removing Parlato
 
-**Windows:** Settings > Apps > Installed apps > **Parlato** > Uninstall. The
-uninstaller asks whether to also delete your settings, history, downloaded
-models and logs; choose **No** to keep them for a later reinstall. Account
-keys for online services stay in Windows Credential Manager (Control Panel >
-Credential Manager) until you delete them there.
+Parlato keeps its speech models, history and settings in its own folders on
+your computer. The models are the big part: each one you downloaded is
+between about 75 MB and 3 GB. Removing the app alone does not remove them,
+so follow every step below to leave nothing behind.
 
-**Mac:**
-1. Quit Parlato (menu bar icon > **Quit Parlato**).
-2. Drag **Parlato** from Applications to the Trash.
-3. To also remove your settings, history and downloaded models, delete these
-   folders (in Finder, **Go** > **Go to Folder...**):
-   - `~/Library/Application Support/com.craftconceptsdigital.parlato`
-   - `~/Library/Logs/com.craftconceptsdigital.parlato`
-4. Account keys for online services are in the **Passwords** app (or
-   Keychain Access) under **Parlato**; delete them there if you want.
+Tip for both platforms: account keys for online services are removed most
+easily from inside Parlato before you uninstall. On the **Speech model** and
+**AI cleanup** pages, clear each key you added.
+
+### Windows
+
+1. Open **Settings** > **Apps** > **Installed apps**, find **Parlato**,
+   click **...** > **Uninstall**.
+2. The uninstaller asks **"Do you also want to delete all Parlato user
+   data?"** Click **Yes** to remove everything Parlato stored:
+   - speech and AI models
+   - history and recordings
+   - settings, prompts and power modes
+   - logs
+   - the "start when my computer starts" entry
+
+   Click **No** only if you plan to reinstall and want to keep them.
+3. Account keys for online services stay in Windows Credential Manager until
+   you delete them: open **Control Panel** > **Credential Manager** >
+   **Windows Credentials** and remove each entry ending in `.Parlato` (for
+   example `openAIAPIKey.Parlato`).
+
+If you clicked **No** earlier and want the data gone now, delete these two
+folders (paste each path into File Explorer's address bar):
+
+- `%APPDATA%\com.craftconceptsdigital.parlato`
+- `%LOCALAPPDATA%\com.craftconceptsdigital.parlato`
+
+### Mac
+
+On a Mac, dragging an app to the Trash removes only the app. Parlato's
+models, history and settings stay until you delete them too:
+
+1. In Parlato, open **Settings** and switch off **Start Parlato when my
+   computer starts** (if it's on). Then quit Parlato: click its menu bar
+   icon > **Quit Parlato**.
+2. Drag **Parlato** from **Applications** to the Trash.
+3. Remove Parlato's data. Either:
+   - **Finder:** choose **Go** > **Go to Folder...** (Shift+Cmd+G), paste
+     each path below, and drag the folder that opens to the Trash:
+     - `~/Library/Application Support/com.craftconceptsdigital.parlato`
+       (models, history, recordings, settings: the big one)
+     - `~/Library/Logs/com.craftconceptsdigital.parlato`
+     - `~/Library/Caches/com.craftconceptsdigital.parlato`
+     - `~/Library/WebKit/com.craftconceptsdigital.parlato`
+   - **Or Terminal:** this moves all four to the Trash in one go:
+
+     ```bash
+     for d in "Application Support" Logs Caches WebKit; do [ -e ~/Library/"$d"/com.craftconceptsdigital.parlato ] && mv ~/Library/"$d"/com.craftconceptsdigital.parlato ~/.Trash/"parlato-$d"; done
+     ```
+4. Empty the Trash.
+5. Optional clean-up in **System Settings** > **Privacy & Security**: in
+   **Accessibility** and **Microphone**, select **Parlato** and click
+   **-**.
+6. Account keys for online services: open **Keychain Access**, search for
+   **Parlato**, and delete the entries (they are named like
+   `openAIAPIKey`).

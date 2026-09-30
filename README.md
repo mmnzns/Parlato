@@ -56,7 +56,8 @@
 
 Download from the [latest release](https://github.com/mmnzns/Parlato/releases/latest).
 The [install guide](docs/INSTALL.md) has every step, with first setup,
-updates, troubleshooting and removal.
+updates, troubleshooting and [complete removal](docs/INSTALL.md#removing-parlato)
+(models, history and settings included).
 
 **Windows 10 (22H2) or 11:** download `Parlato_x.y.z_x64-setup.exe`
 (`arm64` for Snapdragon laptops) and run it. Parlato is free and not
