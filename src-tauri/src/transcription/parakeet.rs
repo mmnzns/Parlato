@@ -115,6 +115,38 @@ impl ParakeetEngine {
         Ok(result.text)
     }
 
+    /// Parlato : apercu en direct (Parakeet Unified seulement). Remet l'etat
+    /// de flux a zero ; sans effet si le modele charge n'est pas Unified.
+    pub fn stream_reset(&self) {
+        if let Some(Loaded {
+            engine: Engine::Unified(e),
+            ..
+        }) = self.current.lock().as_mut()
+        {
+            e.reset();
+        }
+    }
+
+    /// Parlato : ajoute un morceau d'audio (f32 mono 16 kHz) au flux et
+    /// renvoie la transcription cumulee. None si le modele charge n'est pas
+    /// Unified (ou plus charge). Le passage final reste `transcribe_samples`,
+    /// qui remet lui-meme l'etat de flux a zero.
+    pub fn stream_chunk(&self, samples: &[f32]) -> Option<Result<String>> {
+        let mut guard = self.current.lock();
+        let Some(Loaded {
+            engine: Engine::Unified(e),
+            ..
+        }) = guard.as_mut()
+        else {
+            return None;
+        };
+        Some(
+            e.transcribe_chunk(samples)
+                .map(|_| e.get_transcript())
+                .map_err(|err| anyhow!("parakeet unified stream: {err:?}")),
+        )
+    }
+
     /// Libere la memoire (ONNX session). Utile quand l'utilisateur change de
     /// modele ou desactive la source.
     pub fn unload(&self) {
@@ -219,5 +251,46 @@ mod tests {
             t1.elapsed().as_secs_f32()
         );
         assert!(!text.trim().is_empty());
+    }
+
+    /// Parlato : apercu en direct Unified. Donne le WAV par morceaux de
+    /// 200 ms comme pendant une dictee et verifie que le flux tient le temps
+    /// reel : `PARLATO_PARAKEET_DIR=<unified dir> PARLATO_WAV=<wav>
+    /// cargo test --release --lib unified_stream_smoke -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn unified_stream_smoke() {
+        let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let engine = ParakeetEngine::new();
+        engine
+            .ensure_loaded(Path::new(&dir), ParakeetKind::Unified)
+            .unwrap();
+        let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
+        engine.stream_reset();
+        let t0 = std::time::Instant::now();
+        let mut last = String::new();
+        let mut slowest = 0f32;
+        for (i, chunk) in samples.chunks(3200).enumerate() {
+            let t = std::time::Instant::now();
+            let text = engine.stream_chunk(chunk).unwrap().unwrap();
+            slowest = slowest.max(t.elapsed().as_secs_f32());
+            if text != last {
+                println!("[{:5.1}s audio] {text}", (i + 1) as f32 * 0.2);
+                last = text;
+            }
+        }
+        let stream_secs = t0.elapsed().as_secs_f32();
+        let audio_secs = samples.len() as f32 / 16000.0;
+        let offline = engine.transcribe_samples(&samples, None).unwrap();
+        println!(
+            "--- {audio_secs:.1}s audio streamed in {stream_secs:.1}s (slowest call {slowest:.2}s)\n\
+             offline: {offline}"
+        );
+        assert!(!last.is_empty());
+        assert!(
+            stream_secs < audio_secs,
+            "le flux ne tient pas le temps reel"
+        );
     }
 }

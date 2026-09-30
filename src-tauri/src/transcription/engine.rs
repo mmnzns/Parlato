@@ -27,8 +27,7 @@ use tracing::warn;
 use crate::audio::mute as system_mute;
 use crate::commands::hotkey::HotkeyManagerState;
 use crate::commands::recording::{
-    cancel_recording_core, start_recording_core, start_recording_core_with_chunk,
-    stop_recording_core, RecorderState,
+    cancel_recording_core, start_recording_core_with_chunk, stop_recording_core, RecorderState,
 };
 use crate::commands::streaming::StreamingSessionState;
 use crate::history::last_transcription;
@@ -38,7 +37,7 @@ use crate::mini_recorder;
 use crate::paste;
 use crate::power_mode;
 use crate::screen_context;
-use crate::transcription::pipeline;
+use crate::transcription::{parakeet_live, pipeline};
 
 /// Dispatch une action hotkey sur le cycle enregistrement complet.
 /// A appeler depuis la boucle dispatch_loop du hotkey manager.
@@ -177,8 +176,15 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
         });
         manager.mark_recording_state(true);
         true
-    } else if let Err(e) = start_recording_core(app, state, None) {
+    } else if let Err(e) = start_recording_core_with_chunk(
+        app,
+        state,
+        None,
+        // Parlato : apercu en direct si la source est Parakeet Unified.
+        parakeet_live::start(app),
+    ) {
         warn!("start_recording via hotkey: {e}");
+        parakeet_live::stop();
         // L'enregistrement n'a pas demarre : desarme les raccourcis Power Mode.
         keyboard_hook::set_power_shortcut_count(0);
         manager.mark_recording_state(false);
@@ -203,6 +209,7 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
     // Streaming actif ?
     let streaming = app.state::<StreamingSessionState>();
     let streaming_handle = streaming.0.lock().take();
+    parakeet_live::stop();
     match stop_recording_core(app, state) {
         Ok(stopped) => {
             if let Some(handle) = streaming_handle {
@@ -235,6 +242,7 @@ fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Re
     // mais on l'ignore puisque le user a annule).
     let streaming = app.state::<StreamingSessionState>();
     let _ = streaming.0.lock().take();
+    parakeet_live::stop();
     if let Err(e) = cancel_recording_core(app, state) {
         warn!("cancel_recording via hotkey: {e}");
     }

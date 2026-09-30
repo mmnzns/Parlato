@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a program name is still possible for apps not in the list.
 - The installed version ("Parlato v0.7.1") shows at the bottom of the
   sidebar.
+- Live text while you talk now works with Parakeet Unified (English), not
+  only with online services. It appears about a second after you start
+  and follows along as you speak. The pasted text still comes from the
+  usual full pass after you stop.
 
 ### Changed
 - Power mode shortcuts are chosen per mode (Alt+1 to Alt+0, or none)
