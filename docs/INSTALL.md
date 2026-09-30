@@ -74,29 +74,42 @@ supported.
 Go to the [latest release](https://github.com/mmnzns/Parlato/releases/latest)
 and download `Parlato_x.y.z_aarch64.dmg`.
 
-### 2. Install
+### 2. Open the download and install
 
-1. Open the `.dmg` file.
-2. Drag **Parlato** onto the **Applications** folder.
-3. Eject the Parlato disk (click the eject button next to it in Finder).
+macOS blocks apps from developers who don't pay Apple, so it asks you to
+confirm **twice**: once for the download, once the first time you open the
+app. After that Parlato opens normally, and its updates don't ask again.
 
-### 3. Open Parlato the first time
+When you see **"Parlato" Not Opened** ("Apple could not verify..."), always
+click **Done**, never **Move to Trash**, then:
 
-macOS blocks apps from developers who don't pay for an Apple certificate.
-You only need to do this once.
+1. Open **System Settings** > **Privacy & Security**.
+2. Scroll down to **Security**. Next to the message about Parlato, click
+   **Open Anyway**. (The button stays there for about an hour after the
+   block; if it's gone, try opening the file again.)
+3. Enter your Mac password, then click **Open Anyway** again.
 
-1. Open **Applications** and double-click **Parlato**. macOS says it can't
-   check the app. Click **Done** (or **OK**).
-2. Open **System Settings** > **Privacy & Security**.
-3. Scroll down to **Security**. Next to the message about Parlato, click
-   **Open Anyway**.
-4. Enter your Mac password, then click **Open Anyway** again.
+Step by step:
+
+1. **Open the `.dmg`** you downloaded. macOS blocks it: click **Done** and
+   follow the three steps above. The Parlato window opens.
+2. **Drag Parlato onto the Applications folder** in that window.
+3. **Eject the Parlato disk** (the eject button next to **Parlato** in the
+   Finder sidebar).
+4. **Open Parlato** from Applications. macOS blocks it one more time: click
+   **Done** and follow the three steps above again. Parlato opens.
 
 <details>
-<summary>Prefer the Terminal?</summary>
+<summary>Prefer the Terminal? This skips both warnings</summary>
 
-This removes the "downloaded from the internet" flag, so macOS opens Parlato
-without asking:
+Before opening the `.dmg`, remove its "downloaded from the internet" flag.
+Everything you install from it then opens without asking:
+
+```bash
+xattr -d com.apple.quarantine ~/Downloads/Parlato_*_aarch64.dmg
+```
+
+Already installed and blocked? This does the same for the app:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Parlato.app
@@ -104,7 +117,7 @@ xattr -dr com.apple.quarantine /Applications/Parlato.app
 
 </details>
 
-### 4. First setup (about 2 minutes)
+### 3. First setup (about 2 minutes)
 
 1. **Permissions:** Parlato asks for two things, and explains both.
    - **Microphone**, to hear you. Click **Allow**, then **Allow** in the

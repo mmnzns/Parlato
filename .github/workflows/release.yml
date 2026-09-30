@@ -100,7 +100,7 @@ jobs:
 
             Parlato is free and not signed with a paid certificate:
             - **Windows** shows "Windows protected your PC" the first time. Click **More info**, then **Run anyway**.
-            - **Mac:** open the .dmg and drag Parlato into Applications. The first time, macOS blocks it: open **System Settings > Privacy & Security** and click **Open Anyway** next to Parlato.
+            - **Mac:** macOS blocks it twice, once when you open the .dmg and once when you first open Parlato. Each time, click **Done** (not Move to Trash), open **System Settings > Privacy & Security** and click **Open Anyway** next to Parlato. In between, drag Parlato into Applications. Updates don't ask again.
 
             Step by step: [install guide](https://github.com/mmnzns/Parlato/blob/main/docs/INSTALL.md). Once installed, Parlato updates itself from this page.
           releaseDraft: true

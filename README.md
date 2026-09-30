@@ -65,9 +65,10 @@ click **More info**, then **Run anyway**.
 
 **Mac with Apple silicon (M1 or newer), macOS 13 or later:** download
 `Parlato_x.y.z_aarch64.dmg`, open it and drag Parlato into Applications.
-macOS blocks apps without a paid Apple certificate the first time: open
+macOS blocks apps without a paid Apple certificate twice, once for the
+`.dmg` and once when you first open Parlato: each time, click **Done**, open
 **System Settings** > **Privacy & Security** and click **Open Anyway** next
-to Parlato. During setup, Parlato asks for the Microphone and Accessibility
+to Parlato. Updates don't ask again. During setup, Parlato asks for the Microphone and Accessibility
 (for the shortcut and pasting) and explains both.
 
 Parlato then opens a short setup: microphone, speech model and shortcut. It
