@@ -161,8 +161,9 @@ strands every user's settings and API keys.
 **The auto-updater uses Parlato's own signing key** (generated 2026-09-29).
 The public key is `plugins.updater.pubkey` in `tauri.conf.json`. The private
 key lives only at `C:\Users\mikey\.tauri\parlato-updater.key` (no password),
-backed up by the owner, and as the `TAURI_SIGNING_PRIVATE_KEY` repository
-secret. Never commit it, print it or copy it into the repo. Never replace the
+backed up by the owner in Bitwarden (2026-09-30), and as the
+`TAURI_SIGNING_PRIVATE_KEY` repository secret. It signs updates for Windows
+and macOS. Never commit it, print it or copy it into the repo. Never replace the
 public key: every installed copy only accepts updates signed with the
 matching private key, so a new key strands all existing installs. Losing the
 private key has the same effect.
@@ -361,6 +362,9 @@ Phase 2 status (2026-09-30):
   `codesign --verify`, adds the .dmg and `darwin-aarch64` updater entry to
   the same draft release. Needs repository secrets APPLE_CERTIFICATE,
   APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY (added by the owner).
+  The .p12 backup and its password are in the owner's Bitwarden
+  (secure note "Parlato Signing", base64 text; restore with
+  `pbpaste | base64 -d > parlato-signing.p12`).
 - README + docs/INSTALL.md wait on branch `docs/mac-install` until the first
   release with a .dmg is published; merge it then.
 
