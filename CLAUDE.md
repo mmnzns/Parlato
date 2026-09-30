@@ -5,7 +5,7 @@ Guidance for Claude Code when working in this repository.
 ## What this is
 
 Parla is a native Windows voice-to-text app: it transcribes speech and pastes the
-result at the cursor. It is a fork of
+result at the cursor. A Mac build is in progress (see "Mac port plan"). It is a fork of
 [LitteRabbit-37/Parla](https://github.com/LitteRabbit-37/Parla), itself a Windows
 re-implementation of [VoiceInk](https://github.com/Beingpax/VoiceInk) (macOS/Swift).
 Licensed GPL-3.0.
@@ -175,12 +175,133 @@ builds x64 and ARM64, signs them, uploads `latest.json` and creates a
 `npm run tauri build` keeps `createUpdaterArtifacts` off, so it needs no key.
 Releases are not code-signed (owner decision, no paid certificate).
 
+## Mac port plan (started 2026-09-30)
+
+Goal: a free Mac build of Parlato for the owner's friends and family, installed
+from GitHub Releases. Not a public product launch. The Windows build stays the
+main product and must never regress because of Mac work.
+
+### Decisions (owner's, do not relitigate)
+
+- **No Apple Developer membership, no notarization.** Users accept a one-time
+  Gatekeeper warning. The README explains how to get past it.
+- **No Homebrew distribution.** The only channel is the `.dmg` on GitHub
+  Releases. (Homebrew on the developer's own machine for CMake etc. is fine.)
+- **Same app identifier** `com.craftconceptsdigital.parlato`, same updater
+  signing key, same `latest.json`. The Mac build is another platform in the
+  same release, not a separate app.
+- **Apple Silicon (arm64) only** for now. Intel Macs are out of scope unless
+  the owner asks.
+
+### How Mac code is added
+
+- Mac code goes in new macOS-only files next to the Windows ones (for example
+  `hotkeys/keyboard_hook_macos.rs`), gated with `#[cfg(target_os = "macos")]`.
+  Shared files are only touched to add the `cfg` dispatch to the new file.
+- The existing `#[cfg(not(windows))]` stubs are where the dispatch goes. Do not
+  rewrite or reformat the `#[cfg(windows)]` code paths.
+- Keep the module-header comment convention: each Mac file cites the VoiceInk
+  Swift file it follows. VoiceInk (GPL-3.0, macOS-native) is the reference
+  implementation for every Mac API below.
+- Every Mac change must still pass the Windows checks: the Windows release
+  workflow builds, `cargo test --lib` passes on Windows.
+- User-facing strings that say "Windows" (tray "Same as Windows", model pages
+  "on this PC", `shortDescription` in `tauri.conf.json`) need a Mac variant.
+  Add new keys in all three locale files; do not change the Windows wording.
+
+### Unsigned app on macOS: the two user-facing costs
+
+1. **First launch is blocked by Gatekeeper.** The user opens the app, gets
+   blocked, then goes to System Settings > Privacy & Security > Open Anyway
+   (admin password). Terminal fallback:
+   `xattr -dr com.apple.quarantine /Applications/Parlato.app`. Right-click >
+   Open no longer bypasses it on current macOS. Updates installed by the
+   in-app updater are not quarantined, so this happens once.
+2. **Permissions are tied to the code signature.** Accessibility, Input
+   Monitoring, Screen Recording and Keychain access are granted to a signing
+   identity. With the default ad-hoc signature every build is a new identity,
+   so after each update the hotkey and paste silently stop working and the
+   Keychain asks again. **Fix: sign every Mac build with one self-signed
+   code-signing certificate** (free, created once in Keychain Access). It
+   gives a stable identity so permissions survive updates. It does not remove
+   the Gatekeeper warning. Treat its `.p12` like the updater key: never
+   commit it, store it only as repository secrets (`APPLE_CERTIFICATE`,
+   `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, which Tauri reads).
+   Losing it means every Mac user re-grants permissions once, which is
+   recoverable, unlike losing the updater key.
+
+### Phases
+
+**Phase 0: build it on the Mac as-is.** No features. Mac prerequisites: Xcode
+Command Line Tools, Rust, Node, CMake (libclang ships with the Xcode tools).
+Expected issues to solve and record under "Local environment notes":
+- `.cargo/config.toml` only handles the duplicate ggml symbols
+  (`/FORCE:MULTIPLE`) for MSVC. Check whether Apple's linker rejects the same
+  duplicates between `whisper-rs-sys` and `llama-cpp-sys-2`.
+- `keyring` only enables `windows-native`. Move it to a Windows target block
+  and add `apple-native` under `[target.'cfg(target_os = "macos")'.dependencies]`,
+  otherwise API keys are not stored in the Keychain.
+- The default `gpu-detect` feature (NVIDIA `nvml-wrapper`) is meaningless on
+  Mac; build with it off.
+- `tauri.conf.json` bundles `nsis` only. Add a `tauri.macos.conf.json`
+  override (Tauri merges it on macOS) with `app` + `dmg` targets and
+  `macOSPrivateApi: true` if the recorder pill needs transparency.
+Done when: `npm run tauri dev` opens the Workbench UI on the Mac, and
+transcribing a file (Transcribe a file screen) works with a local model.
+
+**Phase 1: dictation works (the point where the owner's girlfriend can use it).**
+- `Info.plist` usage strings: `NSMicrophoneUsageDescription` (without it the
+  app crashes on first recording), `NSAppleEventsUsageDescription`.
+- Hotkey (`hotkeys/`): a CGEventTap, needs Input Monitoring. The Tauri
+  global-shortcut plugin cannot do modifier-only keys, so it is not enough.
+  Most Mac keyboards have no Right Ctrl: default to Right Option. Fn works too
+  but macOS may bind it to emoji or dictation (System Settings > Keyboard >
+  "Press globe key to" > Do Nothing); say so in the UI if Fn is chosen.
+- Paste (`paste/`): post Cmd+V with CGEvent, needs Accessibility. Keep the
+  clipboard backup/restore behaviour.
+- Permissions (`commands/permissions.rs`, Onboarding, Settings): real checks
+  for Microphone, Accessibility and Input Monitoring, each with a button that
+  opens the right System Settings pane. VoiceInk's permission screen is the
+  reference.
+Done when: hold the key, speak, release, and the text lands in Notes, Safari
+and Messages, after a full quit and relaunch.
+
+**Phase 2: shareable release.**
+- Self-signed certificate created, secrets added by the owner in the GitHub
+  web UI (Claude never handles the `.p12` or its password).
+- `release.yml`: add a `macos-latest` job (arm64) that builds the `.dmg`,
+  signs with the self-signed identity, signs the updater artifact, and adds
+  `darwin-aarch64` to the same `latest.json` and draft release.
+- README: "Install on Mac" section with the Open Anyway steps (with
+  screenshots), the Terminal fallback, and the first-run permission checklist.
+- Test the update path Mac to Mac, the same way the Windows updater was
+  tested: an older-numbered build must update and keep its permissions.
+
+**Phase 3: polish.**
+- Mute other audio while recording (`audio/mute.rs`): Core Audio default
+  output device.
+- Recorder pill visible above full-screen apps and on every Space.
+- Menu bar icon (template image) and a "Hide Dock icon" option (the tray
+  code already mentions it as macOS-only).
+- Metal acceleration for whisper.cpp and llama.cpp. Rerun the ignored
+  `llamacpp_smoke` / `parakeet_smoke` tests afterwards.
+
+**Phase 4: later, only if wanted.**
+- Power modes: frontmost app via NSWorkspace (bundle IDs, not exe names, so
+  the matcher and "Add app" picker need Mac-aware matching), installed apps
+  from `/Applications`, browser URL via AppleScript (Automation permission).
+- Screen context: `xcap` capture (Screen Recording permission) plus Apple
+  Vision OCR instead of `Media.Ocr`.
+- `window_subclass.rs` has no Mac equivalent; leave it Windows-only.
+
 ## Guardrails for this fork
 
 - **Do not touch native Windows systems code for now**: WASAPI audio capture
   (`audio/`), keyboard hooks (`hotkeys/`), OCR / UI Automation (`screen_context/`),
   and `window_subclass.rs`. These are the hardest to debug and are off-limits until
-  more reps are built on lower-risk changes.
+  more reps are built on lower-risk changes. The Mac port adds new macOS-only
+  files in these folders (see "Mac port plan"); that is allowed, editing the
+  Windows code paths is not.
 - **CPU-only.** Do not add CUDA features to the build. The GPU here is Blackwell
   (needs CUDA 12.8+) and the VS version is v18 while CUDA integrates with v17 —
   two independent failure points. CUDA is its own future task.
