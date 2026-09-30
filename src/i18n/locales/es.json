@@ -157,7 +157,8 @@
     "seeAllHistory": "Ver todo el historial",
     "recentEmpty": "Nada todavia. Tu primer dictado aparecera aqui.",
     "copy": "Copiar",
-    "copied": "Copiado"
+    "copied": "Copiado",
+    "changeShortcut": "Cambiar tu atajo"
   },
   "modelPerformance": {
     "title": "Rendimiento de modelos",

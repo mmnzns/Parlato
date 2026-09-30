@@ -157,7 +157,8 @@
     "seeAllHistory": "Tout l'historique",
     "recentEmpty": "Rien pour l'instant. Votre premiere dictee apparaitra ici.",
     "copy": "Copier",
-    "copied": "Copie"
+    "copied": "Copie",
+    "changeShortcut": "Changer votre raccourci"
   },
   "modelPerformance": {
     "title": "Performance des modeles",

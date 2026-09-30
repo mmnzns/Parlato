@@ -157,7 +157,8 @@
     "seeAllHistory": "See all history",
     "recentEmpty": "Nothing yet. Your first dictation will show up here.",
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "changeShortcut": "Change your shortcut"
   },
   "modelPerformance": {
     "title": "Model performance",

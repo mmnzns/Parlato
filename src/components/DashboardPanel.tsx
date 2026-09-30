@@ -252,7 +252,18 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
               t("dashboard.step1"),
               hotkeyLabel ? (
                 <>
-                  {t("dashboard.step2Before")} <Kbd>{hotkeyLabel}</Kbd> {t("dashboard.step2After")}
+                  {t("dashboard.step2Before")}{" "}
+                  {/* Parlato: the key chip opens the shortcut settings. */}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("audio")}
+                    title={t("dashboard.changeShortcut")}
+                    aria-label={`${hotkeyLabel}. ${t("dashboard.changeShortcut")}`}
+                    className="cursor-pointer rounded-[3px] outline-none hover:[&>kbd]:border-foreground hover:[&>kbd]:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Kbd>{hotkeyLabel}</Kbd>
+                  </button>{" "}
+                  {t("dashboard.step2After")}
                 </>
               ) : (
                 `${t("dashboard.step2Before")} ... ${t("dashboard.step2After")}`
