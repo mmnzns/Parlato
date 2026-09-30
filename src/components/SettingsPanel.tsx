@@ -32,7 +32,8 @@ import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 const REPO_URL = "https://github.com/mmnzns/Parlato";
-const UPSTREAM_URL = "https://github.com/LitteRabbit-37/Parla";
+// Credit the upstream author (profile, not just the repo).
+const UPSTREAM_URL = "https://github.com/LitteRabbit-37";
 const SITE_URL = "https://craftconceptsdigital.com";
 
 const DAY_MIN = 24 * 60;
