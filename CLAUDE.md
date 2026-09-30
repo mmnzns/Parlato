@@ -342,6 +342,28 @@ Phase 1 status (2026-09-30, after a full review):
 - Test the update path Mac to Mac, the same way the Windows updater was
   tested: an older-numbered build must update and keep its permissions.
 
+Phase 2 status (2026-09-30):
+- Certificate: "Parlato Code Signing", self-signed root, Code Signing
+  extended key usage, valid to 2036-09-27, in the owner's login keychain on
+  the MacBook. Created by the owner in Keychain Access (Certificate
+  Assistant > Create a Certificate, override defaults, 3650 days).
+- Verified locally: signing works although macOS calls the certificate
+  untrusted. Designated requirement is `identifier
+  "com.craftconceptsdigital.parlato" and certificate root = H"3ebc6a96..."`,
+  so a rebuilt and re-signed app keeps its Accessibility permission
+  (tested: new CDHash, tap installed with no re-grant). Hardened runtime on,
+  entitlements embedded.
+- Local signed build: `APPLE_SIGNING_IDENTITY="Parlato Code Signing" npm run
+  tauri build -- --debug --bundles app`. The first signing asks the owner to
+  let codesign use the key (Always Allow).
+- `release.yml` has a `macos` job (after the Windows `cpu` jobs): imports
+  the .p12 into a temporary keychain, builds, signs, verifies with
+  `codesign --verify`, adds the .dmg and `darwin-aarch64` updater entry to
+  the same draft release. Needs repository secrets APPLE_CERTIFICATE,
+  APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY (added by the owner).
+- README + docs/INSTALL.md wait on branch `docs/mac-install` until the first
+  release with a .dmg is published; merge it then.
+
 **Phase 3: polish.**
 - Mute other audio while recording (`audio/mute.rs`): Core Audio default
   output device.
