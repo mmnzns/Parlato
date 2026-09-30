@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Text boxes and dropdowns no longer show a double border when selected:
+  their own border darkens instead of a second ring appearing around it.
+
 ## [0.7.1] - 2026-09-29
 
 Ports from VoiceInk 2.21.

@@ -526,7 +526,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
               <Block className="flex flex-col gap-2">
                 <span className="font-medium">{t("ai.key")}</span>
                 <div className="flex items-center gap-2">
-                  <div className="flex h-[34px] min-w-0 flex-1 items-center gap-2 rounded-sm border-[1.5px] border-input bg-background px-3">
+                  <div className="flex h-[34px] min-w-0 flex-1 items-center gap-2 rounded-sm border-[1.5px] border-input bg-background px-3 focus-within:border-foreground">
                     <KeyRound
                       className={cn(
                         "h-4 w-4 flex-none",

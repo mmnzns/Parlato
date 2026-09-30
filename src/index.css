@@ -162,6 +162,15 @@
   }
 }
 
+/* Fields already have a border: an offset ring around it reads as a double
+   border, so they thicken and darken their own border instead. Outside
+   @layer so it wins over the fields' border-input utility. */
+:is(input, textarea, select)[class*="border-"]:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+
 /* Type scale (Tailwind classes to use):
    page title   font-display text-[28px] leading-8 font-extrabold tracking-[-0.035em]
    section      font-display text-base font-bold
