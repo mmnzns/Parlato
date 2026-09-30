@@ -1,43 +1,36 @@
+// Parlato: Power modes page, rebuilt to the Workbench design (docs/design/v1,
+// screen "profiles"): the list of modes on the left, the selected mode's
+// settings on the right, edited in place.
+//
+// Every change is saved straight away (text fields on blur), so there is no
+// Save button. A new mode is created as soon as "New power mode" is
+// pressed. The PowerModeConfig shape and the backend commands are
+// unchanged from upstream; "Keep my usual" maps to the null values that
+// mean "leave the global setting alone".
+
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Eye,
-  Pencil,
-  Plus,
-  Star,
-  Trash2,
-  Zap,
-} from "lucide-react";
+import { Globe, Info, Plus, Trash2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Block, Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { cn, powerShortcutLabel } from "@/lib/utils";
+import { promptTitle } from "@/lib/promptLabels";
+import type { CloudModel } from "@/components/models/types";
 import {
   api,
   type CustomPrompt,
-  type DetectionPreview,
   type LLMProviderInfo,
+  type ParakeetModelState,
   type PowerModeConfig,
+  type WhisperModelState,
 } from "@/lib/tauri";
 
-function emptyConfig(defaultName: string): PowerModeConfig {
+const inputClass = "h-[34px] min-w-0 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
+
+function emptyConfig(name: string): PowerModeConfig {
   return {
     id: "",
-    name: defaultName,
+    name,
     emoji: "*",
     app_triggers: [],
     url_triggers: [],
@@ -58,77 +51,81 @@ function emptyConfig(defaultName: string): PowerModeConfig {
   };
 }
 
+type Catalog = {
+  prompts: CustomPrompt[];
+  providers: LLMProviderInfo[];
+  whisper: WhisperModelState[];
+  parakeet: ParakeetModelState[];
+  cloud: CloudModel[];
+};
+
 export function PowerModePanel() {
   const { t } = useTranslation();
   const [configs, setConfigs] = useState<PowerModeConfig[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [autoRestore, setAutoRestore] = useState(true);
-  const [editing, setEditing] = useState<PowerModeConfig | null>(null);
-  const [isNew, setIsNew] = useState(false);
-  const [prompts, setPrompts] = useState<CustomPrompt[]>([]);
-  const [providers, setProviders] = useState<LLMProviderInfo[]>([]);
-  const [preview, setPreview] = useState<DetectionPreview | null>(null);
+  const [catalog, setCatalog] = useState<Catalog>({ prompts: [], providers: [], whisper: [], parakeet: [], cloud: [] });
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    refresh();
+    refresh(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function refresh() {
+  async function refresh(pickFirst = false) {
     try {
-      const [cs, ar, ps, pr] = await Promise.all([
+      const [cs, ar, prompts, providers, whisper, parakeet, cloud] = await Promise.all([
         api.listPowerConfigs(),
         api.getPowerAutoRestore(),
         api.listPrompts(),
         api.listLlmProviders(),
+        api.listWhisperModels(),
+        api.listParakeetModels(),
+        api.listCloudModels(),
       ]);
       setConfigs(cs);
       setAutoRestore(ar);
-      setPrompts(ps);
-      setProviders(pr);
+      setCatalog({ prompts, providers, whisper, parakeet, cloud: cloud as CloudModel[] });
+      if (pickFirst && cs.length > 0) setSelectedId(cs[0].id);
     } catch (e) {
       console.error(e);
     }
   }
 
-  async function runPreview() {
+  async function createMode() {
     try {
-      const p = await api.powerModePreview();
-      setPreview(p);
+      const created = await api.addPowerConfig(emptyConfig(t("pm.newName")));
+      await refresh();
+      setSelectedId(created.id);
     } catch (e) {
-      setPreview(null);
       console.error(e);
     }
   }
 
-  function startNew() {
-    setEditing(emptyConfig(t("powerMode.defaultName")));
-    setIsNew(true);
-  }
-
-  function startEdit(c: PowerModeConfig) {
-    setEditing({ ...c });
-    setIsNew(false);
-  }
-
-  async function save() {
-    if (!editing) return;
+  async function save(next: PowerModeConfig) {
+    // Optimistic: the editor stays responsive, the list reflects the change.
+    setConfigs((cs) => cs.map((c) => (c.id === next.id ? next : c)));
     try {
-      if (isNew) {
-        await api.addPowerConfig(editing);
-      } else {
-        await api.updatePowerConfig(editing);
-      }
-      setEditing(null);
-      setIsNew(false);
+      await api.updatePowerConfig(next);
+      // is_default is exclusive: the backend may have cleared it elsewhere.
+      if (next.is_default) await refresh();
+    } catch (e) {
+      console.error(e);
+      await refresh();
+    }
+  }
+
+  async function removeSelected() {
+    if (!selectedId) return;
+    try {
+      await api.deletePowerConfig(selectedId);
+      setConfirming(false);
+      const rest = configs.filter((c) => c.id !== selectedId);
+      setSelectedId(rest[0]?.id ?? null);
       await refresh();
     } catch (e) {
       console.error(e);
     }
-  }
-
-  async function remove(c: PowerModeConfig) {
-    if (!confirm(t("powerMode.confirmDelete", { name: c.name }))) return;
-    await api.deletePowerConfig(c.id);
-    await refresh();
   }
 
   async function toggleAutoRestore(v: boolean) {
@@ -136,515 +133,466 @@ export function PowerModePanel() {
     await api.setPowerAutoRestore(v);
   }
 
+  const enabled = configs.filter((c) => c.is_enabled);
+  const shortcutFor = (c: PowerModeConfig) => (c.is_enabled ? powerShortcutLabel(enabled.indexOf(c)) : null);
+  const selected = configs.find((c) => c.id === selectedId) ?? null;
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-base">{t("powerMode.title")}</CardTitle>
-        </div>
-        <CardDescription>{t("powerMode.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <label className="flex items-center justify-between rounded-md border p-3">
-          <div>
-            <p className="font-medium">{t("powerMode.autoRestoreTitle")}</p>
-            <p className="text-xs text-muted-foreground">
-              {t("powerMode.autoRestoreDescription")}
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={autoRestore}
-            onChange={(e) => toggleAutoRestore(e.target.checked)}
-            className="h-5 w-5"
-          />
-        </label>
-
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">{t("powerMode.configurations")}</p>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={runPreview}>
-              <Eye className="h-3.5 w-3.5" />
-              {t("powerMode.previewDetection")}
-            </Button>
-            {!editing && (
-              <Button size="sm" onClick={startNew}>
-                <Plus className="h-3.5 w-3.5" />
-                {t("powerMode.newConfig")}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {preview && (
-          <div className="rounded-md border border-dashed bg-muted/30 p-3 text-xs">
-            <p>
-              {t("powerMode.previewWindow")} <code>{preview.active.exe_name}</code> - {preview.active.title}
-            </p>
-            {preview.url && (
-              <p>
-                {t("powerMode.previewUrl")} <code>{preview.url}</code>
-              </p>
-            )}
-            <p>
-              {t("powerMode.matchedConfig")}{" "}
-              {preview.matched_config_name ? (
-                <strong>{preview.matched_config_name}</strong>
-              ) : (
-                <span className="text-muted-foreground">{t("powerMode.noMatch")}</span>
-              )}
-            </p>
-          </div>
-        )}
-
-        <ul className="grid gap-1.5">
-            {configs.map((c) => {
-              // Index parmi les profils actives, dans l'ordre stocke : c'est
-              // ce que le raccourci Alt+chiffre cible (cote backend :
-              // session::enabled_configs). -1 si desactive.
-              const enabledIdx = c.is_enabled
-                ? configs.filter((x) => x.is_enabled).indexOf(c)
-                : -1;
-              const shortcut = powerShortcutLabel(enabledIdx);
-              return (
-              <li
+    <>
+      <div className="grid items-start gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
+        <nav className="flex flex-col gap-1.5" aria-label={t("pm.yourModes")}>
+          <span className="px-1 font-mono text-[11px] text-muted-foreground">{t("pm.yourModes")}</span>
+          {configs.map((c) => {
+            const active = c.id === selectedId;
+            const paired = c.app_triggers.length + c.url_triggers.length;
+            const summary = !c.is_enabled
+              ? t("pm.summaryOff")
+              : c.is_default
+                ? t("pm.summaryEverywhere")
+                : t("pm.summaryApps", { count: paired });
+            const key = shortcutFor(c);
+            return (
+              <button
                 key={c.id}
+                type="button"
+                onClick={() => {
+                  setSelectedId(c.id);
+                  setConfirming(false);
+                }}
+                aria-current={active ? "true" : undefined}
                 className={cn(
-                  "flex items-center justify-between rounded-md border p-2",
-                  !c.is_enabled && "opacity-60",
+                  "flex items-center gap-2.5 rounded-md border-[1.5px] px-3 py-2.5 text-left transition-colors",
+                  active ? "border-edge bg-accent shadow-[var(--sel-shadow)]" : "border-transparent hover:bg-muted/70",
                 )}
               >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="text-lg">{c.emoji}</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {c.name}
-                      {c.is_default && (
-                        <Star className="ml-1 inline h-3 w-3 fill-current text-amber-500" />
-                      )}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {c.app_triggers.length}
-                      {c.app_triggers.length > 1
-                        ? t("powerMode.appsPlural")
-                        : t("powerMode.appsSingular")}
-                      ,{" "}
-                      {c.url_triggers.length}
-                      {c.url_triggers.length > 1
-                        ? t("powerMode.urlsPlural")
-                        : t("powerMode.urlsSingular")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {shortcut && (
-                    <kbd
-                      className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground"
-                      title={t("powerMode.shortcutHint")}
-                    >
-                      {shortcut}
-                    </kbd>
+                <span
+                  className={cn(
+                    "h-2 w-2 flex-none rounded-full",
+                    c.is_enabled ? "bg-highlight" : "bg-border",
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => startEdit(c)}
-                    title={t("powerMode.editTooltip")}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => remove(c)}
-                    title={t("powerMode.deleteTooltip")}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </li>
-              );
-            })}
-            {configs.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                {t("powerMode.emptyList")}
-              </p>
-            )}
-          </ul>
-
-        <Sheet
-          open={editing !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              setEditing(null);
-              setIsNew(false);
-            }
-          }}
-        >
-          <SheetContent
-            side="right"
-            className="w-[400px] overflow-y-auto sm:max-w-[400px]"
-          >
-            <SheetHeader>
-              <SheetTitle>
-                {isNew
-                  ? t("powerMode.newConfigTitle")
-                  : t("powerMode.editConfigTitle")}
-              </SheetTitle>
-              <SheetDescription>
-                {t("powerMode.sheetDescription")}
-              </SheetDescription>
-            </SheetHeader>
-
-            {editing && (
-              <div className="mt-4 space-y-3 pb-24">
-                <ConfigEditor
-                  config={editing}
-                  prompts={prompts}
-                  providers={providers}
-                  onChange={setEditing}
-                  onCancel={() => {
-                    setEditing(null);
-                    setIsNew(false);
-                  }}
-                  onSave={save}
                 />
-              </div>
-            )}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-semibold">{c.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{summary}</span>
+                </span>
+                {key && (
+                  <kbd className="rounded-sm border px-1.5 py-px font-mono text-[10px] text-muted-foreground">{key}</kbd>
+                )}
+              </button>
+            );
+          })}
+          {configs.length === 0 && (
+            <div className="flex flex-col gap-1 rounded-md border-[1.5px] border-dashed border-input p-3 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{t("pm.emptyTitle")}</span>
+              {t("pm.emptyDesc")}
+            </div>
+          )}
+          <Button size="sm" variant="outline" className="mt-1 self-start" onClick={createMode}>
+            <Plus className="h-3.5 w-3.5" />
+            {t("pm.newMode")}
+          </Button>
+        </nav>
 
-            <SheetFooter className="absolute bottom-0 left-0 right-0 border-t bg-background p-4">
-              <SheetClose asChild>
-                <Button variant="ghost">{t("common.cancel")}</Button>
-              </SheetClose>
-              <Button onClick={save}>{t("common.save")}</Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-      </CardContent>
-    </Card>
+        <div className="flex min-w-0 flex-col gap-[22px]">
+          {selected ? (
+            <ModeEditor
+              key={selected.id}
+              config={selected}
+              shortcut={shortcutFor(selected)}
+              catalog={catalog}
+              onChange={save}
+              confirming={confirming}
+              onAskDelete={() => setConfirming(true)}
+              onCancelDelete={() => setConfirming(false)}
+              onDelete={removeSelected}
+            />
+          ) : (
+            <div className="rounded-lg border-[1.5px] border-dashed border-input bg-card p-8 text-center text-sm text-muted-foreground">
+              {t("pm.pickOne")}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* A single row, not a numbered section: it applies to all modes. */}
+      <div className="rounded-lg border-[1.5px] border-edge bg-card">
+        <Row label={t("pm.autoRestore")} description={t("pm.autoRestoreDesc")} htmlFor="pm-auto-restore">
+          <Switch id="pm-auto-restore" checked={autoRestore} onChange={toggleAutoRestore} />
+        </Row>
+      </div>
+
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Info className="h-3.5 w-3.5" />
+        {t("pm.shortcutWins")}
+      </p>
+    </>
   );
 }
 
-function ConfigEditor({
-  config,
-  prompts,
-  providers,
+function ModeEditor({
+  config: c,
+  shortcut,
+  catalog,
   onChange,
+  confirming,
+  onAskDelete,
+  onCancelDelete,
+  onDelete,
 }: {
   config: PowerModeConfig;
-  prompts: CustomPrompt[];
-  providers: LLMProviderInfo[];
+  shortcut: string | null;
+  catalog: Catalog;
   onChange: (c: PowerModeConfig) => void;
-  onCancel: () => void;
-  onSave: () => void;
+  confirming: boolean;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onDelete: () => void;
 }) {
   const { t } = useTranslation();
+  const [name, setName] = useState(c.name);
+  const [language, setLanguage] = useState(c.language ?? "");
+  const [appDraft, setAppDraft] = useState<string | null>(null);
+  const [siteDraft, setSiteDraft] = useState<string | null>(null);
 
   function set<K extends keyof PowerModeConfig>(key: K, value: PowerModeConfig[K]) {
-    onChange({ ...config, [key]: value });
+    onChange({ ...c, [key]: value });
   }
 
   function addApp() {
-    const exe = prompt(t("powerMode.promptAppName"));
-    if (!exe) return;
-    const trimmed = exe.trim().toLowerCase();
-    if (!trimmed) return;
-    onChange({
-      ...config,
-      app_triggers: [
-        ...config.app_triggers,
-        {
-          id: crypto.randomUUID(),
-          exe_name: trimmed,
-          app_name: trimmed,
-        },
-      ],
-    });
+    const exe = (appDraft ?? "").trim().toLowerCase();
+    setAppDraft(null);
+    if (!exe || c.app_triggers.some((a) => a.exe_name === exe)) return;
+    onChange({ ...c, app_triggers: [...c.app_triggers, { id: crypto.randomUUID(), exe_name: exe, app_name: exe }] });
   }
 
-  function removeApp(id: string) {
-    onChange({
-      ...config,
-      app_triggers: config.app_triggers.filter((tr) => tr.id !== id),
-    });
+  function addSite() {
+    const url = (siteDraft ?? "").trim();
+    setSiteDraft(null);
+    if (!url || c.url_triggers.some((u) => u.url === url)) return;
+    onChange({ ...c, url_triggers: [...c.url_triggers, { id: crypto.randomUUID(), url }] });
   }
 
-  function addUrl() {
-    const url = prompt(t("powerMode.promptUrl"));
-    if (!url) return;
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    onChange({
-      ...config,
-      url_triggers: [
-        ...config.url_triggers,
-        { id: crypto.randomUUID(), url: trimmed },
-      ],
-    });
+  // Speech model: one select combining kind + model id ("" = keep usual).
+  const speechValue =
+    c.transcription_kind === "local" && c.whisper_model_id
+      ? `local:${c.whisper_model_id}`
+      : c.transcription_kind === "parakeet" && c.parakeet_model_id
+        ? `parakeet:${c.parakeet_model_id}`
+        : c.transcription_kind === "cloud" && c.cloud_provider && c.cloud_model
+          ? `cloud:${c.cloud_provider}:${c.cloud_model}`
+          : "";
+
+  function setSpeech(v: string) {
+    const base = {
+      ...c,
+      transcription_kind: null,
+      whisper_model_id: null,
+      parakeet_model_id: null,
+      cloud_provider: null,
+      cloud_model: null,
+    } as PowerModeConfig;
+    if (v.startsWith("local:")) onChange({ ...base, transcription_kind: "local", whisper_model_id: v.slice(6) });
+    else if (v.startsWith("parakeet:")) onChange({ ...base, transcription_kind: "parakeet", parakeet_model_id: v.slice(9) });
+    else if (v.startsWith("cloud:")) {
+      const [, provider, ...model] = v.split(":");
+      onChange({ ...base, transcription_kind: "cloud", cloud_provider: provider, cloud_model: model.join(":") });
+    } else onChange(base);
   }
 
-  function removeUrl(id: string) {
-    onChange({
-      ...config,
-      url_triggers: config.url_triggers.filter((tr) => tr.id !== id),
-    });
-  }
-
-  const currentProvider = providers.find((p) => p.id === config.selected_llm_provider);
+  const provider = catalog.providers.find((p) => p.id === c.selected_llm_provider);
+  const whisper = catalog.whisper.filter((m) => m.downloaded);
+  const parakeet = catalog.parakeet.filter((m) => m.downloaded);
+  const cloud = catalog.cloud.filter((m) => m.supports_batch);
+  const triggers = [
+    ...c.app_triggers.map((a) => ({ id: a.id, label: a.exe_name, site: false })),
+    ...c.url_triggers.map((u) => ({ id: u.id, label: u.url, site: true })),
+  ];
 
   return (
-    <div className="grid gap-3 rounded-md border bg-muted/30 p-3">
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+    <>
+      <section className="flex items-center gap-4 rounded-lg border-[1.5px] border-edge bg-card px-5 py-4">
+        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md bg-highlight text-[#141416]">
+          <Zap className="h-5 w-5" />
+        </span>
         <input
-          type="text"
-          value={config.emoji}
-          onChange={(e) => set("emoji", e.target.value.slice(0, 4))}
-          placeholder="*"
-          className="h-9 w-14 rounded-md border-[1.5px] border-input bg-background px-2 text-center text-lg"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => name.trim() && name !== c.name && set("name", name.trim())}
+          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          aria-label={t("pm.nameLabel")}
+          className="min-w-0 flex-1 rounded-sm border-[1.5px] border-transparent bg-transparent px-1.5 py-1 font-display text-lg font-bold outline-none hover:border-input focus:border-foreground"
         />
-        <input
-          type="text"
-          value={config.name}
-          onChange={(e) => set("name", e.target.value)}
-          placeholder={t("powerMode.namePlaceholder")}
-          className="h-9 rounded-md border-[1.5px] border-input bg-background px-2 text-sm"
-        />
-        <label className="flex items-center gap-1 text-xs">
-          <input
-            type="checkbox"
-            role="switch"
-            checked={config.is_default}
-            onChange={(e) => set("is_default", e.target.checked)}
-          />
-          {t("powerMode.defaultLabel")}
-        </label>
-      </div>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-muted-foreground"
+          onClick={onAskDelete}
+          title={t("pm.delete")}
+          aria-label={t("pm.delete")}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+        <Switch checked={c.is_enabled} onChange={(v) => set("is_enabled", v)} label={t("pm.enabled")} />
+      </section>
 
-      <label className="flex items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          role="switch"
-          checked={config.is_enabled}
-          onChange={(e) => set("is_enabled", e.target.checked)}
-        />
-        {t("powerMode.enabledLabel")}
-      </label>
-
-      <div className="grid gap-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium">{t("powerMode.apps")}</p>
-          <Button size="sm" variant="outline" onClick={addApp}>
-            <Plus className="h-3 w-3" /> {t("powerMode.addTrigger")}
+      {confirming && (
+        <div
+          role="alertdialog"
+          aria-label={t("pm.delete")}
+          className="flex flex-wrap items-center gap-3 rounded-lg border-[1.5px] border-destructive bg-card px-5 py-3"
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+          <span className="min-w-0 flex-1 text-[13px]">
+            <b>{t("pm.confirmTitle", { name: c.name })}</b> {t("pm.confirmBody")}
+          </span>
+          <Button size="sm" variant="ghost" onClick={onCancelDelete}>
+            {t("pm.cancel")}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onDelete}>
+            {t("pm.confirmDelete")}
           </Button>
         </div>
-        <ul className="grid gap-1">
-          {config.app_triggers.map((tr) => (
-            <li key={tr.id} className="flex items-center justify-between rounded border p-1.5 text-xs">
-              <code>{tr.exe_name}</code>
-              <Button size="sm" variant="ghost" onClick={() => removeApp(tr.id)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </div>
+      )}
 
-      <div className="grid gap-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium">{t("powerMode.urls")}</p>
-          <Button size="sm" variant="outline" onClick={addUrl}>
-            <Plus className="h-3 w-3" /> {t("powerMode.addTrigger")}
-          </Button>
-        </div>
-        <ul className="grid gap-1">
-          {config.url_triggers.map((tr) => (
-            <li key={tr.id} className="flex items-center justify-between rounded border p-1.5 text-xs">
-              <code>{tr.url}</code>
-              <Button size="sm" variant="ghost" onClick={() => removeUrl(tr.id)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <fieldset className="grid gap-2 rounded-md border p-2">
-        <legend className="px-1 text-xs font-medium">{t("powerMode.enhancementFieldset")}</legend>
-        <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            role="switch"
-            checked={config.is_enhancement_enabled}
-            onChange={(e) => set("is_enhancement_enabled", e.target.checked)}
-          />
-          {t("powerMode.enableEnhancement")}
-        </label>
-        <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            role="switch"
-            checked={config.use_screen_capture === true}
-            ref={(el) => {
-              if (el) el.indeterminate = config.use_screen_capture === null;
-            }}
-            onChange={(e) => {
-              // Tri-state : coche/decoche/neutre.
-              if (config.use_screen_capture === null) {
-                set("use_screen_capture", true);
-              } else if (config.use_screen_capture) {
-                set("use_screen_capture", false);
-              } else {
-                set("use_screen_capture", null);
-              }
-              e.preventDefault();
-            }}
-          />
-          {t("powerMode.screenContextPrefix")}{" "}
-          {config.use_screen_capture === null
-            ? t("powerMode.screenContextUnchanged")
-            : config.use_screen_capture
-              ? t("powerMode.screenContextActive")
-              : t("powerMode.screenContextInactive")}
-        </label>
-        <label className="grid gap-1 text-xs">
-          {t("powerMode.promptSelect")}
-          <select
-            value={config.selected_prompt_id ?? ""}
-            onChange={(e) =>
-              set("selected_prompt_id", e.target.value || null)
-            }
-            className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-          >
-            <option value="">{t("powerMode.unchangedOption")}</option>
-            {prompts.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
+      <Section title={t("pm.startsTitle")} description={t("pm.startsDesc")}>
+        <Row label={t("pm.shortcut")} description={shortcut ? t("pm.shortcutDesc") : t("pm.noShortcut")}>
+          {shortcut && (
+            <kbd className="rounded-sm border-[1.5px] border-edge bg-card px-2.5 py-1 font-mono text-xs font-semibold shadow-btn">
+              {shortcut}
+            </kbd>
+          )}
+        </Row>
+        <Block className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium">{t("pm.paired")}</span>
+            <span className="text-[13px] leading-[18px] text-muted-foreground">{t("pm.pairedDesc")}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {triggers.map((tr) => (
+              <span
+                key={tr.id}
+                className="flex h-8 items-center gap-1.5 rounded-full border-[1.5px] border-edge bg-card pr-1 pl-3 font-mono text-xs"
+              >
+                {tr.site && <Globe className="h-3 w-3 text-muted-foreground" />}
+                {tr.label}
+                <button
+                  type="button"
+                  aria-label={t("pm.remove", { name: tr.label })}
+                  onClick={() =>
+                    tr.site
+                      ? set("url_triggers", c.url_triggers.filter((u) => u.id !== tr.id))
+                      : set("app_triggers", c.app_triggers.filter((a) => a.id !== tr.id))
+                  }
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
             ))}
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-1 text-xs">
-            {t("powerMode.providerLlm")}
-            <select
-              value={config.selected_llm_provider ?? ""}
-              onChange={(e) => {
-                const id = e.target.value || null;
-                set("selected_llm_provider", id);
-                if (id) {
-                  const p = providers.find((x) => x.id === id);
-                  set("selected_llm_model", p?.default_model ?? null);
-                }
-              }}
-              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-            >
-              <option value="">{t("powerMode.unchangedOption")}</option>
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
+            <ChipInput
+              draft={appDraft}
+              setDraft={setAppDraft}
+              onCommit={addApp}
+              label={t("pm.addApp")}
+              placeholder={t("pm.appPlaceholder")}
+            />
+            <ChipInput
+              draft={siteDraft}
+              setDraft={setSiteDraft}
+              onCommit={addSite}
+              label={t("pm.addSite")}
+              placeholder={t("pm.sitePlaceholder")}
+            />
+          </div>
+        </Block>
+        <Row label={t("pm.fallback")} description={t("pm.fallbackDesc")} htmlFor="pm-fallback">
+          <Switch id="pm-fallback" checked={c.is_default} onChange={(v) => set("is_default", v)} />
+        </Row>
+      </Section>
+
+      <Section title={t("pm.doesTitle")} description={t("pm.doesDesc")}>
+        <Row label={t("pm.speechModel")} description={t("pm.speechModelDesc")}>
+          <select
+            aria-label={t("pm.speechModel")}
+            value={speechValue}
+            onChange={(e) => setSpeech(e.target.value)}
+            className={cn(selectClass, "max-w-[240px]")}
+          >
+            <option value="">{t("pm.keep")}</option>
+            {whisper.length > 0 && (
+              <optgroup label={t("pm.localWhisper")}>
+                {whisper.map((m) => (
+                  <option key={m.id} value={`local:${m.id}`}>
+                    {m.display_name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {parakeet.length > 0 && (
+              <optgroup label={t("pm.localParakeet")}>
+                {parakeet.map((m) => (
+                  <option key={m.id} value={`parakeet:${m.id}`}>
+                    {m.display_name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label={t("pm.online")}>
+              {cloud.map((m) => (
+                <option key={`${m.provider_id}:${m.model_id}`} value={`cloud:${m.provider_id}:${m.model_id}`}>
+                  {m.display_name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs">
-            {t("powerMode.modelLlm")}
-            <input
-              type="text"
-              value={config.selected_llm_model ?? ""}
-              onChange={(e) =>
-                set("selected_llm_model", e.target.value || null)
-              }
-              placeholder={currentProvider?.default_model ?? "-"}
-              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-            />
-          </label>
-        </div>
-      </fieldset>
-
-      <fieldset className="grid gap-2 rounded-md border p-2">
-        <legend className="px-1 text-xs font-medium">{t("powerMode.sourceFieldset")}</legend>
-        <label className="grid gap-1 text-xs">
-          {t("powerMode.type")}
-          <select
-            value={config.transcription_kind ?? ""}
-            onChange={(e) =>
-              set("transcription_kind", e.target.value || null)
-            }
-            className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-          >
-            <option value="">{t("powerMode.unchangedOption")}</option>
-            <option value="local">{t("powerMode.typeLocal")}</option>
-            <option value="parakeet">{t("powerMode.typeParakeet")}</option>
-            <option value="cloud">{t("powerMode.typeCloud")}</option>
+            </optgroup>
           </select>
-        </label>
-        {config.transcription_kind === "local" && (
-          <label className="grid gap-1 text-xs">
-            {t("powerMode.whisperModelId")}
-            <input
-              type="text"
-              value={config.whisper_model_id ?? ""}
-              onChange={(e) =>
-                set("whisper_model_id", e.target.value || null)
-              }
-              placeholder="ggml-base.en"
-              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-            />
-          </label>
-        )}
-        {config.transcription_kind === "parakeet" && (
-          <label className="grid gap-1 text-xs">
-            {t("powerMode.parakeetModelId")}
-            <input
-              type="text"
-              value={config.parakeet_model_id ?? ""}
-              onChange={(e) =>
-                set("parakeet_model_id", e.target.value || null)
-              }
-              placeholder="parakeet-tdt-0.6b-v3-int8"
-              className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-            />
-          </label>
-        )}
-        {config.transcription_kind === "cloud" && (
-          <div className="grid grid-cols-2 gap-2">
-            <label className="grid gap-1 text-xs">
-              {t("powerMode.cloudProvider")}
-              <input
-                type="text"
-                value={config.cloud_provider ?? ""}
-                onChange={(e) =>
-                  set("cloud_provider", e.target.value || null)
-                }
-                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-              />
-            </label>
-            <label className="grid gap-1 text-xs">
-              {t("powerMode.cloudModel")}
-              <input
-                type="text"
-                value={config.cloud_model ?? ""}
-                onChange={(e) =>
-                  set("cloud_model", e.target.value || null)
-                }
-                className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
-              />
-            </label>
-          </div>
-        )}
-        <label className="grid gap-1 text-xs">
-          {t("powerMode.language")}
+        </Row>
+        <Row label={t("pm.language")} description={t("pm.languageDesc")}>
           <input
-            type="text"
-            value={config.language ?? ""}
-            onChange={(e) => set("language", e.target.value || null)}
-            placeholder={t("powerMode.languagePlaceholder")}
-            className="h-8 rounded-md border-[1.5px] border-input bg-background px-2"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            onBlur={() => {
+              const v = language.trim() || null;
+              if (v !== c.language) set("language", v);
+            }}
+            placeholder="auto"
+            aria-label={t("pm.language")}
+            className={cn(inputClass, "w-24 font-mono")}
           />
-        </label>
-      </fieldset>
-    </div>
+        </Row>
+        <Row label={t("pm.aiCleanup")} description={t("pm.aiCleanupDesc")} htmlFor="pm-ai">
+          <Switch id="pm-ai" checked={c.is_enhancement_enabled} onChange={(v) => set("is_enhancement_enabled", v)} />
+        </Row>
+        {c.is_enhancement_enabled && (
+          <>
+            <Row label={t("pm.aiService")} description={t("pm.aiServiceDesc")}>
+              <select
+                aria-label={t("pm.aiService")}
+                value={c.selected_llm_provider ?? ""}
+                onChange={(e) => {
+                  const id = e.target.value || null;
+                  const p = catalog.providers.find((x) => x.id === id);
+                  onChange({ ...c, selected_llm_provider: id, selected_llm_model: id ? (p?.default_model ?? null) : null });
+                }}
+                className={cn(selectClass, "max-w-[240px]")}
+              >
+                <option value="">{t("pm.keep")}</option>
+                {catalog.providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </Row>
+            {provider && (
+              <Row label={t("pm.aiModel")}>
+                {provider.models.length > 0 ? (
+                  <select
+                    aria-label={t("pm.aiModel")}
+                    value={c.selected_llm_model ?? ""}
+                    onChange={(e) => set("selected_llm_model", e.target.value || null)}
+                    className={cn(selectClass, "max-w-[240px]")}
+                  >
+                    {c.selected_llm_model && !provider.models.includes(c.selected_llm_model) && (
+                      <option value={c.selected_llm_model}>{c.selected_llm_model}</option>
+                    )}
+                    {provider.models.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <FreeTextModel value={c.selected_llm_model ?? ""} onCommit={(v) => set("selected_llm_model", v || null)} />
+                )}
+              </Row>
+            )}
+            <Row label={t("pm.style")} description={t("pm.styleDesc")}>
+              <select
+                aria-label={t("pm.style")}
+                value={c.selected_prompt_id ?? ""}
+                onChange={(e) => set("selected_prompt_id", e.target.value || null)}
+                className={cn(selectClass, "max-w-[240px]")}
+              >
+                <option value="">{t("pm.keep")}</option>
+                {catalog.prompts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {promptTitle(t, p)}
+                  </option>
+                ))}
+              </select>
+            </Row>
+            <Row label={t("pm.screen")}>
+              <select
+                aria-label={t("pm.screen")}
+                value={c.use_screen_capture === null ? "" : c.use_screen_capture ? "on" : "off"}
+                onChange={(e) =>
+                  set("use_screen_capture", e.target.value === "" ? null : e.target.value === "on")
+                }
+                className={selectClass}
+              >
+                <option value="">{t("pm.keep")}</option>
+                <option value="on">{t("pm.screenOn")}</option>
+                <option value="off">{t("pm.screenOff")}</option>
+              </select>
+            </Row>
+          </>
+        )}
+      </Section>
+    </>
+  );
+}
+
+/** "+ Add ..." chip that turns into a small text input. */
+function ChipInput({
+  draft,
+  setDraft,
+  onCommit,
+  label,
+  placeholder,
+}: {
+  draft: string | null;
+  setDraft: (v: string | null) => void;
+  onCommit: () => void;
+  label: string;
+  placeholder: string;
+}) {
+  if (draft === null) {
+    return (
+      <button
+        type="button"
+        onClick={() => setDraft("")}
+        className="flex h-8 items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-input px-3 text-xs font-semibold text-muted-foreground hover:border-edge hover:text-foreground"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {label}
+      </button>
+    );
+  }
+  return (
+    <input
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onCommit();
+        if (e.key === "Escape") setDraft(null);
+      }}
+      onBlur={onCommit}
+      placeholder={placeholder}
+      aria-label={label}
+      className="h-8 w-48 rounded-full border-[1.5px] border-foreground bg-background px-3 font-mono text-xs outline-none"
+    />
+  );
+}
+
+function FreeTextModel({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const [v, setV] = useState(value);
+  return (
+    <input
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => v.trim() !== value && onCommit(v.trim())}
+      className={cn(inputClass, "w-[240px] font-mono")}
+    />
   );
 }
