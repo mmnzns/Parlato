@@ -190,11 +190,30 @@ pub fn should_skip_short(app: &AppHandle, text: &str) -> bool {
 }
 
 /// Construit la temperature appliquee. VoiceInk AIService L~140.
-fn temperature_for(model: &str) -> f32 {
+///
+/// Parlato : None = champ omis (valeur par defaut du fournisseur).
+///  - Claude (direct ou "anthropic/claude-..." via OpenRouter) : les modeles
+///    recents repondent 400 a toute temperature non par defaut.
+///  - GPT-6 : la temperature n'est admise qu'avec reasoning "none". Seuls
+///    gpt-6-sol / gpt-6-luna en direct recoivent "none" (reasoning_for) ;
+///    Astra, 6.1 Sol et tout GPT-6 via OpenRouter n'en envoient donc pas.
+fn temperature_for(model: &str) -> Option<f32> {
+    if model.contains("claude-") {
+        return None;
+    }
+    if model.starts_with("gpt-6") {
+        return match model {
+            "gpt-6-sol" | "gpt-6-luna" => Some(1.0),
+            _ => None,
+        };
+    }
+    if model.contains("/gpt-6") {
+        return None;
+    }
     if model.starts_with("gpt-5") {
-        1.0
+        Some(1.0)
     } else {
-        0.3
+        Some(0.3)
     }
 }
 
@@ -204,20 +223,29 @@ fn temperature_for(model: &str) -> f32 {
 ///  - Gemini 3.7 Flash et 3.1 Pro Preview : niveau "low" (pas de "minimal").
 ///  - Gemini 3.6 Flash, 3.5 Flash(-Lite), 3.1 Flash-Lite : "minimal".
 ///  - Gemini 2.5 Flash-Lite : rien (thinking off par defaut).
-///  - Cerebras gpt-oss-120b : "low" + reasoning_format hidden ;
-///    zai-glm-4.7 : "none".
+///  - Cerebras gpt-oss-120b : "low" + reasoning_format hidden.
 ///  - Groq gpt-oss : "low" + include_reasoning false.
+///
+/// Parlato, d'apres la doc officielle de chaque fournisseur (2026-09) :
+///  - OpenAI gpt-6-sol / gpt-6-luna : "none" ; gpt-6-astra et gpt-6.1-sol
+///    n'acceptent ni "none" ni "minimal" -> "low".
+///  - Gemini 3.8 Flash : comme 3.7, pas de "minimal" -> "low".
+///  - Cerebras qwen-3.8-27b et Groq qwen/qwen3.8-27b : "none" (reasoning
+///    desactive). zai-glm-4.7 (Cerebras) est deprecie et retire.
 fn reasoning_for(provider_id: &str, model: &str) -> ReasoningConfig {
     let mut cfg = ReasoningConfig::default();
     match (provider_id, model) {
         (
             "openai",
-            "gpt-5.6-luna" | "gpt-5.6-terra" | "gpt-5.6-sol" | "gpt-5.5" | "gpt-5.4"
-            | "gpt-5.4-mini" | "gpt-5.4-nano",
+            "gpt-6-sol" | "gpt-6-luna" | "gpt-5.6-luna" | "gpt-5.6-terra" | "gpt-5.6-sol"
+            | "gpt-5.5" | "gpt-5.4" | "gpt-5.4-mini" | "gpt-5.4-nano",
         ) => {
             cfg.effort = Some("none".into());
         }
-        ("gemini", "gemini-3.7-flash" | "gemini-3.1-pro-preview") => {
+        ("openai", "gpt-6-astra" | "gpt-6.1-sol") => {
+            cfg.effort = Some("low".into());
+        }
+        ("gemini", "gemini-3.8-flash" | "gemini-3.7-flash" | "gemini-3.1-pro-preview") => {
             cfg.effort = Some("low".into());
         }
         (
@@ -236,7 +264,9 @@ fn reasoning_for(provider_id: &str, model: &str) -> ReasoningConfig {
             );
             cfg.extra_body = Some(map);
         }
-        ("cerebras", "zai-glm-4.7") => cfg.effort = Some("none".into()),
+        ("cerebras", "qwen-3.8-27b") | ("groq", "qwen/qwen3.8-27b") => {
+            cfg.effort = Some("none".into());
+        }
         ("groq", "openai/gpt-oss-120b" | "openai/gpt-oss-20b") => {
             cfg.effort = Some("low".into());
             let mut map = serde_json::Map::new();
@@ -456,19 +486,46 @@ mod tests {
     #[test]
     fn temperature_for_gpt5_family() {
         // VoiceInk : toute la famille gpt-5* prend 1.0.
-        assert_eq!(temperature_for("gpt-5"), 1.0);
-        assert_eq!(temperature_for("gpt-5.4"), 1.0);
-        assert_eq!(temperature_for("gpt-5-mini"), 1.0);
-        assert_eq!(temperature_for("gpt-5.4-nano"), 1.0);
+        assert_eq!(temperature_for("gpt-5"), Some(1.0));
+        assert_eq!(temperature_for("gpt-5.4"), Some(1.0));
+        assert_eq!(temperature_for("gpt-5-mini"), Some(1.0));
+        assert_eq!(temperature_for("gpt-5.4-nano"), Some(1.0));
     }
 
     #[test]
     fn temperature_for_other_models() {
-        assert_eq!(temperature_for("gpt-4.1"), 0.3);
-        assert_eq!(temperature_for("claude-opus-4-6"), 0.3);
-        assert_eq!(temperature_for("gemini-2.5-pro"), 0.3);
-        assert_eq!(temperature_for("llama-3.3-70b-versatile"), 0.3);
-        assert_eq!(temperature_for(""), 0.3);
+        assert_eq!(temperature_for("gpt-4.1"), Some(0.3));
+        assert_eq!(temperature_for("gemini-2.5-pro"), Some(0.3));
+        assert_eq!(temperature_for("llama-3.3-70b-versatile"), Some(0.3));
+        assert_eq!(temperature_for(""), Some(0.3));
+    }
+
+    #[test]
+    fn temperature_omitted_for_claude() {
+        // Parlato : 400 sur toute temperature non par defaut (Opus 4.7+).
+        for m in [
+            "claude-sonnet-5-5",
+            "claude-opus-5-5",
+            "claude-fable-5-1",
+            "claude-haiku-4-5",
+            "anthropic/claude-sonnet-5.5",
+        ] {
+            assert_eq!(temperature_for(m), None, "{m}");
+        }
+    }
+
+    #[test]
+    fn temperature_for_gpt6_follows_reasoning() {
+        // Temperature seulement quand reasoning_for envoie "none".
+        for m in ["gpt-6-sol", "gpt-6-luna"] {
+            assert_eq!(temperature_for(m), Some(1.0), "{m}");
+            assert_eq!(reasoning_for("openai", m).effort, Some("none".into()), "{m}");
+        }
+        for m in ["gpt-6-astra", "gpt-6.1-sol"] {
+            assert_eq!(temperature_for(m), None, "{m}");
+            assert_eq!(reasoning_for("openai", m).effort, Some("low".into()), "{m}");
+        }
+        assert_eq!(temperature_for("openai/gpt-6-sol"), None);
     }
 
     #[test]
@@ -491,7 +548,11 @@ mod tests {
 
     #[test]
     fn reasoning_for_gemini_flash() {
-        // 3.7 Flash et 3.1 Pro Preview ne supportent pas "minimal" -> "low".
+        // 3.8 / 3.7 Flash et 3.1 Pro Preview ne supportent pas "minimal" -> "low".
+        assert_eq!(
+            reasoning_for("gemini", "gemini-3.8-flash").effort,
+            Some("low".into())
+        );
         assert_eq!(
             reasoning_for("gemini", "gemini-3.7-flash").effort,
             Some("low".into())
@@ -529,10 +590,12 @@ mod tests {
     }
 
     #[test]
-    fn reasoning_for_cerebras_glm() {
-        let r = reasoning_for("cerebras", "zai-glm-4.7");
-        assert_eq!(r.effort, Some("none".into()));
-        assert!(r.extra_body.is_none());
+    fn reasoning_for_qwen38_off() {
+        for (p, m) in [("cerebras", "qwen-3.8-27b"), ("groq", "qwen/qwen3.8-27b")] {
+            let r = reasoning_for(p, m);
+            assert_eq!(r.effort, Some("none".into()), "{p} {m}");
+            assert!(r.extra_body.is_none());
+        }
     }
 
     #[test]

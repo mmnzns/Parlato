@@ -28,7 +28,10 @@ pub struct EnhancementRequest {
     /// Modele choisi (ex: "claude-sonnet-4-6", "gpt-4.1", "mistral-large-latest").
     pub model: String,
     /// Temperature : 1.0 pour gpt-5*, 0.3 sinon (VoiceInk AIService L~140).
-    pub temperature: f32,
+    /// Parlato : None = ne pas envoyer le champ. Les Claude recents (Opus
+    /// 4.7+ et Sonnet 5+) et les GPT-6 sans reasoning "none" repondent 400
+    /// a toute temperature non par defaut.
+    pub temperature: Option<f32>,
     /// Reasoning config optionnelle.
     pub reasoning: ReasoningConfig,
     /// Timeout requete (VoiceInk defaut 7s).

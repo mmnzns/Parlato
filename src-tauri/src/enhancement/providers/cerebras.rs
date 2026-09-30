@@ -13,10 +13,11 @@ use super::openai_compat;
 pub struct CerebrasProvider;
 
 // VoiceInk 2.13 AIService.availableModels (.cerebras).
+// Parlato : gemma-4-31b et zai-glm-4.7 retires (plus sur l'inference
+// partagee), qwen-3.8-27b ajoute, d'apres inference-docs.cerebras.ai (2026-09).
 const MODELS: &[&str] = &[
     "gpt-oss-120b",
-    "gemma-4-31b",
-    "zai-glm-4.7",
+    "qwen-3.8-27b",
 ];
 
 #[async_trait]

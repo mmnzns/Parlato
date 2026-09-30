@@ -115,7 +115,7 @@ impl LLMProvider for OllamaProvider {
             "model": req.model,
             "prompt": req.user_message,
             "system": req.system_prompt,
-            "options": { "temperature": req.temperature },
+            "options": { "temperature": req.temperature.unwrap_or(0.3) },
             "stream": false,
         });
         let client = reqwest::Client::builder()

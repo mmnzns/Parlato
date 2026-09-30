@@ -14,14 +14,16 @@ pub struct GeminiProvider;
 
 // VoiceInk 2.13 AIService.availableModels (.gemini), commits 304db11
 // "Gemini 3.7 flash support" + 6afbd81.
+// Parlato : 3.8 Flash ajoute, 2.5 Flash-Lite retire (reserve aux anciens
+// utilisateurs), d'apres ai.google.dev/gemini-api/docs/models (2026-09).
 const MODELS: &[&str] = &[
+    "gemini-3.8-flash",
     "gemini-3.7-flash",
     "gemini-3.6-flash",
-    "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3.1-pro-preview",
     "gemini-3.1-flash-lite",
-    "gemini-2.5-flash-lite",
 ];
 
 #[async_trait]
@@ -36,7 +38,7 @@ impl LLMProvider for GeminiProvider {
         MODELS
     }
     fn default_model(&self) -> &'static str {
-        "gemini-3.7-flash"
+        "gemini-3.8-flash"
     }
     fn endpoint(&self) -> &'static str {
         "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"

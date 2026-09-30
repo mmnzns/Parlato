@@ -28,9 +28,14 @@ use crate::enhancement::provider::{
 pub struct AnthropicProvider;
 
 // VoiceInk 2.13 AIService.availableModels (.anthropic).
+// Parlato : liste mise a jour d'apres platform.claude.com/docs (models
+// overview, 2026-09). Du plus rapide au plus capable ; Haiku 4.5 garde
+// l'alias (retraite annoncee au plus tot le 2026-10-15).
 const MODELS: &[&str] = &[
-    "claude-sonnet-5",
+    "claude-sonnet-5-5",
     "claude-haiku-4-5",
+    "claude-opus-5-5",
+    "claude-fable-5-1",
 ];
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
@@ -48,7 +53,7 @@ impl LLMProvider for AnthropicProvider {
         MODELS
     }
     fn default_model(&self) -> &'static str {
-        "claude-sonnet-5"
+        "claude-sonnet-5-5"
     }
     fn endpoint(&self) -> &'static str {
         "https://api.anthropic.com/v1/messages"
@@ -59,13 +64,17 @@ impl LLMProvider for AnthropicProvider {
         api_key: &str,
         req: &EnhancementRequest,
     ) -> Result<EnhancementResponse> {
-        let body = json!({
+        let mut body = json!({
             "model": req.model,
             "system": req.system_prompt,
             "messages": [{"role": "user", "content": req.user_message}],
             "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": req.temperature,
         });
+        // Parlato : les Claude recents refusent toute temperature non par
+        // defaut (400) ; service::temperature_for renvoie alors None.
+        if let Some(temperature) = req.temperature {
+            body["temperature"] = json!(temperature);
+        }
 
         let client = reqwest::Client::builder()
             .timeout(req.timeout)

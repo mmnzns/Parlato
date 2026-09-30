@@ -14,10 +14,13 @@ pub struct MistralProvider;
 
 // VoiceInk 2.13 AIService.availableModels (.mistral), commit fda3169
 // "Update Mistral model defaults" : small en premier et par defaut.
+// Parlato : Ministral 3 ajoutes, d'apres docs.mistral.ai/models (2026-09).
 const MODELS: &[&str] = &[
     "mistral-small-latest",
     "mistral-medium-latest",
     "mistral-large-latest",
+    "ministral-14b-latest",
+    "ministral-8b-latest",
 ];
 
 #[async_trait]

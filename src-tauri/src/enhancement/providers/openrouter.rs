@@ -14,11 +14,22 @@ use super::openai_compat;
 
 pub struct OpenRouterProvider;
 
+// Parlato : slugs verifies sur openrouter.ai/api/v1/models (2026-09).
+// L'ancien anthropic/claude-sonnet-4-6 n'existait pas (le slug utilise des points).
 const MODELS: &[&str] = &[
     "openai/gpt-oss-120b",
-    "anthropic/claude-sonnet-4-6",
-    "google/gemini-2.5-pro",
-    "meta-llama/llama-3.3-70b-instruct",
+    "anthropic/claude-sonnet-5.5",
+    "anthropic/claude-opus-5.5",
+    "anthropic/claude-haiku-4.5",
+    "openai/gpt-6-sol",
+    "openai/gpt-6-luna",
+    "google/gemini-3.8-flash",
+    "google/gemini-3.1-pro-preview",
+    "deepseek/deepseek-v4.1-flash",
+    "qwen/qwen3.8-flash",
+    "mistralai/mistral-medium-3-5",
+    "x-ai/grok-4.7",
+    "meta-llama/llama-4-maverick",
 ];
 
 #[async_trait]

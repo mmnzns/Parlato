@@ -39,10 +39,9 @@ pub async fn chat_completion(
             {"role": "user", "content": req.user_message},
         ]),
     );
-    body.insert(
-        "temperature".into(),
-        json!(req.temperature),
-    );
+    if let Some(temperature) = req.temperature {
+        body.insert("temperature".into(), json!(temperature));
+    }
     if let Some(effort) = req.reasoning.effort.as_ref() {
         body.insert("reasoning_effort".into(), json!(effort));
     }

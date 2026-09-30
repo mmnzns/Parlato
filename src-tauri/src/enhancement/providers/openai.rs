@@ -14,7 +14,13 @@ pub struct OpenAIProvider;
 
 // VoiceInk 2.13 AIService.availableModels (.openAI), commit af1c1bb
 // "feat: add gpt-5.6 models".
+// Parlato : GPT-6 ajoutes, gpt-4.1-mini / -nano retires (deprecies),
+// d'apres developers.openai.com/api/docs/models (2026-09).
 const MODELS: &[&str] = &[
+    "gpt-6-luna",
+    "gpt-6-sol",
+    "gpt-6.1-sol",
+    "gpt-6-astra",
     "gpt-5.6-luna",
     "gpt-5.6-terra",
     "gpt-5.6-sol",
@@ -23,8 +29,6 @@ const MODELS: &[&str] = &[
     "gpt-5.4-mini",
     "gpt-5.4-nano",
     "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
 ];
 
 #[async_trait]
@@ -39,7 +43,7 @@ impl LLMProvider for OpenAIProvider {
         MODELS
     }
     fn default_model(&self) -> &'static str {
-        "gpt-5.6-luna"
+        "gpt-6-luna"
     }
     fn endpoint(&self) -> &'static str {
         "https://api.openai.com/v1/chat/completions"

@@ -13,9 +13,12 @@ use super::openai_compat;
 pub struct GroqProvider;
 
 // VoiceInk 2.13 AIService.availableModels (.groq).
+// Parlato : qwen3.8-27b ajoute (preview chez Groq), d'apres
+// console.groq.com/docs/models (2026-09).
 const MODELS: &[&str] = &[
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
 ];
 
 #[async_trait]
