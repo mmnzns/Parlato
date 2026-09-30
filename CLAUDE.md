@@ -205,9 +205,15 @@ main product and must never regress because of Mac work.
   implementation for every Mac API below.
 - Every Mac change must still pass the Windows checks: the Windows release
   workflow builds, `cargo test --lib` passes on Windows.
-- User-facing strings that say "Windows" (tray "Same as Windows", model pages
-  "on this PC", `shortDescription` in `tauri.conf.json`) need a Mac variant.
-  Add new keys in all three locale files; do not change the Windows wording.
+- **User-facing wording is platform-neutral** (owner decision, 2026-09-30):
+  "Same as computer", "this computer", "your computer's settings", never
+  "Windows" or "PC", so one string works on both platforms. French uses
+  "l'ordinateur" / "cet ordinateur", Spanish "el ordenador" / "este
+  ordenador". Done for the general UI and the tray. Still Windows-specific,
+  on purpose: the step-by-step permission and OCR instructions (Settings
+  paths, language packs, the keyboard hook tip). Phase 1 gives those a
+  per-platform version, because the Mac steps are different, not just
+  differently named. Internal key names like `voice.sameAsWindows` stay.
 
 ### Unsigned app on macOS: the two user-facing costs
 

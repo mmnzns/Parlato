@@ -397,7 +397,11 @@ fn tr(lang: &str, key: &str) -> String {
         ],
         "manageModels" => ["Speech model", "Mod\u{e8}le vocal", "Modelo de voz"],
         "audioInput" => ["Microphone", "Micro", "Micr\u{f3}fono"],
-        "systemDefault" => ["Same as Windows", "Comme Windows", "Igual que Windows"],
+        "systemDefault" => [
+            "Same as computer",
+            "Comme l'ordinateur",
+            "Igual que el ordenador",
+        ],
         "retryLast" => [
             "Retry last transcription",
             "R\u{e9}essayer la derni\u{e8}re transcription",
@@ -410,9 +414,9 @@ fn tr(lang: &str, key: &str) -> String {
         ],
         "history" => ["History", "Historique", "Historial"],
         "launchAtLogin" => [
-            "Start with Windows",
-            "Lancer avec Windows",
-            "Iniciar con Windows",
+            "Start with computer",
+            "Lancer avec l'ordinateur",
+            "Iniciar con el ordenador",
         ],
         "settings" => ["Settings", "Param\u{e8}tres", "Ajustes"],
         "checkUpdates" => [
