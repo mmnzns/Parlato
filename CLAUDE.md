@@ -158,10 +158,22 @@ files `parla.*.json`, thread names, log filters, and code comments.
 the data folders, the single-instance lock and installer upgrades; changing it
 strands every user's settings and API keys.
 
-**The auto-updater points at this fork's GitHub releases** but still carries
-upstream's signing public key. Before publishing a release: generate our own
-updater key pair, replace `plugins.updater.pubkey`, and sign releases with it.
-Until then the update check finds nothing and fails silently.
+**The auto-updater uses Parlato's own signing key** (generated 2026-09-29).
+The public key is `plugins.updater.pubkey` in `tauri.conf.json`. The private
+key lives only at `C:\Users\mikey\.tauri\parlato-updater.key` (no password),
+backed up by the owner, and as the `TAURI_SIGNING_PRIVATE_KEY` repository
+secret. Never commit it, print it or copy it into the repo. Never replace the
+public key: every installed copy only accepts updates signed with the
+matching private key, so a new key strands all existing installs. Losing the
+private key has the same effect.
+
+**Releasing.** Bump the version in `package.json`, `package-lock.json`,
+`src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, add a `CHANGELOG.md`
+entry, commit, then push a `vX.Y.Z` tag. `.github/workflows/release.yml`
+builds x64 and ARM64, signs them, uploads `latest.json` and creates a
+**draft** release. Publishing the draft is the owner's call. Local
+`npm run tauri build` keeps `createUpdaterArtifacts` off, so it needs no key.
+Releases are not code-signed (owner decision, no paid certificate).
 
 ## Guardrails for this fork
 
