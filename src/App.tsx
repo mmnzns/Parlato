@@ -136,7 +136,7 @@ function App() {
                 title={t("hero.historyTitle")}
                 description={t("hero.historyDescription")}
               />
-              <HistoryPanel />
+              <HistoryPanel onOpenSettings={() => setView("settings")} />
             </>
           )}
 
