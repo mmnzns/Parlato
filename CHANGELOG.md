@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-30
+
 ### Added
 - Power modes: "Add app" lists the apps installed on this PC (open ones
   first) with a search box, so there is no program name to guess. Typing
   a program name is still possible for apps not in the list.
-- The installed version ("Parlato v0.7.1") shows at the bottom of the
+- The installed version ("Parlato v0.8.0") shows at the bottom of the
   sidebar.
 - Live text while you talk now works with Parakeet Unified (English), not
   only with online services. It appears about a second after you start
