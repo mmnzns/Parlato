@@ -8,6 +8,8 @@ pub mod metrics;
 pub mod models;
 pub mod parakeet;
 pub mod permissions;
+#[cfg(target_os = "macos")]
+pub mod permissions_macos;
 pub mod power_mode;
 pub mod recording;
 pub mod screen_context;

@@ -1,6 +1,8 @@
 // Parlato: light/dark appearance for the main window.
-// "system" follows the Windows app theme; "light"/"dark" override it.
+// "system" follows the computer's light/dark setting; "light"/"dark" override it.
 // Stored per machine in localStorage (a UI preference, not app data).
+
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export type ThemePref = "system" | "light" | "dark";
 
@@ -20,6 +22,11 @@ function apply() {
   const pref = getThemePref();
   const dark = pref === "dark" || (pref === "system" && darkQuery.matches);
   document.documentElement.classList.toggle("dark", dark);
+  // Parlato: the native title bar follows the in-app choice too
+  // (null = follow the system).
+  getCurrentWindow()
+    .setTheme(pref === "system" ? null : pref)
+    .catch(() => {});
 }
 
 export function setThemePref(pref: ThemePref) {

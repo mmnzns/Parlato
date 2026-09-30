@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { isMac } from "@/lib/platform";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -12,5 +13,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function powerShortcutLabel(slot: number | null | undefined): string | null {
   if (slot == null || slot < 0 || slot > 9) return null;
-  return slot < 9 ? `Alt+${slot + 1}` : "Alt+0";
+  // Parlato: the same key is called Option on a Mac.
+  const mod = isMac ? "Option" : "Alt";
+  return slot < 9 ? `${mod}+${slot + 1}` : `${mod}+0`;
 }

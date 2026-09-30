@@ -112,7 +112,7 @@ bundles or hosts model files; they download from the original host. Pin
 third-party repositories to a commit (`revision` in the Parakeet catalog).
 
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-1138 keys each and exactly in sync. Any user-facing string means editing all three.
+1163 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
 are written without accents throughout (upstream convention); match it unless the
 whole set is converted at once.
@@ -294,6 +294,42 @@ Phase 0 findings (2026-09-30, MacBook, Apple Silicon, macOS 27, Rust 1.98):
   reference.
 Done when: hold the key, speak, release, and the text lands in Notes, Safari
 and Messages, after a full quit and relaunch.
+
+Phase 1 status (2026-09-30, after a full review):
+- Hotkey: `hotkeys/keyboard_hook_macos.rs`, a CGEventTap that maps macOS key
+  codes to Windows VK codes and feeds the shared `handle_key`. A character
+  typed while a modifier-only trigger is held (Option+e) cancels that press.
+  Stale modifiers are re-synced from each event's flags. Events Parlato
+  posts itself carry `PARLATO_EVENT_TAG` and are ignored by its own tap.
+  The Accessibility prompt waits for onboarding (`allow_accessibility_prompt`).
+- Paste: `paste/macos.rs` (Cmd+V, re-activates the app that was frontmost
+  at record start), `paste/clipboard_backup_macos.rs` (every pasteboard
+  type). If the paste fails, the dictated text stays on the clipboard.
+- Permissions: `commands/permissions_macos.rs` (AVCaptureDevice mic status,
+  AXIsProcessTrusted, System Settings panes). Onboarding has a first
+  "Permissions" step on Mac.
+- The shortcut recorder derives VKs from `e.code` on Mac (physical keys, like
+  the tap) and refuses Command-only combos.
+- Mac-only UI: `src/lib/platform.ts` `isMac`; `macOverrides` in the locale
+  files for Mac key names and Mac instructions. Hidden on Mac until they
+  work: pause other audio, screen context, command-line AI engine, pairing
+  power modes with apps/websites. "Use everywhere else" works (frontmost app
+  via NSWorkspace).
+- Menu bar: template icon `icons/tray-template.png` (generated from the logo,
+  bright shapes only), left click opens the menu, Dock click reopens the
+  window (`RunEvent::Reopen`). Pill: work area of the screen under the
+  mouse, on every Space.
+- Test as a bundle: `npm run tauri build -- --debug --bundles app,dmg`.
+  `tauri.macos.conf.json` + `Entitlements.plist` (audio input) are ready for
+  Phase 2 signing.
+- Logs (both platforms): `logging.rs`, parlato.log in
+  `~/Library/Logs/com.craftconceptsdigital.parlato/` or
+  `%LOCALAPPDATA%\com.craftconceptsdigital.parlato\logs\`; Settings > Log file
+  opens the folder. Logs hold lengths and timings, never dictated text.
+- Not done yet: Metal (Phase 3, whisper and llama together), non-activating
+  NSPanel pill above full-screen apps, Fn/Globe key, OCR and app pairing
+  (Phase 4). On non-QWERTY Macs a custom letter combo fires correctly but its
+  label shows the US key name.
 
 **Phase 2: shareable release.**
 - Self-signed certificate created, secrets added by the owner in the GitHub

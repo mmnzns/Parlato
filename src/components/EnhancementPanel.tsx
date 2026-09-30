@@ -16,6 +16,7 @@ import { EnhancementScreenContext } from "@/components/EnhancementScreenContext"
 import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { PromptEditor } from "@/components/PromptEditor";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 import {
   api,
   type CustomPrompt,
@@ -335,7 +336,8 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
               >
                 <option value="llamacpp">{t("ai.engineBuiltin")}</option>
                 <option value="ollama">{t("ai.engineOllama")}</option>
-                <option value="localcli">{t("ai.engineCli")}</option>
+                {/* Parlato: the command-line engine runs PowerShell, Windows only for now. */}
+                {!isMac && <option value="localcli">{t("ai.engineCli")}</option>}
               </select>
             </Row>
 
@@ -607,7 +609,14 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
           onChange={refresh}
         />
 
-        <EnhancementScreenContext />
+        {/* Parlato: reading the screen (OCR) is not available on Mac yet. */}
+        {isMac ? (
+          <p className="rounded-lg border-[1.5px] border-dashed bg-card px-5 py-4 text-[13px] text-muted-foreground">
+            {t("mac.screenNotYet")}
+          </p>
+        ) : (
+          <EnhancementScreenContext />
+        )}
       </div>
     </>
   );

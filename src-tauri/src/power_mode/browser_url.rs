@@ -93,6 +93,7 @@ fn try_extract(active: &ActiveWindow) -> Result<Option<String>> {
 
 /// Normalise une URL affichee : ajoute https:// si absent, strip trailing
 /// whitespace. Volontairement minimaliste (matcher est deja tolerant).
+#[cfg_attr(not(windows), allow(dead_code))] // used by the Windows UIA path
 pub fn normalize_url(raw: &str) -> String {
     let t = raw.trim();
     if t.starts_with("http://") || t.starts_with("https://") || t.starts_with("about:") {

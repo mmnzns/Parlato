@@ -220,7 +220,7 @@
     "removeFillers": "Remove filler words",
     "fillerList": "Filler word list (comma-separated)",
     "liveTranscript": "Live text display",
-    "liveTranscriptInfo": "Shows live text while recording with realtime models (cloud streaming providers).",
+    "liveTranscriptInfo": "Shows your words while you record. Works with NVIDIA Parakeet Unified on this computer and with online services that support live text. The pasted text still comes from the full pass at the end.",
     "liveTranscriptDescription": "The recorder pill shows the text as you speak.",
     "sectionGeneral": "General",
     "sectionDictating": "While you dictate",
@@ -246,7 +246,7 @@
     "resumeLabel": "Resume audio after",
     "resumeHint": "How long to wait before unmuting once dictation ends.",
     "liveLabel": "Show words as you speak",
-    "liveHint": "Only with online models that support live text.",
+    "liveHint": "With Parakeet Unified on this computer, or online models that support live text.",
     "recorderPosLabel": "Recorder position",
     "recorderPosHint": "Where the little recording bar appears.",
     "formatLabel": "Tidy up paragraphs",
@@ -303,7 +303,10 @@
     "modelLicencesHint": "Speech and AI models are made by other companies and come with their own licences. Parakeet Unified is licensed by NVIDIA Corporation under the NVIDIA Open Model License.",
     "modelLicencesButton": "View notices",
     "updateNow": "Update now",
-    "installFailed": "Could not install"
+    "installFailed": "Could not install",
+    "logsLabel": "Log file",
+    "logsHint": "If something goes wrong, attach parlato.log to your report. It records timings and errors, never what you dictate.",
+    "logsButton": "Open log folder"
   },
   "onboarding": {
     "welcome": {
@@ -469,7 +472,7 @@
     "gpuDetected": "GPU detected: {{device}} - CUDA {{cuda}}",
     "inferenceParams": "Inference parameters",
     "nGpuLayers": "N GPU layers",
-    "nGpuLayersHelp": "0 = CPU, 1000 = all on GPU (if CUDA active)",
+    "nGpuLayersHelp": "0 = processor only, 1000 = all on the graphics card (if GPU acceleration is on)",
     "contextSize": "Context size",
     "maxTokens": "Max tokens output",
     "ggufModels": "GGUF models",
@@ -725,7 +728,7 @@
     "autostartActivate": "Activate",
     "autostartDeactivate": "Deactivate",
     "hotkeyTitle": "Global keyboard hook",
-    "hotkeyDescription": "Capture the Push-to-Talk shortcut anywhere in Windows.",
+    "hotkeyDescription": "Hears your shortcut in every app.",
     "hotkeyTip": "Parlato installs a low-level WH_KEYBOARD_LL hook which does not require special permissions on Windows. The default shortcut is Right Alt.",
     "audio": {
       "detected_one": "{{count}} audio input detected",
@@ -747,6 +750,20 @@
     "hotkey": {
       "active": "Keyboard hook active",
       "hint": "Default trigger is Right Alt. Configure a different one in Settings."
+    },
+    "mac": {
+      "allow": "Allow",
+      "micAllowed": "Allowed",
+      "micNotAsked": "Not allowed yet",
+      "micNotAskedHint": "Click Allow, then choose Allow in the macOS prompt.",
+      "micDenied": "Blocked",
+      "micDeniedHint": "Open System Settings > Privacy & Security > Microphone and turn on Parlato.",
+      "accessibilityTitle": "Accessibility",
+      "accessibilityDescription": "Lets Parlato hear your shortcut in every app and paste the text where your cursor is.",
+      "accessibilityAllowed": "Allowed",
+      "accessibilityMissing": "Not allowed yet",
+      "accessibilityHint": "Click Allow, then turn on Parlato in System Settings > Privacy & Security > Accessibility. It starts working within a few seconds.",
+      "hotkeyNeedsAccess": "Needs Accessibility"
     }
   },
   "miniRecorder": {
@@ -838,14 +855,15 @@
       "title": "Record a custom combination",
       "hint": "Press the keys you want to use. Need at least one modifier and a final key (e.g. Ctrl + Alt + R, F13, Win + Space). Esc cancels.",
       "waiting": "Press your combination...",
-      "needsModifier": "A standalone key is only allowed for F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Otherwise add Ctrl, Alt, Shift or Win."
+      "needsModifier": "A standalone key is only allowed for F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Otherwise add Ctrl, Alt, Shift or Win.",
+      "macReserved": "Command shortcuts belong to macOS and your apps (copy, paste, quit...). Add Control or Option, e.g. Control + Option + R."
     },
     "editCombo": "Click to change the combination",
     "additional": {
       "cardTitle": "Additional shortcuts",
       "cardDescription": "Global shortcuts for the last transcription and for cancelling a recording. Not set by default.",
       "copyLast": "Copy last transcription",
-      "copyLastHint": "Copies the last transcription (enhanced text if available) to the clipboard. Also available in the tray menu.",
+      "copyLastHint": "Copies the last transcription (enhanced text if available) to the clipboard. Also in the menu of Parlato's icon near the clock.",
       "pasteLast": "Paste last transcription (original)",
       "pasteLastEnhanced": "Paste last transcription (enhanced)",
       "retryLast": "Retry last transcription",
@@ -1181,7 +1199,10 @@
     "back": "Back",
     "continue": "Continue",
     "start": "Start using Parlato",
-    "skip": "Skip setup"
+    "skip": "Skip setup",
+    "accessLabel": "Permissions",
+    "accessTitle": "Allow Parlato on your Mac",
+    "accessDesc": "macOS asks before an app can use the microphone or type for you. Parlato needs both: the microphone to hear you, Accessibility to hear your shortcut and paste the text. Nothing leaves your computer unless you pick an online service."
   },
   "modelText": {
     "imported": "A model you imported.",
@@ -1331,6 +1352,10 @@
       "notes": "NVIDIA's Parakeet v3, retrained by Moondream to make fewer mistakes, especially outside English and in noisy rooms. English and 24 other European languages, and it detects which one you speak. About 670 MB."
     }
   },
+  "mac": {
+    "screenNotYet": "Letting the AI read the window you're typing in is not available on Mac yet.",
+    "pairingNotYet": "Pairing a mode with an app or a website is not available on Mac yet. Use a shortcut, or turn on \"Use everywhere else\"."
+  },
   "macOverrides": {
     "onboarding": {
       "hotkey": {
@@ -1350,6 +1375,11 @@
       "hotkeyTip": "Parlato needs the Accessibility permission to hear the shortcut and paste the text: System Settings > Privacy & Security > Accessibility, then turn on Parlato. The default shortcut is Right Option.",
       "hotkey": {
         "hint": "Default trigger is Right Option. Configure a different one in Settings."
+      },
+      "microphoneAction": "System Settings",
+      "microphoneTip": "If recordings come out silent, open System Settings > Privacy & Security > Microphone and turn on Parlato. Also check the right microphone is picked in Microphone & shortcut.",
+      "audio": {
+        "hint": "Plug a microphone in, or check System Settings > Sound > Input."
       }
     },
     "miniRecorder": {
@@ -1370,9 +1400,12 @@
         "rightWin": "Right Command"
       },
       "record": {
-        "hint": "Press the keys you want to use. Need at least one modifier and a final key (e.g. Control + Option + R, F13, Command + Space). Esc cancels.",
+        "hint": "Press the keys you want to use. Need at least one modifier and a final key (e.g. Control + Option + R, Control + Option + Space, F13). Esc cancels.",
         "needsModifier": "A standalone key is only allowed for F1-F24, Home, End, PageUp/Down and Forward Delete. Otherwise add Control, Option, Shift or Command."
       }
+    },
+    "settings": {
+      "trayHint": "Parlato stays in the menu bar near the clock. Click its icon to open it or quit."
     }
   }
 }

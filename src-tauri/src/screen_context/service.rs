@@ -82,6 +82,11 @@ pub fn capture_and_ocr(app: &AppHandle) -> Result<Option<String>> {
     }
 
     let result = (|| -> Result<String> {
+        // Parlato : no OCR on macOS yet (Phase 4); stop before the capture so
+        // macOS does not ask for Screen Recording for nothing.
+        #[cfg(target_os = "macos")]
+        return Err(anyhow!("screen context is not available on macOS yet"));
+        #[allow(unreachable_code)]
         let active = foreground_window()?;
         let start = Instant::now();
         let cap = capture::capture_foreground(&active)?;

@@ -8,6 +8,7 @@ mod db;
 mod enhancement;
 mod gpu;
 mod history;
+mod logging;
 mod hotkeys;
 mod mini_recorder;
 mod paste;
@@ -72,7 +73,8 @@ use commands::parakeet::{
 };
 use commands::permissions::{
     check_permissions, get_onboarding_completed, get_recorder_style, open_language_settings,
-    open_privacy_microphone, set_autostart_enabled, set_onboarding_completed, set_recorder_style,
+    open_privacy_microphone, request_accessibility_access, request_microphone_access,
+    set_autostart_enabled, set_onboarding_completed, set_recorder_style,
 };
 use commands::power_mode::{
     add_power_config, delete_power_config, get_active_power_session, get_power_auto_restore,
@@ -116,6 +118,17 @@ fn get_gpu_info() -> GpuInfo {
     gpu::detect()
 }
 
+/// Parlato : opens the folder holding parlato.log (Settings > Version), so
+/// a user can attach it to a bug report.
+#[tauri::command]
+fn open_log_folder(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = logging::log_dir().ok_or("no log folder on this platform")?;
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn ping() -> &'static str {
     "pong"
@@ -123,12 +136,7 @@ fn ping() -> &'static str {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,parla=debug")),
-        )
-        .init();
+    logging::init();
 
     let gpu = gpu::detect();
     if gpu.has_nvidia {
@@ -139,6 +147,8 @@ pub fn run() {
             "GPU NVIDIA detecte"
         );
     } else {
+        // Parlato : a Mac never has an NVIDIA GPU, so this is not a warning there.
+        #[cfg(not(target_os = "macos"))]
         warn!("Pas de GPU NVIDIA detecte, execution CPU uniquement");
     }
 
@@ -295,6 +305,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             ping,
+            open_log_folder,
             get_gpu_info,
             list_audio_devices,
             start_recording,
@@ -417,6 +428,8 @@ pub fn run() {
             check_permissions,
             set_autostart_enabled,
             open_privacy_microphone,
+            request_microphone_access,
+            request_accessibility_access,
             open_language_settings,
             get_recorder_style,
             set_recorder_style,
@@ -436,11 +449,33 @@ pub fn run() {
             set_ui_language,
             reset_escape_hint,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // Parlato : on macOS, clicking the Dock icon while the window is
+            // hidden (closed to the menu bar) brings the window back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } = _event
+            {
+                if let Some(win) = _app.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.unminimize();
+                    let _ = win.set_focus();
+                }
+            }
+        });
 }
 
 fn setup_hotkeys(app: AppHandle) {
+    // Parlato : on macOS the Accessibility prompt waits for onboarding to
+    // explain it; a user who finished onboarding gets it right away.
+    #[cfg(target_os = "macos")]
+    if commands::permissions::get_onboarding_completed(app.clone()) {
+        hotkeys::keyboard_hook::allow_accessibility_prompt();
+    }
     let cfg = commands::hotkey::load(&app);
     let manager = Arc::new(HotkeyManager::with_modes(
         cfg.primary.mode,

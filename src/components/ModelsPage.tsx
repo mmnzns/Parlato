@@ -49,6 +49,7 @@ import {
   type WhisperModelState,
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 /// Parlato: the backend reports a cancelled download as the French error
 /// "telechargement annule" (model managers); it is not a real error.
@@ -274,7 +275,7 @@ export function ModelsPage({
   }
 
   async function deleteParakeet(id: string) {
-    if (!confirm(t("parakeet.confirmDelete", { id }))) return;
+    if (!(await confirmDelete(t("parakeet.confirmDelete", { id })))) return;
     try {
       await api.deleteParakeetModel(id);
       await refresh();

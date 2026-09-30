@@ -34,7 +34,7 @@ if (isRecorder) {
   document.body.style.colorScheme = "dark";
 }
 
-// Parlato: the main window follows the Windows light/dark app theme,
+// Parlato: the main window follows the computer's light/dark theme,
 // unless overridden in Settings > Appearance.
 if (!isRecorder && !isPopover) {
   initTheme();

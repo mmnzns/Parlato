@@ -30,11 +30,14 @@ import {
 } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 
+// Parlato: MacBook keyboards have no Right Control, so it is not offered on
+// the Mac (a saved Right Control still works and still shows).
 const MODIFIER_OPTIONS: HotkeyOptionId[] = [
   "rightAlt",
   "leftAlt",
-  "rightCtrl",
+  ...(isMac ? [] : (["rightCtrl"] as HotkeyOptionId[])),
   "leftCtrl",
   "rightWin",
   "rightShift",

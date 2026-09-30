@@ -14,6 +14,7 @@
 //   et autres formats quand l'utilisateur avait copie autre chose avant la
 //   dictee.
 
+#[cfg_attr(not(windows), allow(unused_imports))] // StdMutex: Windows foreground only
 use std::sync::{Mutex as StdMutex, OnceLock};
 use std::thread::sleep;
 use std::time::Duration;
@@ -21,10 +22,13 @@ use std::time::Duration;
 use anyhow::{anyhow, Result};
 use arboard::Clipboard;
 use parking_lot::Mutex;
+#[cfg_attr(not(windows), allow(unused_imports))] // debug: Windows paste only
 use tracing::{debug, warn};
 
 #[cfg(windows)]
 mod clipboard_backup;
+#[cfg(target_os = "macos")]
+mod clipboard_backup_macos;
 #[cfg(target_os = "macos")]
 mod macos;
 
@@ -54,7 +58,12 @@ pub fn remember_foreground() {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+pub fn remember_foreground() {
+    macos::remember_frontmost();
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 pub fn remember_foreground() {}
 
 fn clipboard() -> &'static Mutex<Clipboard> {
@@ -96,7 +105,15 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
         None
     };
 
-    #[cfg(not(windows))]
+    // Parlato : every format, like Windows (images, files, rich text).
+    #[cfg(target_os = "macos")]
+    let backup = if restore {
+        Some(clipboard_backup_macos::backup_all())
+    } else {
+        None
+    };
+
+    #[cfg(not(any(windows, target_os = "macos")))]
     let backup = if restore {
         clipboard().lock().get_text().ok()
     } else {
@@ -116,11 +133,19 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
     // la fenetre Parla mini-recorder.
     #[cfg(windows)]
     restore_foreground();
+    #[cfg(target_os = "macos")]
+    macos::restore_frontmost();
 
     // Le presse-papiers est restaure meme si le Ctrl+V echoue (VoiceInk
     // CursorPaster, commit 8ce493d) : l'utilisateur ne doit jamais perdre
     // ce qu'il avait copie a cause d'un collage rate.
     let paste_result = send_ctrl_v();
+
+    // Parlato : on macOS, if the paste could not happen (Accessibility
+    // missing), keep the dictated text on the clipboard so the user can
+    // paste it by hand instead of losing it.
+    #[cfg(target_os = "macos")]
+    let backup = if paste_result.is_err() { None } else { backup };
 
     if let Some(prev) = backup {
         let delay = restore_delay.unwrap_or(MIN_RESTORE_DELAY).max(MIN_RESTORE_DELAY);
@@ -131,7 +156,13 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
                 warn!("restore clipboard multi-format: {e}");
             }
         }
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        {
+            if !prev.is_empty() && !clipboard_backup_macos::restore_all(&prev) {
+                warn!("restore clipboard (all formats) failed");
+            }
+        }
+        #[cfg(not(any(windows, target_os = "macos")))]
         {
             if let Err(e) = clipboard().lock().set_text(prev) {
                 warn!("restore clipboard: {e}");

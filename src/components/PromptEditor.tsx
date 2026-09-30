@@ -24,6 +24,7 @@ import {
 import { api, type CustomPrompt } from "@/lib/tauri";
 import { promptDescription, promptTitle } from "@/lib/promptLabels";
 import { cn } from "@/lib/utils";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 type Props = {
   prompts: CustomPrompt[];
@@ -102,7 +103,7 @@ export function PromptEditor({ prompts, activeId, onSelect, onChange }: Props) {
 
   async function remove(p: CustomPrompt) {
     if (p.is_predefined) return;
-    if (!confirm(t("promptEditor.confirmDelete", { name: p.title }))) return;
+    if (!(await confirmDelete(t("promptEditor.confirmDelete", { name: p.title })))) return;
     try {
       await api.deletePrompt(p.id);
       await onChange();

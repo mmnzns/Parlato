@@ -120,6 +120,12 @@ keyring = { version = "3", features = ["apple-native"] }
 # Global hotkey tap and Cmd+V paste (CGEventTap / CGEvent).
 core-graphics = "0.25"
 core-foundation = "0.10"
+# Permission checks, frontmost app and full clipboard backup (Cocoa APIs).
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSArray", "NSData"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication", "NSPasteboard", "NSPasteboardItem"] }
+objc2-av-foundation = { version = "0.3", default-features = false, features = ["std", "block2", "AVCaptureDevice", "AVMediaFormat"] }
 
 # rustc 1.95 plante (STATUS_ACCESS_VIOLATION) en compilant tokenizers
 # v0.22 a opt-level 3 sur Windows MSVC. On baisse l'opt-level juste pour

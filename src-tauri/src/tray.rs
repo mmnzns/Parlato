@@ -49,16 +49,29 @@ const TRAY_ID: &str = "main";
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_menu(app)?;
+    #[cfg(not(target_os = "macos"))]
     let icon = app
         .default_window_icon()
         .cloned()
         .expect("default window icon is bundled");
+    // Parlato : macOS menu bar icons are one-color "template" images that
+    // macOS tints for light and dark menu bars.
+    #[cfg(target_os = "macos")]
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?;
+
+    // Parlato : on macOS a left click opens the menu (the platform habit,
+    // "Open Parlato" is its first item); on Windows it opens the window.
+    #[cfg(target_os = "macos")]
+    let left_click_menu = true;
+    #[cfg(not(target_os = "macos"))]
+    let left_click_menu = false;
 
     TrayIconBuilder::with_id(TRAY_ID)
         .tooltip("Parlato")
         .icon(icon)
+        .icon_as_template(cfg!(target_os = "macos"))
         .menu(&menu)
-        .show_menu_on_left_click(false)
+        .show_menu_on_left_click(left_click_menu)
         .on_menu_event(|app, event| handle_menu_event(app, event.id.as_ref()))
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -95,7 +108,12 @@ pub fn refresh(app: &AppHandle) {
 /// Appends the configured shortcut label in the accelerator column.
 fn with_accel(text: String, trigger: HotkeyTrigger) -> String {
     match trigger_label(trigger) {
+        // Parlato : a tab lines the shortcut up on the right in Windows
+        // menus; macOS menus show the tab as a gap, so use parentheses.
+        #[cfg(not(target_os = "macos"))]
         Some(accel) => format!("{text}\t{accel}"),
+        #[cfg(target_os = "macos")]
+        Some(accel) => format!("{text} ({accel})"),
         None => text,
     }
 }
@@ -430,6 +448,15 @@ fn tr(lang: &str, key: &str) -> String {
             "Parlato tourne toujours",
             "Parlato sigue funcionando",
         ],
+        // Parlato : on macOS the icon is in the menu bar and a click opens
+        // its menu (Open Parlato, Quit...).
+        #[cfg(target_os = "macos")]
+        "stillRunningBody" => [
+            "Dictation keeps working. Parlato's icon is in the menu bar near the clock: click it to open Parlato or quit.",
+            "La dict\u{e9}e reste active. L'ic\u{f4}ne de Parlato est dans la barre des menus pr\u{e8}s de l'horloge : cliquez dessus pour ouvrir Parlato ou quitter.",
+            "El dictado sigue activo. El icono de Parlato est\u{e1} en la barra de men\u{fa}s junto al reloj: haz clic para abrir Parlato o salir.",
+        ],
+        #[cfg(not(target_os = "macos"))]
         "stillRunningBody" => [
             "Dictation keeps working. Parlato's icon is near the clock: click it to open, right-click to quit.",
             "La dict\u{e9}e reste active. L'ic\u{f4}ne de Parlato est pr\u{e8}s de l'horloge : clic pour ouvrir, clic droit pour quitter.",

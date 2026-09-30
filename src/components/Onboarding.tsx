@@ -10,7 +10,10 @@
 //   1. Microphone  -> MicrophonePanel (device + level test)
 //   2. Speech model -> ModelsPage (download or pick a model)
 //   3. Shortcut    -> HotkeyCard (key + how it works)
-//   4. Try it      -> practice box, plus start-with-Windows
+//   4. Try it      -> practice box, plus start-at-login
+// On macOS a first "Permissions" step asks for Microphone and Accessibility
+// (shortcut + paste) before anything else, so the system prompts come with
+// an explanation.
 // The OCR language step moved out: it lives in Settings > Permissions.
 
 import { useEffect, useState } from "react";
@@ -22,11 +25,16 @@ import { HotkeyCard } from "@/components/HotkeyCard";
 import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { ModelsPage } from "@/components/ModelsPage";
 import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
-import { api } from "@/lib/tauri";
+import { AccessibilityAction, MicrophoneAction, PermissionRow } from "@/components/PermissionsPanel";
+import { api, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
+import { Mic, ShieldCheck } from "lucide-react";
 
-const STEPS = ["mic", "model", "key", "try"] as const;
-type Step = (typeof STEPS)[number];
+type Step = "access" | "mic" | "model" | "key" | "try";
+const STEPS: readonly Step[] = isMac
+  ? ["access", "mic", "model", "key", "try"]
+  : ["mic", "model", "key", "try"];
 
 export function Onboarding({
   onDone,
@@ -44,6 +52,7 @@ export function Onboarding({
   const key = keyLabel ?? t("hotkey.options.rightAlt");
 
   const copy: Record<Step, { label: string; title: string; desc: string }> = {
+    access: { label: t("ob.accessLabel"), title: t("ob.accessTitle"), desc: t("ob.accessDesc") },
     mic: { label: t("ob.micLabel"), title: t("ob.micTitle"), desc: t("ob.micDesc") },
     model: { label: t("ob.modelLabel"), title: t("ob.modelTitle"), desc: t("ob.modelDesc") },
     key: { label: t("ob.keyLabel"), title: t("ob.keyTitle"), desc: t("ob.keyDesc") },
@@ -121,6 +130,7 @@ export function Onboarding({
               <p className="max-w-[560px] text-sm text-pretty text-muted-foreground">{copy[step].desc}</p>
             </header>
 
+            {step === "access" && <AccessStep />}
             {step === "mic" && (
               <>
                 <MicrophonePanel />
@@ -160,6 +170,38 @@ export function Onboarding({
           </Button>
         </footer>
       </div>
+    </div>
+  );
+}
+
+/// Parlato: macOS permissions, explained before macOS asks.
+function AccessStep() {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<PermissionStatus | null>(null);
+  const refresh = () => {
+    api.checkPermissions().then(setStatus).catch(console.error);
+  };
+  useEffect(() => {
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, []);
+  return (
+    <div className="divide-y rounded-lg border-[1.5px] border-edge bg-card">
+      <PermissionRow
+        icon={Mic}
+        title={t("permissions.microphoneTitle")}
+        description={t("permissions.microphoneDescription")}
+        state={status?.microphone}
+        action={<MicrophoneAction state={status?.microphone} onChange={refresh} />}
+      />
+      <PermissionRow
+        icon={ShieldCheck}
+        title={t("permissions.mac.accessibilityTitle")}
+        description={t("permissions.mac.accessibilityDescription")}
+        state={status?.accessibility}
+        action={<AccessibilityAction state={status?.accessibility} onChange={refresh} />}
+      />
     </div>
   );
 }

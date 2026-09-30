@@ -11,6 +11,7 @@ import {
   type GgufModelState,
   type LlamaCppSettings,
 } from "@/lib/tauri";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 type DownloadProgress = { id: string; downloaded: number; total: number };
 
@@ -116,7 +117,7 @@ export function LlmLocalPanel() {
   }
 
   async function remove(id: string) {
-    if (!confirm(t("llmLocal.confirmDelete", { id }))) return;
+    if (!(await confirmDelete(t("llmLocal.confirmDelete", { id })))) return;
     try {
       await api.deleteGgufModel(id);
       await refresh();

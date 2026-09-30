@@ -41,6 +41,7 @@ const BOTTOM_PADDING: f64 = 24.0;
 /// Position y du Notch recorder depuis le haut. VoiceInk colle au notch
 /// (y=screen.maxY-200). Sur Windows, sans notch, on descend de 0 px du
 /// haut pour que le pill sorte de l'ecran.
+#[cfg_attr(target_os = "macos", allow(dead_code))] // macOS uses the work area
 const TOP_PADDING: f64 = 0.0;
 
 /// Fenetre popover du bouton Mode (VoiceInk ModePopover : 180 pt de large,
@@ -187,12 +188,46 @@ fn apply_no_activate_style(window: &tauri::WebviewWindow) {
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, cur | extra);
         }
     }
-    #[cfg(not(windows))]
+    // Parlato : on macOS, keep the pill on every Space (desktop), so it
+    // follows the user instead of staying on the Space it opened on.
+    #[cfg(target_os = "macos")]
+    {
+        let _ = window.set_visible_on_all_workspaces(true);
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = window;
     }
 }
 
+/// Parlato : on macOS, place the pill on the screen under the mouse, inside
+/// the usable area (below the menu bar and notch, above the Dock), which the
+/// full monitor size used on Windows does not account for.
+#[cfg(target_os = "macos")]
+fn reposition(window: &tauri::WebviewWindow, style: RecorderStyle) {
+    use tauri::PhysicalPosition;
+    let monitor = window
+        .cursor_position()
+        .ok()
+        .and_then(|p| window.monitor_from_point(p.x, p.y).ok().flatten())
+        .or_else(|| window.primary_monitor().ok().flatten());
+    let Some(monitor) = monitor else {
+        return;
+    };
+    let scale = monitor.scale_factor();
+    let area = monitor.work_area();
+    let (ax, ay) = (area.position.x as f64, area.position.y as f64);
+    let (aw, ah) = (area.size.width as f64, area.size.height as f64);
+    let x = ax + (aw - WIDTH * scale) / 2.0;
+    let y = match style {
+        RecorderStyle::Mini => ay + ah - (HEIGHT + BOTTOM_PADDING) * scale,
+        RecorderStyle::Notch => ay,
+    };
+    let _ = window.set_size(LogicalSize::new(WIDTH, HEIGHT));
+    let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+}
+
+#[cfg(not(target_os = "macos"))]
 fn reposition(window: &tauri::WebviewWindow, style: RecorderStyle) {
     if let Ok(Some(monitor)) = window.primary_monitor() {
         let size = monitor.size();

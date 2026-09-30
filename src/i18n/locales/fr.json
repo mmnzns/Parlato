@@ -220,7 +220,7 @@
     "removeFillers": "Supprimer les mots de remplissage",
     "fillerList": "Liste des mots de remplissage (separes par virgules)",
     "liveTranscript": "Texte en direct",
-    "liveTranscriptInfo": "Affiche le texte en direct pendant l'enregistrement avec les modeles temps reel (providers cloud en streaming).",
+    "liveTranscriptInfo": "Affiche vos mots pendant l'enregistrement. Fonctionne avec NVIDIA Parakeet Unified sur cet ordinateur et avec les services en ligne qui gerent le texte en direct. Le texte colle vient toujours de la passe complete a la fin.",
     "liveTranscriptDescription": "La bulle d'enregistrement affiche le texte au fur et a mesure que vous parlez.",
     "sectionGeneral": "General",
     "sectionDictating": "Pendant la dictee",
@@ -246,7 +246,7 @@
     "resumeLabel": "Reprendre le son apres",
     "resumeHint": "Delai avant de retablir le son une fois la dictee terminee.",
     "liveLabel": "Afficher les mots pendant que vous parlez",
-    "liveHint": "Uniquement avec les modeles en ligne qui gerent le texte en direct.",
+    "liveHint": "Avec Parakeet Unified sur cet ordinateur, ou les modeles en ligne qui gerent le texte en direct.",
     "recorderPosLabel": "Position de l'enregistreur",
     "recorderPosHint": "Ou apparait la petite barre d'enregistrement.",
     "formatLabel": "Mettre en forme les paragraphes",
@@ -303,7 +303,10 @@
     "modelLicencesHint": "Les modeles vocaux et d'IA sont concus par d'autres entreprises et ont leurs propres licences. Parakeet Unified est distribue par NVIDIA Corporation sous la NVIDIA Open Model License.",
     "modelLicencesButton": "Voir les mentions",
     "updateNow": "Mettre a jour",
-    "installFailed": "Installation impossible"
+    "installFailed": "Installation impossible",
+    "logsLabel": "Journal",
+    "logsHint": "Si quelque chose ne marche pas, joignez parlato.log a votre signalement. Il contient des durees et des erreurs, jamais ce que vous dictez.",
+    "logsButton": "Ouvrir le dossier"
   },
   "onboarding": {
     "welcome": {
@@ -469,7 +472,7 @@
     "gpuDetected": "GPU detecte : {{device}} - CUDA {{cuda}}",
     "inferenceParams": "Parametres d'inference",
     "nGpuLayers": "N GPU layers",
-    "nGpuLayersHelp": "0 = CPU, 1000 = toutes sur GPU (si CUDA actif)",
+    "nGpuLayersHelp": "0 = processeur seul, 1000 = tout sur la carte graphique (si l'acceleration GPU est active)",
     "contextSize": "Context size",
     "maxTokens": "Max tokens output",
     "ggufModels": "Modeles GGUF",
@@ -725,7 +728,7 @@
     "autostartActivate": "Activer",
     "autostartDeactivate": "Desactiver",
     "hotkeyTitle": "Hook clavier global",
-    "hotkeyDescription": "Capture du raccourci Push-to-Talk n'importe ou dans Windows.",
+    "hotkeyDescription": "Entend votre raccourci dans toutes les applications.",
     "hotkeyTip": "Parlato installe un hook WH_KEYBOARD_LL bas niveau qui ne necessite aucune autorisation speciale sur Windows. Le raccourci par defaut est Right Alt.",
     "audio": {
       "detected_one": "{{count}} entree audio detectee",
@@ -747,6 +750,20 @@
     "hotkey": {
       "active": "Hook clavier actif",
       "hint": "Raccourci par defaut : Right Alt. Configure-en un autre dans Reglages."
+    },
+    "mac": {
+      "allow": "Autoriser",
+      "micAllowed": "Autorise",
+      "micNotAsked": "Pas encore autorise",
+      "micNotAskedHint": "Cliquez sur Autoriser, puis choisissez Autoriser dans la fenetre de macOS.",
+      "micDenied": "Bloque",
+      "micDeniedHint": "Ouvrez Reglages Systeme > Confidentialite et securite > Micro et activez Parlato.",
+      "accessibilityTitle": "Accessibilite",
+      "accessibilityDescription": "Permet a Parlato d'entendre votre raccourci dans toutes les applications et de coller le texte la ou est votre curseur.",
+      "accessibilityAllowed": "Autorise",
+      "accessibilityMissing": "Pas encore autorise",
+      "accessibilityHint": "Cliquez sur Autoriser, puis activez Parlato dans Reglages Systeme > Confidentialite et securite > Accessibilite. Ca marche en quelques secondes.",
+      "hotkeyNeedsAccess": "Accessibilite requise"
     }
   },
   "miniRecorder": {
@@ -838,14 +855,15 @@
       "title": "Enregistrer une combinaison personnalisee",
       "hint": "Presse les touches que tu veux utiliser. Il faut au moins un modifier et une touche finale (ex Ctrl + Alt + R, F13, Win + Espace). Esc annule.",
       "waiting": "Presse ta combinaison...",
-      "needsModifier": "Une touche seule n'est autorisee que pour F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Sinon ajoute Ctrl, Alt, Shift ou Win."
+      "needsModifier": "Une touche seule n'est autorisee que pour F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Sinon ajoute Ctrl, Alt, Shift ou Win.",
+      "macReserved": "Les raccourcis Commande appartiennent a macOS et a vos apps (copier, coller, quitter...). Ajoutez Controle ou Option, ex Controle + Option + R."
     },
     "editCombo": "Cliquer pour modifier la combinaison",
     "additional": {
       "cardTitle": "Raccourcis additionnels",
       "cardDescription": "Raccourcis globaux pour la derniere transcription et pour annuler un enregistrement. Non definis par defaut.",
       "copyLast": "Copier la derniere transcription",
-      "copyLastHint": "Copie la derniere transcription (texte ameliore si disponible) dans le presse-papiers. Aussi disponible dans le menu de l'icone.",
+      "copyLastHint": "Copie la derniere transcription (texte ameliore si disponible) dans le presse-papiers. Aussi dans le menu de l'icone de Parlato pres de l'horloge.",
       "pasteLast": "Coller la derniere transcription (originale)",
       "pasteLastEnhanced": "Coller la derniere transcription (amelioree)",
       "retryLast": "Reessayer la derniere transcription",
@@ -1181,7 +1199,10 @@
     "back": "Retour",
     "continue": "Continuer",
     "start": "Commencer avec Parlato",
-    "skip": "Passer la configuration"
+    "skip": "Passer la configuration",
+    "accessLabel": "Autorisations",
+    "accessTitle": "Autorisez Parlato sur votre Mac",
+    "accessDesc": "macOS demande avant qu'une app utilise le micro ou tape pour vous. Parlato a besoin des deux : le micro pour vous entendre, l'Accessibilite pour entendre votre raccourci et coller le texte. Rien ne quitte votre ordinateur sauf si vous choisissez un service en ligne."
   },
   "modelText": {
     "imported": "Un modele que vous avez importe.",
@@ -1331,6 +1352,10 @@
       "notes": "Le Parakeet v3 de NVIDIA, reentraine par Moondream pour faire moins d'erreurs, surtout hors anglais et dans le bruit. L'anglais et 24 autres langues europeennes, et il detecte celle que vous parlez. Environ 670 Mo."
     }
   },
+  "mac": {
+    "screenNotYet": "Laisser l'IA lire la fenetre ou vous tapez n'est pas encore disponible sur Mac.",
+    "pairingNotYet": "Associer un mode a une app ou un site n'est pas encore disponible sur Mac. Utilisez un raccourci, ou activez \"Utiliser partout ailleurs\"."
+  },
   "macOverrides": {
     "onboarding": {
       "hotkey": {
@@ -1350,6 +1375,11 @@
       "hotkeyTip": "Parlato a besoin de l'autorisation Accessibilite pour entendre le raccourci et coller le texte : Reglages Systeme > Confidentialite et securite > Accessibilite, puis activez Parlato. Le raccourci par defaut est Option droite.",
       "hotkey": {
         "hint": "Raccourci par defaut : Option droite. Configure-en un autre dans Reglages."
+      },
+      "microphoneAction": "Reglages Systeme",
+      "microphoneTip": "Si les enregistrements sont muets, ouvrez Reglages Systeme > Confidentialite et securite > Micro et activez Parlato. Verifiez aussi le micro choisi dans Micro et raccourci.",
+      "audio": {
+        "hint": "Branchez un micro, ou verifiez Reglages Systeme > Son > Entree."
       }
     },
     "miniRecorder": {
@@ -1370,9 +1400,12 @@
         "rightWin": "Commande droite"
       },
       "record": {
-        "hint": "Presse les touches que tu veux utiliser. Il faut au moins un modifier et une touche finale (ex Controle + Option + R, F13, Commande + Espace). Esc annule.",
+        "hint": "Presse les touches que tu veux utiliser. Il faut au moins un modifier et une touche finale (ex Controle + Option + R, Controle + Option + Espace, F13). Esc annule.",
         "needsModifier": "Une touche seule n'est autorisee que pour F1-F24, Home, End, PageUp/Down et Suppr. Sinon ajoute Controle, Option, Maj ou Commande."
       }
+    },
+    "settings": {
+      "trayHint": "Parlato reste dans la barre des menus pres de l'horloge. Cliquez sur son icone pour l'ouvrir ou quitter."
     }
   }
 }

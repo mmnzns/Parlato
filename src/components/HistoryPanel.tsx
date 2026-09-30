@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { useCopyButton } from "@/hooks/useCopyButton";
 import { translateError } from "@/lib/translateError";
 import { api, type TranscriptionRecord } from "@/lib/tauri";
+import { confirmDelete } from "@/lib/confirmDelete";
 
 /// Si le texte est une erreur formate "Transcription Failed: PARLA_ERR:...",
 /// extrait le code et le traduit. Sinon retourne le texte tel quel.
@@ -162,7 +163,7 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
 
   async function deleteIds(ids: string[], question: string) {
     if (ids.length === 0) return;
-    if (!confirm(question)) return;
+    if (!(await confirmDelete(question))) return;
     for (const id of ids) {
       try {
         await api.deleteHistoryItem(id);

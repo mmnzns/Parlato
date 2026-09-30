@@ -50,6 +50,33 @@ const STANDALONE_VKS = new Set<number>([
   0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
 ]);
 
+// Parlato: on macOS the hotkey listener matches physical key positions (US
+// layout), while WebKit's e.keyCode follows the typed character (AZERTY,
+// QWERTZ...) and turns Option+E/U/I/N into dead keys. So on the Mac the VK
+// comes from e.code, the physical key, to match what the listener sees.
+const MAC_CODE_TO_VK: Record<string, number> = {
+  Space: 0x20, Enter: 0x0d, NumpadEnter: 0x0d, Tab: 0x09, Backspace: 0x08,
+  Delete: 0x2e, Escape: 0x1b, Help: 0x2d, Insert: 0x2d, Home: 0x24, End: 0x23,
+  PageUp: 0x21, PageDown: 0x22, ArrowLeft: 0x25, ArrowUp: 0x26,
+  ArrowRight: 0x27, ArrowDown: 0x28, Minus: 0xbd, Equal: 0xbb,
+  BracketLeft: 0xdb, BracketRight: 0xdd, Backslash: 0xdc, Semicolon: 0xba,
+  Quote: 0xde, Comma: 0xbc, Period: 0xbe, Slash: 0xbf, Backquote: 0xc0,
+  IntlBackslash: 0xe2, NumpadMultiply: 0x6a, NumpadAdd: 0x6b,
+  NumpadSubtract: 0x6d, NumpadDecimal: 0x6e, NumpadDivide: 0x6f,
+  NumLock: 0x0c,
+};
+
+function macVkFromCode(code: string): number | null {
+  if (/^Key[A-Z]$/.test(code)) return code.charCodeAt(3);
+  if (/^Digit[0-9]$/.test(code)) return code.charCodeAt(5);
+  if (/^Numpad[0-9]$/.test(code)) return 0x60 + Number(code.slice(6));
+  const f = /^F([0-9]{1,2})$/.exec(code);
+  if (f && Number(f[1]) >= 1 && Number(f[1]) <= 20) return 0x6f + Number(f[1]);
+  return MAC_CODE_TO_VK[code] ?? null;
+}
+
+const MAC_MODIFIER_CODE = /^(Shift|Control|Alt|Meta|OS|CapsLock|Fn)/;
+
 type Captured = {
   vk: number;
   ctrl: boolean;
@@ -97,7 +124,10 @@ export function HotkeyRecorder({
       // VK code lu via DOM event keyCode (deprecated mais fiable pour
       // les touches non-imprimables sur Windows). Pour les touches
       // alphanumeriques, e.key.toUpperCase().charCodeAt(0) suffit.
-      const vk = e.keyCode || (e.key.length === 1 ? e.key.toUpperCase().charCodeAt(0) : 0);
+      if (isMac && MAC_MODIFIER_CODE.test(e.code)) return;
+      const vk = isMac
+        ? macVkFromCode(e.code)
+        : e.keyCode || (e.key.length === 1 ? e.key.toUpperCase().charCodeAt(0) : 0);
       if (!vk) return;
 
       // Si le user appuie uniquement sur un modifier, on ne valide pas.
@@ -113,6 +143,14 @@ export function HotkeyRecorder({
       // OK seules car elles ne produisent pas de texte.
       if (!hasModifier && !STANDALONE_VKS.has(vk)) {
         setError(t("hotkey.record.needsModifier"));
+        return;
+      }
+
+      // Parlato: Command shortcuts without Control or Option belong to macOS
+      // and apps (Cmd+Q, Cmd+V, Cmd+Space...); the listener would steal
+      // them in every app.
+      if (isMac && e.metaKey && !e.ctrlKey && !e.altKey) {
+        setError(t("hotkey.record.macReserved"));
         return;
       }
 
@@ -233,9 +271,23 @@ const VK_NAMES: Record<number, string> = {
   0x7d: "F14",
   0x7e: "F15",
   0x7f: "F16",
+  0x80: "F17",
+  0x81: "F18",
+  0x82: "F19",
+  0x83: "F20",
+};
+
+// Parlato: what those keys are called on a Mac keyboard.
+const MAC_VK_NAMES: Record<number, string> = {
+  0x0d: "Return",
+  0x08: "Delete",
+  0x2e: "Forward Delete",
+  0x2d: "Help",
+  0x0c: "Clear",
 };
 
 export function vkLabel(vk: number): string {
+  if (isMac && MAC_VK_NAMES[vk]) return MAC_VK_NAMES[vk];
   if (VK_NAMES[vk]) return VK_NAMES[vk];
   if (vk >= 0x30 && vk <= 0x39) return String.fromCharCode(vk); // 0..9
   if (vk >= 0x41 && vk <= 0x5a) return String.fromCharCode(vk); // A..Z

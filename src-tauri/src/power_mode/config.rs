@@ -150,11 +150,42 @@ pub fn load_all(app: &AppHandle) -> Result<Vec<PowerModeConfig>> {
         .store(STORE_FILE)
         .map_err(|e| anyhow!("store: {e}"))?;
     if let Some(v) = store.get(KEY_CONFIGS) {
-        if let Ok(list) = serde_json::from_value::<Vec<PowerModeConfig>>(v) {
+        if let Ok(mut list) = serde_json::from_value::<Vec<PowerModeConfig>>(v.clone()) {
+            if restore_legacy_slots(&v, &mut list) {
+                store.set(KEY_CONFIGS, serde_json::to_value(&list)?);
+                if let Err(e) = store.save() {
+                    tracing::warn!("power_mode: saving restored shortcuts failed: {e}");
+                } else {
+                    tracing::info!("power_mode: restored pre-0.8.0 Alt+digit shortcuts");
+                }
+            }
             return Ok(list);
         }
     }
     Ok(Vec::new())
+}
+
+/// Parlato : modes saved before 0.8.0 have no `shortcut_slot` field at all;
+/// their shortcut was their position among enabled modes (1st = Alt+1 ...
+/// 10th = Alt+0). Give those modes their old keys back, once. Anything saved
+/// by 0.8.0 or later writes the field (even as null), so a choice made there,
+/// including "no shortcut", is never overwritten. Returns true if it changed
+/// `list`.
+fn restore_legacy_slots(raw: &serde_json::Value, list: &mut [PowerModeConfig]) -> bool {
+    let Some(items) = raw.as_array() else {
+        return false;
+    };
+    let pre_080 = !items.is_empty()
+        && items
+            .iter()
+            .all(|i| i.as_object().is_some_and(|o| !o.contains_key("shortcut_slot")));
+    if !pre_080 {
+        return false;
+    }
+    for (slot, cfg) in list.iter_mut().filter(|c| c.is_enabled).take(10).enumerate() {
+        cfg.shortcut_slot = Some(slot as u8);
+    }
+    true
 }
 
 pub fn save_all(app: &AppHandle, list: &[PowerModeConfig]) -> Result<()> {
@@ -199,4 +230,36 @@ pub fn set_auto_restore(app: &AppHandle, enabled: bool) -> Result<()> {
         .map_err(|e| anyhow!("store: {e}"))?;
     store.set(KEY_AUTO_RESTORE, serde_json::Value::Bool(enabled));
     store.save().map_err(|e| anyhow!("store save: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cfg(enabled: bool) -> PowerModeConfig {
+        let mut c = PowerModeConfig::new("m".into(), "x".into());
+        c.is_enabled = enabled;
+        c
+    }
+
+    #[test]
+    fn pre_080_modes_get_their_position_back() {
+        let mut list = vec![cfg(true), cfg(false), cfg(true)];
+        let mut raw = serde_json::to_value(&list).unwrap();
+        for item in raw.as_array_mut().unwrap() {
+            item.as_object_mut().unwrap().remove("shortcut_slot");
+        }
+        assert!(restore_legacy_slots(&raw, &mut list));
+        assert_eq!(list[0].shortcut_slot, Some(0));
+        assert_eq!(list[1].shortcut_slot, None); // disabled modes had no key
+        assert_eq!(list[2].shortcut_slot, Some(1));
+    }
+
+    #[test]
+    fn modes_saved_by_080_are_left_alone() {
+        let mut list = vec![cfg(true), cfg(true)];
+        let raw = serde_json::to_value(&list).unwrap(); // has shortcut_slot: null
+        assert!(!restore_legacy_slots(&raw, &mut list));
+        assert!(list.iter().all(|c| c.shortcut_slot.is_none()));
+    }
 }

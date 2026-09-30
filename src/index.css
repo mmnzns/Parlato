@@ -5,7 +5,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Parlato: native controls (select menus, scrollbars, number arrows) follow
+   the app theme, not only the page colors. */
 :root {
+  color-scheme: light;
   --background: #F3F2EE;
   --foreground: #141416;
   --card: #FBFAF7;
@@ -53,6 +56,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #131315;
   --foreground: #F3F2EE;
   --card: #1B1B1E;
@@ -277,4 +281,9 @@ input[type="checkbox"][role="switch"]:checked::before {
   font-weight: 400;
   letter-spacing: 0;
   color: var(--muted-foreground);
+}
+
+/* Parlato: images (logo, icons) are not draggable out of the window. */
+img {
+  -webkit-user-drag: none;
 }

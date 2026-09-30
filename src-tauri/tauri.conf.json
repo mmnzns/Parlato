@@ -45,8 +45,8 @@
     "publisher": "Craft Concepts Digital",
     "category": "Productivity",
     "homepage": "https://github.com/mmnzns/Parlato",
-    "shortDescription": "Voice dictation app for Windows",
-    "longDescription": "Parlato is a voice dictation app for Windows with local Whisper models, NVIDIA Parakeet via ONNX Runtime, cloud providers (Groq, Deepgram, ElevenLabs, Mistral, Soniox, Speechmatics, Gemini, xAI, Cartesia, AssemblyAI) and LLM-powered enhancement (local llama.cpp, Ollama, Anthropic, OpenAI, Gemini, Mistral, Groq, Cerebras, OpenRouter, Custom).",
+    "shortDescription": "Voice dictation app for Windows and Mac",
+    "longDescription": "Parlato is a voice dictation app for Windows and Mac with local Whisper models, NVIDIA Parakeet via ONNX Runtime, cloud providers (Groq, Deepgram, ElevenLabs, Mistral, Soniox, Speechmatics, Gemini, xAI, Cartesia, AssemblyAI) and LLM-powered enhancement (local llama.cpp, Ollama, Anthropic, OpenAI, Gemini, Mistral, Groq, Cerebras, OpenRouter, Custom).",
     "windows": {
       "nsis": {
         "installerHooks": "./installer-hooks.nsh"

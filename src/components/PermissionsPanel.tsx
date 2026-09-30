@@ -19,6 +19,7 @@ import {
   Mic,
   Power,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { Section } from "@/components/ui/section";
 import { InfoTip } from "@/components/ui/info-tip";
 import { api, type PermissionState, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 
 export function PermissionsPanel() {
   const { t } = useTranslation();
@@ -46,6 +48,9 @@ export function PermissionsPanel() {
 
   useEffect(() => {
     refresh();
+    // Parlato: re-check when the user comes back from System Settings.
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
   }, []);
 
   async function toggleAutostart(enabled: boolean) {
@@ -78,13 +83,21 @@ export function PermissionsPanel() {
         description={t("permissions.microphoneDescription")}
         state={status?.microphone}
         action={
-          <Button size="sm" variant="outline" onClick={() => api.openPrivacyMicrophone()}>
-            {t("permissions.microphoneAction")}
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
+          <MicrophoneAction state={status?.microphone} onChange={refresh} />
         }
         tip={<InfoTip>{t("permissions.microphoneTip")}</InfoTip>}
       />
+      {status?.accessibility && (
+        <PermissionRow
+          icon={ShieldCheck}
+          title={t("permissions.mac.accessibilityTitle")}
+          description={t("permissions.mac.accessibilityDescription")}
+          state={status.accessibility}
+          action={<AccessibilityAction state={status.accessibility} onChange={refresh} />}
+        />
+      )}
+      {/* Parlato: screen text (OCR) is not available on Mac yet. */}
+      {!isMac && (
       <PermissionRow
         icon={Languages}
         title={t("permissions.ocrTitle")}
@@ -98,6 +111,7 @@ export function PermissionsPanel() {
         }
         tip={<InfoTip>{t("permissions.ocrTip")}</InfoTip>}
       />
+      )}
       <PermissionRow
         icon={Power}
         title={t("permissions.autostartTitle")}
@@ -128,7 +142,68 @@ export function PermissionsPanel() {
   );
 }
 
-function PermissionRow({
+/// Parlato: "Allow" asks macOS the first time; after that (or on Windows)
+/// the button opens the microphone privacy settings.
+export function MicrophoneAction({
+  state,
+  onChange,
+}: {
+  state?: PermissionState;
+  onChange: () => void;
+}) {
+  const { t } = useTranslation();
+  if (state?.label_key === "permissions.mac.micNotAsked") {
+    return (
+      <Button
+        size="sm"
+        onClick={async () => {
+          await api.requestMicrophoneAccess().catch(console.error);
+          window.setTimeout(onChange, 1500);
+        }}
+      >
+        {t("permissions.mac.allow")}
+      </Button>
+    );
+  }
+  return (
+    <Button size="sm" variant="outline" onClick={() => api.openPrivacyMicrophone().catch(console.error)}>
+      {t("permissions.microphoneAction")}
+      <ExternalLink className="h-3.5 w-3.5" />
+    </Button>
+  );
+}
+
+/// Parlato: macOS Accessibility. Shows the prompt and opens the pane; the
+/// status refreshes every 2 s until Parlato is switched on.
+export function AccessibilityAction({
+  state,
+  onChange,
+}: {
+  state?: PermissionState;
+  onChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const [waiting, setWaiting] = useState(false);
+  useEffect(() => {
+    if (!waiting || state?.ok) return;
+    const id = window.setInterval(onChange, 2000);
+    return () => window.clearInterval(id);
+  }, [waiting, state?.ok, onChange]);
+  if (state?.ok) return null;
+  return (
+    <Button
+      size="sm"
+      onClick={async () => {
+        setWaiting(true);
+        await api.requestAccessibilityAccess().catch(console.error);
+      }}
+    >
+      {t("permissions.mac.allow")}
+    </Button>
+  );
+}
+
+export function PermissionRow({
   icon: Icon,
   title,
   description,

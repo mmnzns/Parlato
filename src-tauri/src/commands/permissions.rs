@@ -10,7 +10,9 @@
 // - Auto-start : tauri-plugin-autostart.
 
 use serde::Serialize;
-use serde_json::{json, Value as JsonValue};
+#[cfg(not(target_os = "macos"))]
+use serde_json::json;
+use serde_json::Value as JsonValue;
 use tauri::{command, AppHandle};
 
 #[derive(Debug, Serialize)]
@@ -19,6 +21,9 @@ pub struct PermissionStatus {
     pub ocr: PermissionState,
     pub autostart: PermissionState,
     pub hotkey: PermissionState,
+    /// Parlato : macOS only (shortcut + paste need Accessibility).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessibility: Option<PermissionState>,
 }
 
 /// Status d'une permission. Le backend ne retourne JAMAIS de string visible
@@ -45,6 +50,24 @@ pub fn check_permissions(app: AppHandle) -> PermissionStatus {
     // Microphone : on tente de lister les devices audio. Liste vide =
     // micro bloque Privacy ou driver absent.
     let devs = crate::audio::list_input_devices();
+    #[cfg(target_os = "macos")]
+    let microphone = {
+        // Parlato : on macOS the device list is not proof of access (cpal
+        // lists devices and records silence when access is denied).
+        let state = super::permissions_macos::microphone_state();
+        if state.ok && devs.is_empty() {
+            PermissionState {
+                ok: false,
+                label_key: "permissions.audio.none".into(),
+                label_args: None,
+                hint_key: Some("permissions.audio.hint".into()),
+                diagnostic: None,
+            }
+        } else {
+            state
+        }
+    };
+    #[cfg(not(target_os = "macos"))]
     let microphone = if !devs.is_empty() {
         PermissionState {
             ok: true,
@@ -117,6 +140,7 @@ pub fn check_permissions(app: AppHandle) -> PermissionStatus {
 
     // Hotkey : sur Windows WH_KEYBOARD_LL ne necessite pas de permission
     // speciale. On indique toujours OK.
+    #[cfg(not(target_os = "macos"))]
     let hotkey = PermissionState {
         ok: true,
         label_key: "permissions.hotkey.active".into(),
@@ -124,12 +148,39 @@ pub fn check_permissions(app: AppHandle) -> PermissionStatus {
         hint_key: Some("permissions.hotkey.hint".into()),
         diagnostic: None,
     };
+    // Parlato : on macOS the shortcut only works with Accessibility.
+    #[cfg(target_os = "macos")]
+    let accessibility = Some(super::permissions_macos::accessibility_state());
+    #[cfg(not(target_os = "macos"))]
+    let accessibility = None;
+    #[cfg(target_os = "macos")]
+    let hotkey = {
+        let ok = accessibility.as_ref().is_some_and(|a| a.ok);
+        PermissionState {
+            ok,
+            label_key: if ok {
+                "permissions.hotkey.active"
+            } else {
+                "permissions.mac.hotkeyNeedsAccess"
+            }
+            .into(),
+            label_args: None,
+            hint_key: Some(if ok {
+                "permissions.hotkey.hint"
+            } else {
+                "permissions.mac.accessibilityHint"
+            }
+            .into()),
+            diagnostic: None,
+        }
+    };
 
     PermissionStatus {
         microphone,
         ocr,
         autostart,
         hotkey,
+        accessibility,
     }
 }
 
@@ -156,9 +207,45 @@ pub fn set_autostart_enabled(app: AppHandle, enabled: bool) -> Result<(), String
 #[command]
 pub fn open_privacy_microphone(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
+    #[cfg(target_os = "macos")]
+    let url = super::permissions_macos::PANE_MICROPHONE;
+    #[cfg(not(target_os = "macos"))]
+    let url = "ms-settings:privacy-microphone";
     app.opener()
-        .open_url("ms-settings:privacy-microphone", None::<&str>)
+        .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
+}
+
+/// Parlato : asks macOS for microphone access (shows the system prompt the
+/// first time). No-op on Windows, where apps do not ask.
+#[command]
+pub fn request_microphone_access() {
+    #[cfg(target_os = "macos")]
+    super::permissions_macos::request_microphone();
+}
+
+/// Parlato : macOS Accessibility (shortcut + paste). Shows the system prompt
+/// and opens the Accessibility pane where Parlato must be switched on.
+/// Returns whether access is already granted. Always true on Windows.
+#[command]
+pub fn request_accessibility_access(app: AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        let granted = super::permissions_macos::request_accessibility_access();
+        if !granted {
+            let _ = app.opener().open_url(
+                super::permissions_macos::PANE_ACCESSIBILITY,
+                None::<&str>,
+            );
+        }
+        granted
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        true
+    }
 }
 
 #[command]

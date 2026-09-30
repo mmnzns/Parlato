@@ -30,6 +30,7 @@ use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
+#[cfg_attr(not(windows), allow(unused_imports))] // debug/error/warn: Windows hook only
 use tracing::{debug, error, info, warn};
 
 #[cfg(windows)]
@@ -41,15 +42,17 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
-/// Touches modifier surveillees individuellement (legacy enum, conserve pour
-/// retro-compatibilite avec les tests et la config 0.1.x ou seul un modifier
-/// pouvait etre choisi).
 #[cfg(target_os = "macos")]
 #[path = "keyboard_hook_macos.rs"]
 mod macos;
 #[cfg(target_os = "macos")]
-pub use macos::{accessibility_trusted, request_accessibility};
+pub use macos::{
+    accessibility_trusted, allow_accessibility_prompt, request_accessibility, PARLATO_EVENT_TAG,
+};
 
+/// Touches modifier surveillees individuellement (legacy enum, conserve pour
+/// retro-compatibilite avec les tests et la config 0.1.x ou seul un modifier
+/// pouvait etre choisi).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HotkeyOption {
@@ -655,6 +658,21 @@ pub fn trigger_label(trigger: HotkeyTrigger) -> Option<String> {
 /// `VK_NAMES` de src/components/HotkeyRecorder.tsx pour que le tray et
 /// les reglages affichent le meme libelle.
 pub fn vk_name(vk: u32) -> String {
+    // Parlato : Mac keyboard names for the keys that differ.
+    #[cfg(target_os = "macos")]
+    {
+        let mac = match vk {
+            0x0D => Some("Return"),
+            0x08 => Some("Delete"),
+            0x2E => Some("Forward Delete"),
+            0x2D => Some("Help"),
+            0x0C => Some("Clear"),
+            _ => None,
+        };
+        if let Some(name) = mac {
+            return name.to_string();
+        }
+    }
     let fixed = match vk {
         0x08 => Some("Backspace"),
         0x09 => Some("Tab"),

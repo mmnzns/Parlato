@@ -3,9 +3,10 @@
 // llama.cpp CUDA, ONNX Runtime CUDA EP).
 
 use crate::GpuInfo;
+#[cfg(all(feature = "gpu-detect", not(target_os = "macos")))]
 use tracing::debug;
 
-#[cfg(feature = "gpu-detect")]
+#[cfg(all(feature = "gpu-detect", not(target_os = "macos")))]
 pub fn detect() -> GpuInfo {
     match nvml_wrapper::Nvml::init() {
         Ok(nvml) => {
@@ -38,7 +39,8 @@ pub fn detect() -> GpuInfo {
     }
 }
 
-#[cfg(not(feature = "gpu-detect"))]
+// Parlato : a Mac never has an NVIDIA GPU, skip NVML there.
+#[cfg(any(not(feature = "gpu-detect"), target_os = "macos"))]
 pub fn detect() -> GpuInfo {
     GpuInfo {
         has_nvidia: false,

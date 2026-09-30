@@ -24,6 +24,7 @@ import {
   Loader2,
   MessageSquare,
   RefreshCw,
+  FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
@@ -37,6 +38,7 @@ import {
 import { api, type RetentionSettings, type TextProcessingSettings } from "@/lib/tauri";
 import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 import { installUpdate } from "@/lib/updater";
 
 const REPO_URL = "https://github.com/mmnzns/Parlato";
@@ -295,6 +297,8 @@ export function SettingsPanel() {
             onChange={(v) => persist(v, setSoundFeedback, api.setSoundFeedbackEnabled)}
           />
         </Row>
+        {/* Parlato: pausing other audio is not available on Mac yet. */}
+        {!isMac && (
         <Row htmlFor="set-mute" label={t("settings.muteLabel")} description={t("settings.muteHint")}>
           <Switch
             id="set-mute"
@@ -302,7 +306,8 @@ export function SettingsPanel() {
             onChange={(v) => persist(v, setSystemMute, api.setSystemMuteEnabled)}
           />
         </Row>
-        {systemMute && (
+        )}
+        {!isMac && systemMute && (
           <Row label={t("settings.resumeLabel")} description={t("settings.resumeHint")}>
             <input
               type="number"
@@ -518,6 +523,12 @@ export function SettingsPanel() {
         </Row>
         <Row label={t("settings.feedbackLabel")} description={t("settings.feedbackHint")}>
           {link(t("settings.feedbackButton"), `${REPO_URL}/issues`, MessageSquare)}
+        </Row>
+        <Row label={t("settings.logsLabel")} description={t("settings.logsHint")}>
+          <Button size="sm" variant="outline" onClick={() => api.openLogFolder().catch(console.error)}>
+            {t("settings.logsButton")}
+            <FolderOpen className="h-3.5 w-3.5" />
+          </Button>
         </Row>
         <Row label={t("settings.madeByLabel")} description={t("settings.madeByHint")}>
           {link(t("settings.madeByButton"), SITE_URL)}

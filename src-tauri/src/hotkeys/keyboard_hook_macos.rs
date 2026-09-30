@@ -16,7 +16,7 @@
 // ticks Parlato in System Settings, without a restart.
 
 use std::ffi::c_void;
-use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use std::time::Duration;
 
 use core_foundation::base::TCFType;
@@ -30,7 +30,11 @@ use core_graphics::event::{
 };
 use tracing::{debug, info, warn};
 
-use super::{handle_key, HOOK_CONTEXT};
+use super::{handle_key, HookContext, HotkeyEvent, HotkeyTrigger, HOOK_CONTEXT};
+
+/// Tag put in EVENT_SOURCE_USER_DATA on the events Parlato posts itself
+/// (the Cmd+V of a paste), so its own tap ignores them.
+pub const PARLATO_EVENT_TAG: i64 = 0x5041_524C; // "PARL"
 
 // Device-dependent modifier bits (IOLLEvent.h, NX_DEVICE*KEYMASK). They tell
 // left from right, which the device-independent CGEventFlags cannot.
@@ -53,6 +57,14 @@ extern "C" {
     fn AXIsProcessTrustedWithOptions(options: *const c_void) -> bool;
     static kAXTrustedCheckOptionPrompt: CFStringRef;
     fn CGEventTapEnable(tap: *mut c_void, enable: bool);
+}
+
+/// Parlato : the tap thread only shows the Accessibility prompt once
+/// onboarding has explained it (or onboarding is already done).
+static PROMPT_ALLOWED: AtomicBool = AtomicBool::new(false);
+
+pub fn allow_accessibility_prompt() {
+    PROMPT_ALLOWED.store(true, Ordering::Release);
 }
 
 /// True when Parlato has the Accessibility permission (needed for the
@@ -108,7 +120,7 @@ fn run_tap_thread() {
                 return;
             }
             Err(()) => {
-                if !prompted {
+                if !prompted && PROMPT_ALLOWED.load(Ordering::Acquire) {
                     warn!("macOS hotkey tap refused: Accessibility permission missing");
                     request_accessibility();
                     prompted = true;
@@ -123,6 +135,15 @@ fn on_event(_proxy: CGEventTapProxy, etype: CGEventType, event: &CGEvent) -> Cal
     let Some(ctx) = HOOK_CONTEXT.get() else {
         return CallbackResult::Keep;
     };
+    if event.get_integer_value_field(EventField::EVENT_SOURCE_USER_DATA) == PARLATO_EVENT_TAG {
+        return CallbackResult::Keep;
+    }
+    if matches!(
+        etype,
+        CGEventType::KeyDown | CGEventType::KeyUp | CGEventType::FlagsChanged
+    ) {
+        release_stale_modifiers(ctx, event.get_flags().bits());
+    }
     match etype {
         CGEventType::TapDisabledByTimeout | CGEventType::TapDisabledByUserInput => {
             let port = TAP_PORT.load(Ordering::Acquire);
@@ -138,7 +159,14 @@ fn on_event(_proxy: CGEventTapProxy, etype: CGEventType, event: &CGEvent) -> Cal
                 return CallbackResult::Keep;
             };
             let is_down = matches!(etype, CGEventType::KeyDown);
-            if handle_key(ctx, vk, is_down) {
+            let consumed = handle_key(ctx, vk, is_down);
+            // A character typed while a modifier-only dictation key is held
+            // (Option+e = e acute, Option+2 = @ on some layouts) is typing,
+            // not dictation. Escape keeps its double-tap cancel meaning.
+            if is_down && !consumed && vk != 0x1B {
+                cancel_modifier_chord(ctx);
+            }
+            if consumed {
                 CallbackResult::Drop
             } else {
                 CallbackResult::Keep
@@ -156,6 +184,63 @@ fn on_event(_proxy: CGEventTapProxy, etype: CGEventType, event: &CGEvent) -> Cal
             CallbackResult::Keep
         }
         _ => CallbackResult::Keep,
+    }
+}
+
+/// If a modifier-only trigger is held when another key goes down, drop that
+/// press: cancel the recording it started and ignore its release.
+fn cancel_modifier_chord(ctx: &HookContext) {
+    let mut watched = ctx.watched.lock();
+    let mut cancel = false;
+    if watched.primary_pressed && matches!(watched.primary, HotkeyTrigger::Modifier { .. }) {
+        watched.primary_pressed = false;
+        cancel = true;
+    }
+    if watched.secondary_pressed && matches!(watched.secondary, HotkeyTrigger::Modifier { .. }) {
+        watched.secondary_pressed = false;
+        cancel = true;
+    }
+    drop(watched);
+    if cancel {
+        debug!("modifier-only hotkey used as a chord, dictation press dropped");
+        let _ = ctx.tx.send(HotkeyEvent::CancelRequested {
+            timestamp: std::time::Instant::now(),
+        });
+    }
+}
+
+const ALL_MODIFIERS: [(u32, u64); 8] = [
+    (0xA2, NX_DEVICELCTLKEYMASK),
+    (0xA3, NX_DEVICERCTLKEYMASK),
+    (0xA4, NX_DEVICELALTKEYMASK),
+    (0xA5, NX_DEVICERALTKEYMASK),
+    (0xA0, NX_DEVICELSHIFTKEYMASK),
+    (0xA1, NX_DEVICERSHIFTKEYMASK),
+    (0x5B, NX_DEVICELCMDKEYMASK),
+    (0x5C, NX_DEVICERCMDKEYMASK),
+];
+
+/// Every event carries the real modifier state. If a modifier is "down" in
+/// our table but up on the keyboard (a FlagsChanged was missed while the tap
+/// was disabled), release it so combos do not stay broken.
+fn release_stale_modifiers(ctx: &HookContext, flags: u64) {
+    let device_bits = ALL_MODIFIERS.iter().fold(0, |acc, (_, m)| acc | m);
+    // Some virtual keyboards never set the device-dependent bits: then the
+    // table cannot be checked, leave it alone.
+    const ANY_MODIFIER: u64 = 0x00020000 | 0x00040000 | 0x00080000 | 0x00100000;
+    if flags & device_bits == 0 && flags & ANY_MODIFIER != 0 {
+        return;
+    }
+    let stale: Vec<u32> = {
+        let watched = ctx.watched.lock();
+        ALL_MODIFIERS
+            .iter()
+            .filter(|(vk, mask)| watched.key_state[*vk as usize] && flags & mask == 0)
+            .map(|(vk, _)| *vk)
+            .collect()
+    };
+    for vk in stale {
+        let _ = handle_key(ctx, vk, false);
     }
 }
 
@@ -266,6 +351,14 @@ fn mac_keycode_to_vk(code: u16) -> Option<u32> {
         79 => 0x81,  // F18
         80 => 0x82,  // F19
         90 => 0x83,  // F20
+        // Keypad operators, Clear, ISO section key
+        67 => 0x6A,  // keypad *
+        69 => 0x6B,  // keypad +
+        78 => 0x6D,  // keypad -
+        65 => 0x6E,  // keypad .
+        75 => 0x6F,  // keypad /
+        71 => 0x0C,  // Clear
+        10 => 0xE2,  // ISO section key (VK_OEM_102)
         // Keypad digits
         82 => 0x60,
         83 => 0x61,

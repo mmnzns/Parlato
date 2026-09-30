@@ -220,7 +220,7 @@
     "removeFillers": "Eliminar muletillas",
     "fillerList": "Lista de muletillas (separadas por comas)",
     "liveTranscript": "Texto en vivo",
-    "liveTranscriptInfo": "Muestra el texto en vivo durante la grabacion con modelos en tiempo real (proveedores cloud en streaming).",
+    "liveTranscriptInfo": "Muestra tus palabras mientras grabas. Funciona con NVIDIA Parakeet Unified en este ordenador y con los servicios en linea que admiten texto en vivo. El texto pegado sigue saliendo de la pasada completa al final.",
     "liveTranscriptDescription": "La burbuja de grabacion muestra el texto a medida que hablas.",
     "sectionGeneral": "General",
     "sectionDictating": "Mientras dictas",
@@ -246,7 +246,7 @@
     "resumeLabel": "Reanudar el audio tras",
     "resumeHint": "Cuanto esperar antes de reactivar el sonido al terminar el dictado.",
     "liveLabel": "Mostrar las palabras mientras hablas",
-    "liveHint": "Solo con modelos en linea que admiten texto en directo.",
+    "liveHint": "Con Parakeet Unified en este ordenador, o modelos en linea que admiten texto en vivo.",
     "recorderPosLabel": "Posicion de la grabadora",
     "recorderPosHint": "Donde aparece la pequena barra de grabacion.",
     "formatLabel": "Ordenar parrafos",
@@ -303,7 +303,10 @@
     "modelLicencesHint": "Los modelos de voz y de IA son creados por otras empresas y tienen sus propias licencias. Parakeet Unified tiene licencia de NVIDIA Corporation bajo la NVIDIA Open Model License.",
     "modelLicencesButton": "Ver avisos",
     "updateNow": "Actualizar ahora",
-    "installFailed": "No se pudo instalar"
+    "installFailed": "No se pudo instalar",
+    "logsLabel": "Registro",
+    "logsHint": "Si algo falla, adjunta parlato.log a tu reporte. Guarda tiempos y errores, nunca lo que dictas.",
+    "logsButton": "Abrir la carpeta"
   },
   "onboarding": {
     "welcome": {
@@ -469,7 +472,7 @@
     "gpuDetected": "GPU detectada: {{device}} - CUDA {{cuda}}",
     "inferenceParams": "Parametros de inferencia",
     "nGpuLayers": "N GPU layers",
-    "nGpuLayersHelp": "0 = CPU, 1000 = todas en GPU (si CUDA activo)",
+    "nGpuLayersHelp": "0 = solo procesador, 1000 = todo en la tarjeta grafica (si la aceleracion GPU esta activa)",
     "contextSize": "Context size",
     "maxTokens": "Max tokens output",
     "ggufModels": "Modelos GGUF",
@@ -725,7 +728,7 @@
     "autostartActivate": "Activar",
     "autostartDeactivate": "Desactivar",
     "hotkeyTitle": "Hook global de teclado",
-    "hotkeyDescription": "Captura del atajo Push-to-Talk en cualquier parte de Windows.",
+    "hotkeyDescription": "Escucha tu atajo en todas las aplicaciones.",
     "hotkeyTip": "Parlato instala un hook WH_KEYBOARD_LL de bajo nivel que no requiere permisos especiales en Windows. El atajo por defecto es Alt derecho.",
     "audio": {
       "detected_one": "{{count}} entrada de audio detectada",
@@ -747,6 +750,20 @@
     "hotkey": {
       "active": "Hook de teclado activo",
       "hint": "Atajo por defecto: Right Alt. Configura otro en Ajustes."
+    },
+    "mac": {
+      "allow": "Permitir",
+      "micAllowed": "Permitido",
+      "micNotAsked": "Aun no permitido",
+      "micNotAskedHint": "Haz clic en Permitir y luego elige Permitir en el aviso de macOS.",
+      "micDenied": "Bloqueado",
+      "micDeniedHint": "Abre Ajustes del Sistema > Privacidad y seguridad > Microfono y activa Parlato.",
+      "accessibilityTitle": "Accesibilidad",
+      "accessibilityDescription": "Permite que Parlato escuche tu atajo en todas las aplicaciones y pegue el texto donde esta tu cursor.",
+      "accessibilityAllowed": "Permitido",
+      "accessibilityMissing": "Aun no permitido",
+      "accessibilityHint": "Haz clic en Permitir y activa Parlato en Ajustes del Sistema > Privacidad y seguridad > Accesibilidad. Funciona en unos segundos.",
+      "hotkeyNeedsAccess": "Necesita Accesibilidad"
     }
   },
   "miniRecorder": {
@@ -838,14 +855,15 @@
       "title": "Grabar una combinacion personalizada",
       "hint": "Pulsa las teclas que quieras usar. Necesitas al menos un modificador y una tecla final (ej. Ctrl + Alt + R, F13, Win + Espacio). Esc cancela.",
       "waiting": "Pulsa tu combinacion...",
-      "needsModifier": "Una tecla sola solo se admite para F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Si no, agrega Ctrl, Alt, Shift o Win."
+      "needsModifier": "Una tecla sola solo se admite para F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Si no, agrega Ctrl, Alt, Shift o Win.",
+      "macReserved": "Los atajos con Comando pertenecen a macOS y a tus apps (copiar, pegar, salir...). Agrega Control u Opcion, ej. Control + Opcion + R."
     },
     "editCombo": "Clic para cambiar la combinacion",
     "additional": {
       "cardTitle": "Atajos adicionales",
       "cardDescription": "Atajos globales para la ultima transcripcion y para cancelar una grabacion. Sin definir por defecto.",
       "copyLast": "Copiar la ultima transcripcion",
-      "copyLastHint": "Copia la ultima transcripcion (texto mejorado si existe) al portapapeles. Tambien disponible en el menu del icono.",
+      "copyLastHint": "Copia la ultima transcripcion (texto mejorado si existe) al portapapeles. Tambien en el menu del icono de Parlato junto al reloj.",
       "pasteLast": "Pegar la ultima transcripcion (original)",
       "pasteLastEnhanced": "Pegar la ultima transcripcion (mejorada)",
       "retryLast": "Reintentar la ultima transcripcion",
@@ -1181,7 +1199,10 @@
     "back": "Atras",
     "continue": "Continuar",
     "start": "Empezar a usar Parlato",
-    "skip": "Saltar la configuracion"
+    "skip": "Saltar la configuracion",
+    "accessLabel": "Permisos",
+    "accessTitle": "Permite Parlato en tu Mac",
+    "accessDesc": "macOS pregunta antes de que una app use el microfono o escriba por ti. Parlato necesita ambos: el microfono para oirte y la Accesibilidad para oir tu atajo y pegar el texto. Nada sale de tu ordenador salvo que elijas un servicio en linea."
   },
   "modelText": {
     "imported": "Un modelo que importaste.",
@@ -1331,6 +1352,10 @@
       "notes": "El Parakeet v3 de NVIDIA, reentrenado por Moondream para cometer menos errores, sobre todo fuera del ingles y con ruido. Ingles y otros 24 idiomas europeos, y detecta cual hablas. Unos 670 MB."
     }
   },
+  "mac": {
+    "screenNotYet": "Dejar que la IA lea la ventana donde escribes aun no esta disponible en Mac.",
+    "pairingNotYet": "Asociar un modo a una app o un sitio web aun no esta disponible en Mac. Usa un atajo o activa \"Usar en todo lo demas\"."
+  },
   "macOverrides": {
     "onboarding": {
       "hotkey": {
@@ -1350,6 +1375,11 @@
       "hotkeyTip": "Parlato necesita el permiso de Accesibilidad para oir el atajo y pegar el texto: Ajustes del Sistema > Privacidad y seguridad > Accesibilidad, y activa Parlato. El atajo por defecto es Opcion derecha.",
       "hotkey": {
         "hint": "Atajo por defecto: Opcion derecha. Configura otro en Ajustes."
+      },
+      "microphoneAction": "Ajustes del Sistema",
+      "microphoneTip": "Si las grabaciones salen en silencio, abre Ajustes del Sistema > Privacidad y seguridad > Microfono y activa Parlato. Comprueba tambien el microfono elegido en Microfono y atajo.",
+      "audio": {
+        "hint": "Conecta un microfono o revisa Ajustes del Sistema > Sonido > Entrada."
       }
     },
     "miniRecorder": {
@@ -1370,9 +1400,12 @@
         "rightWin": "Comando derecho"
       },
       "record": {
-        "hint": "Pulsa las teclas que quieras usar. Necesitas al menos un modificador y una tecla final (ej. Control + Opcion + R, F13, Comando + Espacio). Esc cancela.",
+        "hint": "Pulsa las teclas que quieras usar. Necesitas al menos un modificador y una tecla final (ej. Control + Opcion + R, Control + Opcion + Espacio, F13). Esc cancela.",
         "needsModifier": "Una tecla sola solo se admite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, agrega Control, Opcion, Mayusculas o Comando."
       }
+    },
+    "settings": {
+      "trayHint": "Parlato se queda en la barra de menus junto al reloj. Haz clic en su icono para abrirlo o salir."
     }
   }
 }

@@ -236,6 +236,8 @@ export type PermissionStatus = {
   ocr: PermissionState;
   autostart: PermissionState;
   hotkey: PermissionState;
+  /** Parlato: macOS only (shortcut + paste need Accessibility). */
+  accessibility?: PermissionState;
 };
 
 export type TranscriptionRecord = {
@@ -582,6 +584,9 @@ export const api = {
   setAutostartEnabled: (enabled: boolean) =>
     invoke<void>("set_autostart_enabled", { enabled }),
   openPrivacyMicrophone: () => invoke<void>("open_privacy_microphone"),
+  openLogFolder: () => invoke<void>("open_log_folder"),
+  requestMicrophoneAccess: () => invoke<void>("request_microphone_access"),
+  requestAccessibilityAccess: () => invoke<boolean>("request_accessibility_access"),
   openLanguageSettings: () => invoke<void>("open_language_settings"),
 
   getRecorderStyle: () => invoke<string>("get_recorder_style"),

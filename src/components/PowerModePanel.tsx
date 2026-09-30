@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { AppPicker } from "@/components/AppPicker";
 import { Block, Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { cn, powerShortcutLabel } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 import { promptTitle } from "@/lib/promptLabels";
 import { modelName } from "@/lib/modelText";
 import type { CloudModel } from "@/components/models/types";
@@ -428,6 +429,13 @@ function ModeEditor({
             })}
           </select>
         </Row>
+        {/* Parlato: pairing with apps and websites is not available on Mac yet. */}
+        {isMac ? (
+          <Block className="flex flex-col gap-0.5">
+            <span className="font-medium">{t("pm.paired")}</span>
+            <span className="text-[13px] leading-[18px] text-muted-foreground">{t("mac.pairingNotYet")}</span>
+          </Block>
+        ) : (
         <Block className="flex flex-col gap-2.5">
           <div className="flex flex-col gap-0.5">
             <span className="font-medium">{t("pm.paired")}</span>
@@ -486,6 +494,7 @@ function ModeEditor({
             />
           )}
         </Block>
+        )}
         <Row label={t("pm.fallback")} description={t("pm.fallbackDesc")} htmlFor="pm-fallback">
           <Switch id="pm-fallback" checked={c.is_default} onChange={(v) => set("is_default", v)} />
         </Row>
