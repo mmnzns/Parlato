@@ -32,7 +32,7 @@ impl LLMProvider for CerebrasProvider {
         MODELS
     }
     fn default_model(&self) -> &'static str {
-        "gpt-oss-120b"
+        "qwen-3.8-27b"
     }
     fn endpoint(&self) -> &'static str {
         "https://api.cerebras.ai/v1/chat/completions"
