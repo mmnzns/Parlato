@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-29
+
+First release of **Parlato**, a fork of Parla 0.6.1 by Florian
+(LitteRabbit-37), renamed with the author's permission. Parlato installs
+as its own app: it does not share settings, API keys or updates with Parla,
+and both can be installed side by side.
+
+### Added
+- New interface, "Workbench", on every screen: Home, History, Microphone &
+  shortcut, Speech model, AI cleanup, Settings, Power modes, Dictionary,
+  Transcribe a file, Onboarding, and the recorder pill.
+- Speech model page organised by company. Local models are grouped by who
+  makes them (NVIDIA, OpenAI), online ones by the service you sign up with.
+  Each company shows a few plain choices ("Best for English", "Fastest",
+  "Most accurate"...); every other version is one click away.
+- NVIDIA Parakeet Unified EN 0.6B (April 2026), now the recommended English
+  model. The int8 version is about 660 MB.
+- NVIDIA Nemotron 3.5 ASR 0.6B (September 2026): 35 languages, including
+  Chinese, Japanese, Korean, Hindi and Arabic.
+- Whisper Small, Medium and Large v3 (Q5_0), and IBM Granite 4.2 3B for AI
+  cleanup on this PC.
+- History: play back a recording and transcribe it again with the current
+  model.
+- Transcribe real audio and video files.
+- The shortcut key on Home and in the sidebar opens the shortcut settings.
+- A one-time notification when the window is closed and Parlato keeps
+  running in the tray.
+- Model names and descriptions in English, French and Spanish.
+- Settings > About credits Parla, VoiceInk and every model's licence
+  (`THIRD_PARTY_NOTICES.md`).
+
+### Changed
+- Tray menu wording is plainer ("Start or stop dictation", "Same as
+  Windows").
+- Local AI cleanup uses each model's own chat template, which gives cleaner
+  output.
+- Online AI cleanup model lists refreshed; settings some models reject are
+  no longer sent.
+- Updates come from this repository and are signed with Parlato's own key.
+
+### Removed
+- Qwen 2.5 3B is no longer offered for download: its licence allows
+  research and non-commercial use only. Existing downloads keep working.
+
+### Fixed
+- A cancelled model download showed as an error.
+- Retrying the last dictation from the tray now works on its own copy of
+  the recording.
+
 ## [0.6.1] - 2026-09-23
 
 Bug-fix release: the clipboard crash reported in issue #13, plus the VoiceInk
