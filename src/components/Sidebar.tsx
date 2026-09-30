@@ -170,9 +170,18 @@ export function Sidebar({
         {hotkeyLabel && (
           <div className="text-xs leading-5 text-sidebar-muted">
             {t("sidebar.statusHoldBefore")}{" "}
-            <kbd className="mx-0.5 inline-block rounded-[3px] border border-b-2 border-sidebar-muted px-1.5 font-mono text-[11px] leading-4 text-sidebar-foreground">
-              {hotkeyLabel}
-            </kbd>{" "}
+            {/* Parlato: the key chip opens the shortcut settings. */}
+            <button
+              type="button"
+              onClick={() => onSelect("audio")}
+              title={t("dashboard.changeShortcut")}
+              aria-label={`${hotkeyLabel}. ${t("dashboard.changeShortcut")}`}
+              className="cursor-pointer rounded-[3px] outline-none hover:[&>kbd]:border-sidebar-foreground hover:[&>kbd]:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <kbd className="mx-0.5 inline-block rounded-[3px] border border-b-2 border-sidebar-muted px-1.5 font-mono text-[11px] leading-4 text-sidebar-foreground">
+                {hotkeyLabel}
+              </kbd>
+            </button>{" "}
             {t("sidebar.statusHoldAfter")}
           </div>
         )}
