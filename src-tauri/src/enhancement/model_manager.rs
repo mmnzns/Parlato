@@ -33,6 +33,18 @@ pub struct GgufModelInfo {
 /// Catalogue des modeles recommandes pour l'enhancement LLM local.
 /// Selection : petits modeles Instruct performants en Q4_K_M.
 pub const GGUF_MODELS: &[GgufModelInfo] = &[
+    // Parlato : IBM Granite 4.2 3B (Apache-2.0), GGUF publie par IBM. Teste
+    // le 2026-09-29 avec llama-cpp-2 0.1.143. Qwen 3.5 et Gemma 4 attendent
+    // une version de llama.cpp compatible avec le ggml de whisper-rs (voir
+    // .cargo/config.toml, /FORCE:MULTIPLE).
+    GgufModelInfo {
+        id: "granite-4.2-3b-q4",
+        display_name: "Granite 4.2 3B (Q4_K_M)",
+        url: "https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF/resolve/main/granite-4.2-3b-Q4_K_M.gguf",
+        size_bytes: 2_244_011_552,
+        context_length: 131072,
+        notes: "Modele recent d'IBM, precis et fidele au texte dicte.",
+    },
     GgufModelInfo {
         id: "qwen2.5-3b-instruct-q4",
         display_name: "Qwen 2.5 3B Instruct (Q4_K_M)",

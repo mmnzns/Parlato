@@ -1262,6 +1262,29 @@
     },
     "phi_3_5_mini_instruct_q4": {
       "notes": "Strong at reasoning and following instructions."
+    },
+    "ggml_small": {
+      "name": "Small (multilingual)",
+      "notes": "Good balance of accuracy and speed on a regular processor."
+    },
+    "ggml_small_en": {
+      "name": "Small (English)",
+      "notes": "English only. More accurate than multilingual Small for English."
+    },
+    "ggml_medium": {
+      "name": "Medium (multilingual)",
+      "notes": "Very accurate, but slower than Large v3 Turbo."
+    },
+    "ggml_medium_en": {
+      "name": "Medium (English)",
+      "notes": "English only. Very accurate for English."
+    },
+    "ggml_large_v3_q5_0": {
+      "name": "Large v3 (Q5_0)",
+      "notes": "Compressed Large v3. Nearly the same accuracy at a third of the size."
+    },
+    "granite_4_2_3b_q4": {
+      "notes": "IBM's newest small model. Accurate and faithful to what you said."
     }
   }
 }
