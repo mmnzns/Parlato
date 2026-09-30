@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Ports from VoiceInk 2.21.
+
+### Added
+- Moondream Parakeet Ultra (Parakeet v3 retrained by Moondream, 25
+  languages, about 670 MB) is now the "English, French, Spanish and more"
+  pick. Parakeet v3 stays under all versions.
+- AI cleanup: "Other model (type its ID)" for Anthropic, OpenAI, Gemini,
+  Mistral, Groq and Cerebras, to use a model released after this version.
+- Power modes: duplicate a mode. The copy keeps its settings but no paired
+  apps or websites.
+- Power modes recognise the Perplexity Comet browser.
+
+### Changed
+- Cerebras AI cleanup defaults to Qwen 3.8 27B.
+- With voice detection on, Parakeet and Nemotron skip silence too, like
+  Whisper already did.
+
 ## [0.7.0] - 2026-09-29
 
 First release of **Parlato**, a fork of Parla 0.6.1 by Florian

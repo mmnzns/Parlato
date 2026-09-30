@@ -595,10 +595,19 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
             .unwrap_or(crate::transcription::parakeet_model_manager::ParakeetKind::Tdt);
         let wav_path_clone = wav_path.clone();
         let language_clone = language.clone();
+        let vad = vad_for(&app);
         let start = std::time::Instant::now();
         let text = task::spawn_blocking(move || -> Result<String> {
             engine_state.ensure_loaded(&model_dir, kind)?;
-            let samples = whisper_core::read_wav_as_f32(&wav_path_clone)?;
+            let used_vad = vad.is_some();
+            let mut samples = speech_samples(vad, &wav_path_clone)?;
+            if samples.is_empty() {
+                return Ok(String::new());
+            }
+            // VoiceInk 2.21 : apres la VAD, au moins 1 s d'audio pour le modele.
+            if used_vad && samples.len() < 16_000 {
+                samples.resize(16_000, 0.0);
+            }
             engine_state.transcribe_samples(&samples, language_clone.as_deref())
         })
         .await
@@ -641,45 +650,18 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
         .path_if_present(&model_id)
         .ok_or_else(|| anyhow!("PARLA_ERR:modelNotDownloaded:{model_id}"))?;
 
-    // VAD optionnelle (matching VoiceInk IsVADEnabled). Si actif et le modele
-    // Silero est present, on segmente d'abord puis on transcrit uniquement les
-    // samples de parole.
-    let vad_enabled = is_vad_enabled(&app);
-    let vad_state = vad::vad_state(&app);
-    let use_vad = vad_enabled && vad_state.downloaded;
-    let vad_engine_opt = if use_vad {
-        Some(
-            app.state::<crate::commands::vad::VadEngineState>()
-                .0
-                .clone(),
-        )
-    } else {
-        None
-    };
-    let vad_model_path = vad_state.path.as_ref().map(PathBuf::from);
+    // VAD optionnelle (matching VoiceInk IsVADEnabled), cf `speech_samples`.
+    let vad = vad_for(&app);
 
     let wav_path_clone = wav_path.clone();
     let start = std::time::Instant::now();
     let text = task::spawn_blocking(move || -> Result<String> {
         engine.load(&model_path)?;
-        if let (Some(vad_engine), Some(vad_path)) = (vad_engine_opt, vad_model_path) {
-            vad_engine.load(&vad_path)?;
-            let (samples, ranges) = vad::run_vad_on_wav(&vad_engine, &wav_path_clone)?;
-            if ranges.is_empty() {
-                return Ok(String::new());
-            }
-            // Concatene les plages de parole en un seul buffer et transcrit.
-            let total: usize = ranges.iter().map(|(s, e)| e - s).sum();
-            let mut speech: Vec<f32> = Vec::with_capacity(total);
-            for (s, e) in &ranges {
-                speech.extend_from_slice(&samples[*s..*e]);
-            }
-            engine.transcribe_samples(&speech, &params)
-        } else {
-            // Path non-VAD : lit le WAV et transcrit tout.
-            let samples = whisper_core::read_wav_as_f32(&wav_path_clone)?;
-            engine.transcribe_samples(&samples, &params)
+        let samples = speech_samples(vad, &wav_path_clone)?;
+        if samples.is_empty() {
+            return Ok(String::new());
         }
+        engine.transcribe_samples(&samples, &params)
     })
     .await
     .map_err(|e| anyhow!("task join: {e}"))??;
@@ -694,6 +676,38 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
         language.as_deref(),
     );
     finalize_text(&app, text, duration_ms, delivery).await
+}
+
+/// VAD Silero si elle est activee et que son modele est telecharge.
+/// Parlato : partagee par Whisper et Parakeet (VoiceInk 2.21 6985c4b
+/// l'applique aussi a FluidAudio).
+fn vad_for(app: &AppHandle) -> Option<(Arc<vad::VadEngine>, PathBuf)> {
+    if !is_vad_enabled(app) {
+        return None;
+    }
+    let state = vad::vad_state(app);
+    if !state.downloaded {
+        return None;
+    }
+    let path = PathBuf::from(state.path?);
+    let engine = app.state::<crate::commands::vad::VadEngineState>().0.clone();
+    Some((engine, path))
+}
+
+/// Lit le WAV. Avec la VAD, ne garde que les plages de parole mises bout a
+/// bout (vide si aucune parole).
+fn speech_samples(vad: Option<(Arc<vad::VadEngine>, PathBuf)>, wav: &Path) -> Result<Vec<f32>> {
+    let Some((engine, model_path)) = vad else {
+        return whisper_core::read_wav_as_f32(wav);
+    };
+    engine.load(&model_path)?;
+    let (samples, ranges) = vad::run_vad_on_wav(&engine, wav)?;
+    let total: usize = ranges.iter().map(|(s, e)| e - s).sum();
+    let mut speech: Vec<f32> = Vec::with_capacity(total);
+    for (s, e) in &ranges {
+        speech.extend_from_slice(&samples[*s..*e]);
+    }
+    Ok(speech)
 }
 
 fn mark_transcribed_in_history(
@@ -908,4 +922,38 @@ async fn finalize_text(
         },
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Smoke test of the shared VAD step in front of Parakeet:
+    /// `PARLATO_VAD_MODEL=<silero .bin> PARLATO_PARAKEET_DIR=<dir>
+    /// PARLATO_WAV=<16 kHz wav> cargo test --lib vad_parakeet_smoke -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn vad_parakeet_smoke() {
+        let vad_model = PathBuf::from(std::env::var("PARLATO_VAD_MODEL").expect("PARLATO_VAD_MODEL"));
+        let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
+        let wav = PathBuf::from(std::env::var("PARLATO_WAV").expect("PARLATO_WAV"));
+        let all = whisper_core::read_wav_as_f32(&wav).unwrap();
+        let vad = Some((Arc::new(vad::VadEngine::default()), vad_model));
+        let speech = speech_samples(vad, &wav).unwrap();
+        let engine = crate::transcription::parakeet::ParakeetEngine::new();
+        engine
+            .ensure_loaded(
+                Path::new(&dir),
+                crate::transcription::parakeet_model_manager::ParakeetKind::Tdt,
+            )
+            .unwrap();
+        let text = engine.transcribe_samples(&speech, None).unwrap();
+        println!(
+            "--- {:.1}s audio, {:.1}s kept after VAD ---\n{text}\n---",
+            all.len() as f32 / 16000.0,
+            speech.len() as f32 / 16000.0
+        );
+        assert!(speech.len() < all.len());
+        assert!(!text.trim().is_empty());
+    }
 }
