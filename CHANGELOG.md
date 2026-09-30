@@ -7,12 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Parlato for Mac** (Apple silicon, macOS 13 or later): the shortcut
+  (Right Option by default), pasting, a permissions step in setup,
+  a menu bar icon, Mac key names and a `.dmg` installer. A few features
+  are not on the Mac yet; see the install guide.
+- Install guide for Windows and Mac: [docs/INSTALL.md](docs/INSTALL.md).
+- Settings > Log file opens the folder with `parlato.log`, to attach to a
+  bug report. It records timings and errors, never what you dictate.
+
 ### Changed
 - Settings: when an update is found, "Check for updates" turns into
   "Update now", which downloads and installs it and restarts Parlato,
   like the update banner does.
+- Wording no longer mentions Windows or "this PC" ("Same as computer",
+  "Stored only on this computer"), so it reads right on both platforms.
+- Dark mode now also covers drop-down menus, scrollbars and the window's
+  title bar.
+- The live text setting says it works with Parakeet Unified on your
+  computer, not only with online models.
 
 ### Fixed
+- Delete buttons (History, speech models, local AI models, prompts) ask
+  "Are you sure?" again. In 0.8.0 they deleted right away.
+- Power modes made before 0.8.0 get their Alt+number shortcuts back.
 - The update banner shows the release date in a readable form
   ("Sep 30, 2026") instead of a raw timestamp.
 
