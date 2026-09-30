@@ -1145,7 +1145,8 @@
     "shortcutWins": "Si vous utilisez le raccourci d'un mode, il l'emporte sur les apps associees.",
     "localWhisper": "Whisper (ce PC)",
     "localParakeet": "Parakeet (ce PC)",
-    "online": "En ligne"
+    "online": "En ligne",
+    "duplicate": "Dupliquer ce mode"
   },
   "ob": {
     "setupTitle": "Configurer Parlato",

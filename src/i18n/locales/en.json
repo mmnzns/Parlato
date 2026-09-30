@@ -1145,7 +1145,8 @@
     "shortcutWins": "If you press a mode's shortcut, that mode wins over any paired app.",
     "localWhisper": "Whisper (this PC)",
     "localParakeet": "Parakeet (this PC)",
-    "online": "Online"
+    "online": "Online",
+    "duplicate": "Duplicate this mode"
   },
   "ob": {
     "setupTitle": "Set up Parlato",

@@ -1145,7 +1145,8 @@
     "shortcutWins": "Si pulsas el atajo de un modo, ese modo gana sobre cualquier app asociada.",
     "localWhisper": "Whisper (este PC)",
     "localParakeet": "Parakeet (este PC)",
-    "online": "En linea"
+    "online": "En linea",
+    "duplicate": "Duplicar este modo"
   },
   "ob": {
     "setupTitle": "Configurar Parlato",

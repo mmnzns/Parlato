@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe, Info, Plus, Trash2, X, Zap } from "lucide-react";
+import { Copy, Globe, Info, Plus, Trash2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { cn, powerShortcutLabel } from "@/lib/utils";
@@ -96,6 +96,28 @@ export function PowerModePanel() {
   async function createMode() {
     try {
       const created = await api.addPowerConfig(emptyConfig(t("pm.newName")));
+      await refresh();
+      setSelectedId(created.id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // VoiceInk 2.21 duplicateConfiguration: same settings, no app or website
+  // triggers (so the two modes never compete), never the default. Added at
+  // the end so no other mode's Alt+number shortcut moves.
+  async function duplicateSelected() {
+    const source = configs.find((c) => c.id === selectedId);
+    if (!source) return;
+    try {
+      const created = await api.addPowerConfig({
+        ...source,
+        id: "",
+        name: duplicateName(source.name, configs.map((c) => c.name)),
+        app_triggers: [],
+        url_triggers: [],
+        is_default: false,
+      });
       await refresh();
       setSelectedId(created.id);
     } catch (e) {
@@ -206,6 +228,7 @@ export function PowerModePanel() {
               onAskDelete={() => setConfirming(true)}
               onCancelDelete={() => setConfirming(false)}
               onDelete={removeSelected}
+              onDuplicate={duplicateSelected}
             />
           ) : (
             <div className="rounded-lg border-[1.5px] border-dashed border-input bg-card p-8 text-center text-sm text-muted-foreground">
@@ -239,6 +262,7 @@ function ModeEditor({
   onAskDelete,
   onCancelDelete,
   onDelete,
+  onDuplicate,
 }: {
   config: PowerModeConfig;
   shortcut: string | null;
@@ -248,6 +272,7 @@ function ModeEditor({
   onAskDelete: () => void;
   onCancelDelete: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(c.name);
@@ -323,6 +348,16 @@ function ModeEditor({
           aria-label={t("pm.nameLabel")}
           className="min-w-0 flex-1 rounded-sm border-[1.5px] border-transparent bg-transparent px-1.5 py-1 font-display text-lg font-bold outline-none hover:border-input focus:border-foreground"
         />
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-muted-foreground"
+          onClick={onDuplicate}
+          title={t("pm.duplicate")}
+          aria-label={t("pm.duplicate")}
+        >
+          <Copy className="h-4 w-4" />
+        </Button>
         <Button
           size="icon"
           variant="ghost"
@@ -596,4 +631,15 @@ function FreeTextModel({ value, onCommit }: { value: string; onCommit: (v: strin
       className={cn(inputClass, "w-[240px] font-mono")}
     />
   );
+}
+
+// VoiceInk 2.21 nextDuplicateName: "Email" -> "Email 1", "Email 1" -> "Email 2".
+function duplicateName(name: string, taken: string[]): string {
+  const names = new Set(taken);
+  let base = name;
+  const m = name.match(/^(.*) (\d+)$/);
+  if (m && Number(m[2]) > 0 && names.has(m[1])) base = m[1];
+  let n = 1;
+  while (names.has(`${base} ${n}`)) n += 1;
+  return `${base} ${n}`;
 }
