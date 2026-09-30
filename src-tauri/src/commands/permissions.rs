@@ -64,6 +64,15 @@ pub fn check_permissions(app: AppHandle) -> PermissionStatus {
     };
 
     // OCR : tente de creer un OcrEngine. None si aucun pack langue installe.
+    #[cfg(not(windows))]
+    let ocr = PermissionState {
+        ok: false,
+        label_key: "permissions.ocr.unavailable".into(),
+        label_args: None,
+        hint_key: None,
+        diagnostic: Some("OCR is not implemented on macOS yet".into()),
+    };
+    #[cfg(windows)]
     let ocr = match windows::Media::Ocr::OcrEngine::TryCreateFromUserProfileLanguages() {
         Ok(_) => PermissionState {
             ok: true,

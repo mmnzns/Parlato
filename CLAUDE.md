@@ -249,6 +249,29 @@ Expected issues to solve and record under "Local environment notes":
 Done when: `npm run tauri dev` opens the Workbench UI on the Mac, and
 transcribing a file (Transcribe a file screen) works with a local model.
 
+Phase 0 findings (2026-09-30, MacBook, Apple Silicon, macOS 27, Rust 1.98):
+- Mac working copy: `~/Developer/Parlato`. Prerequisites installed: Rust
+  via rustup, CMake via Homebrew. Xcode Command Line Tools and Node were
+  already there; libclang came with the Xcode tools, no `LIBCLANG_PATH`
+  needed. Full debug build: about 30 seconds after the first one.
+- `uiautomation` was an all-platform dependency and pulled the `windows`
+  crates into the Mac build. It now sits in the `cfg(windows)` block, as
+  does `keyring`'s `windows-native` feature; macOS gets `apple-native`.
+- Duplicate ggml symbols: Apple's linker only warns (`ld: duplicate
+  symbol`) and keeps the first copy, same outcome as `/FORCE:MULTIPLE` on
+  Windows. No config needed. The warnings are expected.
+- `gpu-detect` compiles on macOS; NVML just fails at runtime and the app
+  runs CPU-only. It logs a long harmless `nvml.dll` debug line.
+- Placeholders that compile but do nothing yet: `active_window_macos.rs`,
+  `installed_apps_macos.rs`, `ocr_macos.rs` (swapped in by `#[cfg_attr(...,
+  path = ...)]` in each `mod.rs`), the non-Windows `try_extract` in
+  `browser_url.rs`, and the OCR check in `commands/permissions.rs`. The
+  keyboard hook, paste and mute already had non-Windows stubs.
+- The recorder pill needs `macOSPrivateApi: true` (in `tauri.conf.json`,
+  ignored on Windows) and the `macos-private-api` Tauri feature for
+  `.transparent(true)` to compile.
+- `cargo test --lib`: 126 passed on macOS.
+
 **Phase 1: dictation works (the point where the owner's girlfriend can use it).**
 - `Info.plist` usage strings: `NSMicrophoneUsageDescription` (without it the
   app crashes on first recording), `NSAppleEventsUsageDescription`.

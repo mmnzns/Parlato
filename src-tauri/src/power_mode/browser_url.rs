@@ -13,8 +13,11 @@
 // - En cas d'echec (UIA lent, fenetre inhabituelle), on renvoie None.
 
 use anyhow::Result;
+#[cfg(windows)]
 use uiautomation::controls::ControlType;
+#[cfg(windows)]
 use uiautomation::types::{TreeScope, UIProperty};
+#[cfg(windows)]
 use uiautomation::UIAutomation;
 
 use super::active_window::ActiveWindow;
@@ -32,6 +35,13 @@ pub fn extract_url(active: &ActiveWindow) -> Option<String> {
     }
 }
 
+#[cfg(not(windows))]
+fn try_extract(_active: &ActiveWindow) -> Result<Option<String>> {
+    // Parlato : macOS uses AppleScript (VoiceInk BrowserURLService.swift). Phase 4.
+    Ok(None)
+}
+
+#[cfg(windows)]
 fn try_extract(active: &ActiveWindow) -> Result<Option<String>> {
     let automation = UIAutomation::new()?;
     let hwnd = windows::Win32::Foundation::HWND(active.hwnd as *mut _);

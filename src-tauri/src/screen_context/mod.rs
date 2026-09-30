@@ -5,5 +5,6 @@
 // dans AIEnhancementService.getSystemMessage.
 
 pub mod capture;
+#[cfg_attr(target_os = "macos", path = "ocr_macos.rs")]
 pub mod ocr;
 pub mod service;

@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-store = "2"
@@ -74,9 +74,6 @@ llama-cpp-2 = "0.1"
 # features Parla "cuda-onnx" (NVIDIA) ou "directml-onnx" (GPU Windows).
 parakeet-rs = "0.3"
 
-# UI Automation pour l'extraction d'URL des navigateurs (Power Mode).
-uiautomation = "0.24"
-
 # Capture de fenetre active (Phase 7 screen context).
 xcap = "0.9"
 image = { version = "0.25", default-features = false, features = ["png"] }
@@ -84,7 +81,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # Providers cloud
 async-trait = "0.1"
 base64 = "0.22"
-keyring = { version = "3", features = ["windows-native"] }
+keyring = "3"
 urlencoding = "2"
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 
@@ -92,6 +89,9 @@ tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 nvml-wrapper = { version = "0.11", optional = true }
 
 [target.'cfg(windows)'.dependencies]
+# UI Automation pour l'extraction d'URL des navigateurs (Power Mode).
+uiautomation = "0.24"
+keyring = { version = "3", features = ["windows-native"] }
 windows = { version = "0.60", features = [
   "Win32_Foundation",
   "Win32_System_DataExchange",
@@ -113,6 +113,10 @@ windows = { version = "0.60", features = [
   "Storage_Streams",
   "Foundation_Collections",
 ] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# API keys in the macOS Keychain (Windows uses Credential Manager above).
+keyring = { version = "3", features = ["apple-native"] }
 
 # rustc 1.95 plante (STATUS_ACCESS_VIOLATION) en compilant tokenizers
 # v0.22 a opt-level 3 sur Windows MSVC. On baisse l'opt-level juste pour
