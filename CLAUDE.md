@@ -89,8 +89,14 @@ specifies. The CPU build works. CUDA is a separate matter — see Guardrails.
 
 ## Things that are easy to get wrong
 
+**Model names and descriptions shown in the UI come from the locale files.**
+The Rust catalogs keep upstream's French `display_name` / `notes`; the UI
+shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
+non-alphanumerics replaced by `_`), falling back to the catalog text. When
+porting a new model from upstream, add its en/fr/es `modelText` entry too.
+
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-638 keys each and exactly in sync. Any user-facing string means editing all three.
+1072 keys each and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
 are written without accents throughout (upstream convention); match it unless the
 whole set is converted at once.
@@ -125,8 +131,8 @@ with the upstream author's permission. User-visible identity lives in:
 window title, publisher, updater endpoint), `index.html`, `tray.rs` (tooltip and
 menu labels), `mini_recorder.rs` (window titles), `Sidebar.tsx`/`Onboarding.tsx`,
 the i18n files, `services/api_keys.rs` (Credential Manager service name) and
-`installer-hooks.nsh` (uninstall data paths and autostart key). When merging
-upstream, new user-facing strings will say "Parla": rename them.
+`installer-hooks.nsh` (uninstall data paths and autostart key). When porting
+from upstream, new user-facing strings will say "Parla": rename them.
 
 Deliberately NOT renamed (internal, invisible to users, renaming only adds merge
 conflicts): the Rust crate `parla` / `parla_lib` (dev exe is `parla.exe`), store
@@ -153,5 +159,11 @@ Until then the update check finds nothing and fails silently.
 - **Preserve GPL-3.0.** Keep the LICENSE and all copyright/license headers. Note
   modifications if anything is ever distributed.
 - **Commit only what builds and works.** One logical change per commit.
-- `upstream` remote points at LitteRabbit-37/Parla; `origin` is this fork. Pull
-  upstream periodically rather than drifting.
+- `upstream` remote points at LitteRabbit-37/Parla; `origin` is this fork.
+  **We port from upstream, we do not merge it.** Review upstream's new commits
+  periodically and bring over technical changes (bug fixes, engine / provider /
+  model catalog updates, security, performance) one by one, by hand or with a
+  cherry-pick. Never let upstream overwrite what this fork owns: the Workbench
+  UI (components, layout, design tokens), all user-facing wording in the
+  locale files, the Parlato branding, and the `modelText.*` model names and
+  descriptions. If an upstream commit mixes both, take the technical part only.
