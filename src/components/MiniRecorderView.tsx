@@ -28,7 +28,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { emit, listen } from "@tauri-apps/api/event";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Sparkles } from "lucide-react";
 import { api, type AudioMeter, type PowerModeConfig, type PowerSession } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 
@@ -222,7 +222,12 @@ export function MiniRecorderView() {
       <div
         ref={pillRef}
         className={cn(
-          "flex flex-col bg-black text-white shadow-lg transition-all duration-300 ease-in-out",
+          // Parlato: Workbench charcoal pill; a hard lime offset shadow while
+          // listening (design token pill-rec-shadow), a soft one otherwise.
+          "flex flex-col bg-[#141416] text-white transition-all duration-300 ease-in-out",
+          stage === "recording"
+            ? "shadow-[4px_4px_0_#B5E61D]"
+            : "shadow-[0_6px_20px_rgba(0,0,0,0.25)]",
           expanded ? "w-[300px]" : "w-[184px]",
           shape,
         )}
@@ -250,10 +255,10 @@ export function MiniRecorderView() {
               <AudioVisualizer meterDb={meterDb} />
             )}
             {stage === "transcribing" && (
-              <ProcessingStatusDisplay label="Transcribing" intervalMs={180} />
+              <ProcessingStatusDisplay label={t("miniRecorder.writing")} intervalMs={180} />
             )}
             {stage === "enhancing" && (
-              <ProcessingStatusDisplay label="Enhancing" intervalMs={220} />
+              <ProcessingStatusDisplay label={t("miniRecorder.cleaning")} intervalMs={220} />
             )}
             {stage === "idle" && <StaticVisualizer />}
           </div>
@@ -295,12 +300,14 @@ export function MiniRecorderView() {
 
 // -- RecordButton (gauche) : VoiceInk RecorderRecordButton -----------------
 
+// Parlato: Workbench palette (docs/design/v1, recorder pill): grey when
+// ready, lime while listening, translucent while processing.
 const RECORD_COLORS = {
-  ready: { surface: "#4D4D52", border: "#6B6B70", mark: "#C7C7CC" },
+  ready: { surface: "#3A3A3F", border: "#4A4A50", mark: "#C7C7CC" },
   recording: {
-    surface: "rgba(229, 72, 77, 0.92)",
-    border: "rgba(229, 72, 77, 0.98)",
-    mark: "#FFFFFF",
+    surface: "#B5E61D",
+    border: "#B5E61D",
+    mark: "#141416",
   },
   processing: {
     surface: "rgba(255, 255, 255, 0.13)",
@@ -333,16 +340,20 @@ function RecorderRecordButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="ml-2.5 flex h-[21px] w-[21px] shrink-0 items-center justify-center rounded-full transition-colors duration-150 disabled:cursor-default"
+      className="ml-2.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors duration-150 disabled:cursor-default"
       style={{
         background: colors.surface,
         boxShadow: `inset 0 0 0 0.6px ${colors.border}`,
       }}
     >
-      <span
-        className="block h-[7px] w-[7px] rounded-[2.2px]"
-        style={{ background: colors.mark }}
-      />
+      {stage === "enhancing" ? (
+        <Sparkles className="h-3 w-3 text-[#B5E61D]" />
+      ) : (
+        <span
+          className="block h-[7px] w-[7px] rounded-[2.2px]"
+          style={{ background: colors.mark }}
+        />
+      )}
     </button>
   );
 }
@@ -385,7 +396,7 @@ function AudioVisualizer({ meterDb }: { meterDb: number }) {
       {bars.map((h, i) => (
         <span
           key={i}
-          className="w-[3px] rounded-[1.5px] bg-white/85"
+          className="w-[3px] rounded-[1.5px] bg-[#B5E61D]"
           style={{ height: `${h}px` }}
         />
       ))}
@@ -399,7 +410,7 @@ function StaticVisualizer() {
       {Array.from({ length: BARS }).map((_, i) => (
         <span
           key={i}
-          className="w-[3px] rounded-[1.5px] bg-white/50"
+          className="w-[3px] rounded-[1.5px] bg-white/45"
           style={{ height: "4px" }}
         />
       ))}

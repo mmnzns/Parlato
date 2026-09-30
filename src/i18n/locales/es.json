@@ -756,7 +756,9 @@
     "noModesAvailable": "Sin perfiles disponibles",
     "startRecording": "Iniciar la grabacion",
     "stopRecording": "Detener la grabacion",
-    "processing": "Procesando..."
+    "processing": "Procesando...",
+    "writing": "Escribiendo",
+    "cleaning": "Limpiando"
   },
   "promptDetection": {
     "triggerDetected": "Palabra activadora detectada: {{word}}",

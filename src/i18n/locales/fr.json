@@ -756,7 +756,9 @@
     "noModesAvailable": "Aucun profil disponible",
     "startRecording": "Demarrer l'enregistrement",
     "stopRecording": "Arreter l'enregistrement",
-    "processing": "Traitement en cours..."
+    "processing": "Traitement en cours...",
+    "writing": "Redaction",
+    "cleaning": "Nettoyage"
   },
   "promptDetection": {
     "triggerDetected": "Mot declencheur detecte : {{word}}",

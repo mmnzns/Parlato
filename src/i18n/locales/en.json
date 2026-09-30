@@ -756,7 +756,9 @@
     "noModesAvailable": "No profiles available",
     "startRecording": "Start recording",
     "stopRecording": "Stop recording",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "writing": "Writing it out",
+    "cleaning": "Cleaning up"
   },
   "promptDetection": {
     "triggerDetected": "Trigger word detected: {{word}}",
