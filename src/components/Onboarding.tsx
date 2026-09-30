@@ -1,62 +1,55 @@
-// Onboarding : flow 5 etapes au premier demarrage.
+// Onboarding : flow au premier demarrage.
 //
 // Reference VoiceInk Views/Onboarding/OnboardingView.swift +
-// OnboardingPermissionsView.swift : plein ecran noir avec accent glow,
-// etape 1 welcome + etapes 2-5 permissions (microphone / mic selection
-// / accessibility / screen recording / keyboard shortcut). Sur Parla
-// on adapte a Windows : welcome + microphone + langue OCR + autostart
-// + hotkey.
+// OnboardingPermissionsView.swift. Sur Parla, l'adaptation Windows etait
+// welcome + microphone + langue OCR + autostart + hotkey.
+//
+// Parlato: rebuilt to the Workbench design (docs/design/v1, "onboarding"):
+// four steps with a step list on the left. Each step reuses the panel the
+// app already has, so setup and Settings can never disagree:
+//   1. Microphone  -> MicrophonePanel (device + level test)
+//   2. Speech model -> ModelsPage (download or pick a model)
+//   3. Shortcut    -> HotkeyCard (key + how it works)
+//   4. Try it      -> practice box, plus start-with-Windows
+// The OCR language step moved out: it lives in Settings > Permissions.
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ArrowRight,
-  Check,
-  Keyboard,
-  Languages,
-  Mic,
-  Power,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { api, type PermissionStatus } from "@/lib/tauri";
+import { Row, Switch } from "@/components/ui/section";
+import { HotkeyCard } from "@/components/HotkeyCard";
+import { MicrophonePanel } from "@/components/MicrophonePanel";
+import { ModelsPage } from "@/components/ModelsPage";
+import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
+import { api } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 
-type Step = "welcome" | "microphone" | "ocr" | "autostart" | "hotkey";
+const STEPS = ["mic", "model", "key", "try"] as const;
+type Step = (typeof STEPS)[number];
 
-const ORDER: Step[] = ["welcome", "microphone", "ocr", "autostart", "hotkey"];
-
-export function Onboarding({ onDone }: { onDone: () => void }) {
+export function Onboarding({
+  onDone,
+  selectedModelId,
+  onSelectModel,
+}: {
+  onDone: () => void;
+  selectedModelId: string | null;
+  onSelectModel: (id: string | null) => void;
+}) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<Step>("welcome");
-  const [perms, setPerms] = useState<PermissionStatus | null>(null);
+  const [index, setIndex] = useState(0);
+  const step: Step = STEPS[index];
+  const { label: keyLabel } = useHotkeyLabel(step);
+  const key = keyLabel ?? "Right Alt";
 
-  useEffect(() => {
-    refresh();
-  }, [step]);
+  const copy: Record<Step, { label: string; title: string; desc: string }> = {
+    mic: { label: t("ob.micLabel"), title: t("ob.micTitle"), desc: t("ob.micDesc") },
+    model: { label: t("ob.modelLabel"), title: t("ob.modelTitle"), desc: t("ob.modelDesc") },
+    key: { label: t("ob.keyLabel"), title: t("ob.keyTitle"), desc: t("ob.keyDesc") },
+    try: { label: t("ob.tryLabel"), title: t("ob.tryTitle"), desc: t("ob.tryDesc", { key }) },
+  };
 
-  async function refresh() {
-    try {
-      const p = await api.checkPermissions();
-      setPerms(p);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  const currentIndex = ORDER.indexOf(step);
-  function next() {
-    const idx = ORDER.indexOf(step);
-    if (idx < ORDER.length - 1) {
-      setStep(ORDER[idx + 1]);
-    } else {
-      finish();
-    }
-  }
-  function back() {
-    const idx = ORDER.indexOf(step);
-    if (idx > 0) setStep(ORDER[idx - 1]);
-  }
   async function finish() {
     try {
       await api.setOnboardingCompleted(true);
@@ -66,187 +59,148 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     onDone();
   }
 
+  const last = index === STEPS.length - 1;
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/10 text-foreground">
-      <div className="flex w-full max-w-xl flex-col items-center gap-6 px-6 py-10">
-        {/* Progress dots */}
-        <div className="flex items-center gap-2">
-          {ORDER.map((s, i) => (
-            <span
-              key={s}
-              className={cn(
-                "h-1.5 w-6 rounded-full transition-colors",
-                i <= currentIndex ? "bg-primary" : "bg-muted",
-              )}
-            />
-          ))}
+    <div
+      className="fixed inset-0 z-[100] grid grid-cols-[260px_minmax(0,1fr)] bg-background text-foreground"
+      style={{ backgroundImage: "var(--dot-grid)", backgroundSize: "18px 18px" }}
+    >
+      <aside className="flex flex-col gap-6 border-r-[1.5px] border-sidebar-border bg-sidebar px-6 py-8 text-sidebar-foreground">
+        <div className="flex flex-col gap-1.5">
+          <img src="/favicon.png" alt="Parlato" className="mb-2 h-10 w-10 rounded-[9px]" />
+          <span className="font-display text-lg font-extrabold">{t("ob.setupTitle")}</span>
+          <span className="text-[13px] text-muted-foreground">{t("ob.setupDesc")}</span>
         </div>
+        <ol className="flex flex-col gap-1">
+          {STEPS.map((s, i) => {
+            const done = i < index;
+            const current = i === index;
+            return (
+              <li key={s}>
+                <button
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  aria-current={current ? "step" : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm font-semibold transition-colors",
+                    current ? "bg-nav-active text-nav-active-foreground" : "hover:bg-muted",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 flex-none items-center justify-center rounded-full border-[1.5px] font-mono text-[11px]",
+                      current
+                        ? "border-highlight bg-highlight text-[#141416]"
+                        : done
+                          ? "border-edge bg-card"
+                          : "border-input text-muted-foreground",
+                    )}
+                  >
+                    {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                  </span>
+                  {copy[s].label}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        <span className="mt-auto font-mono text-[11px] text-muted-foreground">{t("ob.later")}</span>
+      </aside>
 
-        {step === "welcome" && <WelcomeStep />}
-        {step === "microphone" && (
-          <PermissionStep
-            icon={Mic}
-            title={t("onboarding.step.microphoneTitle")}
-            description={t("onboarding.step.microphoneDescription")}
-            ok={perms?.microphone.ok ?? false}
-            statusLabel={
-              perms?.microphone.label_key
-                ? t(perms.microphone.label_key, perms.microphone.label_args ?? undefined)
-                : undefined
-            }
-            primaryAction={{
-              label: t("onboarding.step.microphoneAction"),
-              onClick: () => api.openPrivacyMicrophone(),
-            }}
-          />
-        )}
-        {step === "ocr" && (
-          <PermissionStep
-            icon={Languages}
-            title={t("onboarding.step.ocrTitle")}
-            description={t("onboarding.step.ocrDescription")}
-            ok={perms?.ocr.ok ?? false}
-            statusLabel={
-              perms?.ocr.label_key
-                ? t(perms.ocr.label_key, perms.ocr.label_args ?? undefined)
-                : undefined
-            }
-            primaryAction={{
-              label: t("onboarding.step.ocrAction"),
-              onClick: () => api.openLanguageSettings(),
-            }}
-          />
-        )}
-        {step === "autostart" && (
-          <PermissionStep
-            icon={Power}
-            title={t("onboarding.step.autostartTitle")}
-            description={t("onboarding.step.autostartDescription")}
-            ok={perms?.autostart.ok ?? false}
-            statusLabel={
-              perms?.autostart.label_key
-                ? t(perms.autostart.label_key, perms.autostart.label_args ?? undefined)
-                : undefined
-            }
-            primaryAction={
-              perms?.autostart
-                ? {
-                    label: perms.autostart.ok
-                      ? t("permissions.autostartDeactivate")
-                      : t("permissions.autostartActivate"),
-                    onClick: async () => {
-                      await api.setAutostartEnabled(!perms.autostart.ok);
-                      await refresh();
-                    },
-                  }
-                : undefined
-            }
-          />
-        )}
-        {step === "hotkey" && (
-          <PermissionStep
-            icon={Keyboard}
-            title={t("onboarding.step.hotkeyTitle")}
-            description={t("onboarding.step.hotkeyDescription")}
-            ok
-            statusLabel={t("onboarding.step.hotkeyStatus")}
-          />
-        )}
+      <div className="flex min-h-0 flex-col">
+        <div data-slot="page" className="min-h-0 flex-1 overflow-auto">
+          <div className="mx-auto flex max-w-[760px] flex-col gap-[22px] px-10 pt-10 pb-8">
+            <header className="flex flex-col gap-1.5">
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {t("ob.stepOf", { n: index + 1 })}
+              </span>
+              <h1 className="font-display text-[28px] leading-8 font-extrabold tracking-[-0.035em]">
+                {copy[step].title}
+              </h1>
+              <p className="max-w-[560px] text-sm text-pretty text-muted-foreground">{copy[step].desc}</p>
+            </header>
 
-        <div className="mt-4 flex w-full items-center justify-between">
-          <div>
-            {currentIndex > 0 && (
-              <Button variant="ghost" size="sm" onClick={back}>
-                {t("common.back")}
-              </Button>
+            {step === "mic" && (
+              <>
+                <MicrophonePanel />
+                <button
+                  type="button"
+                  onClick={() => api.openPrivacyMicrophone()}
+                  className="self-start text-xs font-semibold underline underline-offset-[3px]"
+                >
+                  {t("ob.micSettings")}
+                </button>
+              </>
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={finish}>
-              {step === "welcome"
-                ? t("onboarding.skipEarly")
-                : t("onboarding.skipLate")}
-            </Button>
-            <Button size="sm" onClick={next}>
-              {step === "welcome"
-                ? t("onboarding.ready.start")
-                : currentIndex === ORDER.length - 1
-                  ? t("onboarding.finish")
-                  : t("onboarding.continue")}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
+            {step === "model" && <ModelsPage selectedModelId={selectedModelId} onSelectModel={onSelectModel} />}
+            {step === "key" && <HotkeyCard />}
+            {step === "try" && <TryStep keyLabel={key} />}
           </div>
         </div>
+
+        <footer className="flex items-center gap-3 border-t bg-card px-10 py-4">
+          <div className="flex flex-1 gap-1.5" aria-hidden>
+            {STEPS.map((s, i) => (
+              <span
+                key={s}
+                className={cn("h-1.5 w-8 rounded-full", i <= index ? "bg-foreground" : "bg-border")}
+              />
+            ))}
+          </div>
+          <Button variant="ghost" size="sm" onClick={finish}>
+            {t("ob.skip")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIndex((i) => i - 1)} disabled={index === 0}>
+            {t("ob.back")}
+          </Button>
+          <Button size="sm" onClick={() => (last ? finish() : setIndex((i) => i + 1))}>
+            {last ? t("ob.start") : t("ob.continue")}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </footer>
       </div>
     </div>
   );
 }
 
-function WelcomeStep() {
+function TryStep({ keyLabel }: { keyLabel: string }) {
   const { t } = useTranslation();
-  return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <img
-        src="/favicon.png"
-        alt="Parlato"
-        className="h-20 w-20 rounded-2xl shadow-md"
-      />
-      <h1 className="text-3xl font-black leading-tight">
-        {t("onboarding.welcome.title")}
-      </h1>
-      <p className="max-w-prose text-sm text-muted-foreground">
-        {t("onboarding.welcome.description")}
-      </p>
-    </div>
-  );
-}
+  const [autostart, setAutostart] = useState<boolean | null>(null);
 
-function PermissionStep({
-  icon: Icon,
-  title,
-  description,
-  ok,
-  statusLabel,
-  primaryAction,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  ok: boolean;
-  statusLabel?: string;
-  primaryAction?: { label: string; onClick: () => void };
-}) {
+  useEffect(() => {
+    api
+      .checkPermissions()
+      .then((p) => setAutostart(p.autostart.ok))
+      .catch(console.error);
+  }, []);
+
+  async function toggleAutostart(v: boolean) {
+    setAutostart(v);
+    try {
+      await api.setAutostartEnabled(v);
+    } catch (e) {
+      console.error(e);
+      setAutostart(!v);
+    }
+  }
+
   return (
-    <div className="flex w-full flex-col items-center gap-3 rounded-xl border bg-card p-8 text-center">
-      <div
-        className={cn(
-          "flex h-14 w-14 items-center justify-center rounded-full",
-          ok
-            ? "bg-green-500/10 text-green-600 dark:text-green-400"
-            : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-        )}
-      >
-        {ok ? <Check className="h-7 w-7" /> : <Icon className="h-7 w-7" />}
+    <>
+      <div className="flex flex-col gap-2">
+        <textarea
+          placeholder={t("ob.tryPlaceholder", { key: keyLabel })}
+          className="min-h-[160px] rounded-lg border-[1.5px] border-edge bg-card p-4 text-[15px] leading-6 shadow-[var(--sel-shadow)] outline-none focus:border-foreground"
+        />
+        <span className="text-xs text-muted-foreground">{t("ob.tryNote")}</span>
       </div>
-      <h2 className="text-xl font-bold">{title}</h2>
-      <p className="max-w-prose text-sm text-muted-foreground">
-        {description}
-      </p>
-      {statusLabel && (
-        <p
-          className={cn(
-            "mt-1 text-xs font-medium",
-            ok ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
-          )}
-        >
-          {statusLabel}
-        </p>
+      {autostart !== null && (
+        <div className="rounded-lg border-[1.5px] border-edge bg-card">
+          <Row label={t("ob.autostart")} description={t("ob.autostartDesc")} htmlFor="ob-autostart">
+            <Switch id="ob-autostart" checked={autostart} onChange={toggleAutostart} />
+          </Row>
+        </div>
       )}
-      {primaryAction && (
-        <Button size="sm" variant="outline" onClick={primaryAction.onClick}>
-          {primaryAction.label}
-        </Button>
-      )}
-    </div>
+    </>
   );
 }

@@ -1118,5 +1118,32 @@
     "localWhisper": "Whisper (ce PC)",
     "localParakeet": "Parakeet (ce PC)",
     "online": "En ligne"
+  },
+  "ob": {
+    "setupTitle": "Configurer Parlato",
+    "setupDesc": "Quatre etapes rapides. Environ deux minutes.",
+    "later": "tout cela reste modifiable dans les reglages",
+    "stepOf": "etape {{n}} sur 4",
+    "micLabel": "Micro",
+    "micTitle": "Parlato vous entend-il ?",
+    "micDesc": "Choisissez votre micro, appuyez sur Tester et parlez a voix haute. La barre doit bouger.",
+    "micSettings": "La barre ne bouge pas ? Ouvrir les reglages micro de Windows",
+    "modelLabel": "Comment Parlato ecoute",
+    "modelTitle": "Ou votre voix doit-elle etre transcrite ?",
+    "modelDesc": "Sur ce PC, c'est prive et gratuit apres un telechargement unique. Les services en ligne demandent une cle. Modifiable plus tard dans Modele vocal.",
+    "keyLabel": "Votre raccourci",
+    "keyTitle": "Quelle touche lance la dictee ?",
+    "keyDesc": "Vous appuierez sur cette touche chaque fois que vous voudrez parler. Choisissez-en une confortable que vous n'utilisez pas pour autre chose.",
+    "tryLabel": "Essayer",
+    "tryTitle": "Faites un essai",
+    "tryDesc": "Cliquez dans la zone, appuyez sur {{key}}, dites une phrase, puis relachez.",
+    "tryPlaceholder": "Cliquez ici, appuyez sur {{key}} et dites : \"Ceci est ma premiere dictee.\"",
+    "tryNote": "Vos mots apparaissent ici quand vous relachez la touche. Rien n'est envoye, sauf si vous avez choisi un service en ligne.",
+    "autostart": "Lancer Parlato avec Windows",
+    "autostartDesc": "Pour qu'il soit pret des que vous voulez dicter.",
+    "back": "Retour",
+    "continue": "Continuer",
+    "start": "Commencer avec Parlato",
+    "skip": "Passer la configuration"
   }
 }

@@ -74,13 +74,19 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (onboarded === false) {
-    return <Onboarding onDone={() => setOnboarded(true)} />;
-  }
-
   function handleSelectModel(id: string | null) {
     setSelectedModelId(id);
     api.setSelectedWhisperModel(id).catch(console.error);
+  }
+
+  if (onboarded === false) {
+    return (
+      <Onboarding
+        onDone={() => setOnboarded(true)}
+        selectedModelId={selectedModelId}
+        onSelectModel={handleSelectModel}
+      />
+    );
   }
 
   return (

@@ -1118,5 +1118,32 @@
     "localWhisper": "Whisper (this PC)",
     "localParakeet": "Parakeet (this PC)",
     "online": "Online"
+  },
+  "ob": {
+    "setupTitle": "Set up Parlato",
+    "setupDesc": "Four quick steps. About two minutes.",
+    "later": "you can change all of this later in settings",
+    "stepOf": "step {{n}} of 4",
+    "micLabel": "Microphone",
+    "micTitle": "Can Parlato hear you?",
+    "micDesc": "Pick your microphone, then press Test and say something out loud. The bar should move.",
+    "micSettings": "Bar not moving? Open Windows microphone settings",
+    "modelLabel": "How Parlato listens",
+    "modelTitle": "Where should your voice be turned into text?",
+    "modelDesc": "On this PC is private and free after a one-time download. Online services need an account key. You can change this later in Speech model.",
+    "keyLabel": "Your shortcut",
+    "keyTitle": "Which key should start dictation?",
+    "keyDesc": "You will press this key whenever you want to talk. Pick one that is comfortable and that you do not use for anything else.",
+    "tryLabel": "Try it",
+    "tryTitle": "Give it a try",
+    "tryDesc": "Click in the box, press {{key}}, say a sentence, then let go.",
+    "tryPlaceholder": "Click here, press {{key}} and say: \"This is my first dictation.\"",
+    "tryNote": "Your words appear here when you let go of the key. Nothing is sent anywhere unless you picked an online service.",
+    "autostart": "Start Parlato with Windows",
+    "autostartDesc": "So it is ready whenever you want to dictate.",
+    "back": "Back",
+    "continue": "Continue",
+    "start": "Start using Parlato",
+    "skip": "Skip setup"
   }
 }
