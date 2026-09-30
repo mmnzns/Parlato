@@ -525,7 +525,10 @@
     "keyDeleted": "Clave eliminada",
     "activePrompt": "Prompt activo",
     "predefined": "(predefinido)",
-    "currentModel": "{{model}} (actual)"
+    "currentModel": "{{model}} (actual)",
+    "otherModel": "Otro modelo (escribe su ID)",
+    "modelIdLabel": "ID del modelo",
+    "modelIdHint": "El nombre exacto del modelo en la documentacion de {{provider}}, para un modelo que aun no esta en la lista."
   },
   "screenContext": {
     "title": "Contexto de ventana activa (OCR)",

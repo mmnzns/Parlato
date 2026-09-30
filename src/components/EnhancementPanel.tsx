@@ -25,6 +25,10 @@ import {
 
 /** Providers that run on this PC. Everything else is an online service. */
 const LOCAL_IDS = ["llamacpp", "ollama", "localcli"];
+// Parlato: services that also accept a model ID typed by hand, for models
+// released after this version (VoiceInk 2.21 supportsCustomModelID).
+const TYPED_MODEL_IDS = ["anthropic", "openai", "gemini", "mistral", "groq", "cerebras"];
+const OTHER_MODEL = "__other__";
 
 const inputClass = "h-[34px] w-full rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
 
@@ -43,6 +47,8 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   const [ollamaStatus, setOllamaStatus] = useState("");
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [customModel, setCustomModel] = useState("");
+  // Parlato: text of the "Other model" box; null while a listed model is picked.
+  const [typedModel, setTypedModel] = useState<string | null>(null);
   const [localcliCustomCmd, setLocalcliCustomCmd] = useState("");
   const [localcliTimeout, setLocalcliTimeout] = useState(45);
   const [localcliStatus, setLocalcliStatus] = useState("");
@@ -130,6 +136,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   async function selectProvider(providerId: string) {
     const p = providers.find((x) => x.id === providerId);
     if (!p) return;
+    setTypedModel(null);
     const model = p.default_model || "";
     setSelection({ provider_id: providerId, model });
     await api.setLlmSelection(providerId, model);
@@ -140,6 +147,18 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
 
   async function selectModel(model: string) {
     if (!selection) return;
+    if (model === OTHER_MODEL) {
+      setTypedModel("");
+      return;
+    }
+    setTypedModel(null);
+    setSelection({ ...selection, model });
+    await api.setLlmSelection(selection.provider_id, model);
+  }
+
+  async function saveTypedModel() {
+    const model = (typedModel ?? "").trim();
+    if (!selection || !model) return;
     setSelection({ ...selection, model });
     await api.setLlmSelection(selection.provider_id, model);
   }
@@ -183,6 +202,13 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   const isCustom = selection?.provider_id === "custom";
   const isLocalcli = selection?.provider_id === "localcli";
   const isLocalcliCustom = isLocalcli && selection?.model === "custom";
+  const typesModels = TYPED_MODEL_IDS.includes(selection?.provider_id ?? "");
+  // A saved model that is not in the list was typed by hand earlier.
+  const showTypedModel =
+    typesModels &&
+    !!currentProvider &&
+    (typedModel !== null ||
+      (!!selection?.model && !currentProvider.models.includes(selection.model)));
 
   async function saveLocalcliCustomCmd() {
     try {
@@ -428,21 +454,44 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
               <Row label={t("ai.model")}>
                 <select
                   aria-label={t("ai.model")}
-                  value={selection?.model ?? ""}
+                  value={showTypedModel ? OTHER_MODEL : (selection?.model ?? "")}
                   onChange={(e) => selectModel(e.target.value)}
                   className={selectClass}
                 >
-                  {selection?.model && !currentProvider.models.includes(selection.model) && (
-                    <option value={selection.model}>
-                      {t("enhancement.currentModel", { model: selection.model })}
-                    </option>
-                  )}
+                  {!typesModels &&
+                    selection?.model &&
+                    !currentProvider.models.includes(selection.model) && (
+                      <option value={selection.model}>
+                        {t("enhancement.currentModel", { model: selection.model })}
+                      </option>
+                    )}
                   {currentProvider.models.map((m) => (
                     <option key={m} value={m}>
                       {m}
                     </option>
                   ))}
+                  {typesModels && <option value={OTHER_MODEL}>{t("enhancement.otherModel")}</option>}
                 </select>
+              </Row>
+            )}
+
+            {showTypedModel && currentProvider && (
+              <Row
+                label={t("enhancement.modelIdLabel")}
+                description={t("enhancement.modelIdHint", { provider: currentProvider.label })}
+              >
+                <input
+                  type="text"
+                  aria-label={t("enhancement.modelIdLabel")}
+                  value={typedModel ?? selection?.model ?? ""}
+                  onChange={(e) => setTypedModel(e.target.value)}
+                  onBlur={saveTypedModel}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveTypedModel();
+                  }}
+                  placeholder={t("enhancement.customModelPlaceholder")}
+                  className={cn(inputClass, "w-[240px]")}
+                />
               </Row>
             )}
 

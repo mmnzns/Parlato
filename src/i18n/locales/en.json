@@ -525,7 +525,10 @@
     "keyDeleted": "Key deleted",
     "activePrompt": "Active prompt",
     "predefined": "(predefined)",
-    "currentModel": "{{model}} (current)"
+    "currentModel": "{{model}} (current)",
+    "otherModel": "Other model (type its ID)",
+    "modelIdLabel": "Model ID",
+    "modelIdHint": "The exact model name from {{provider}}'s documentation, for a model that is not in the list yet."
   },
   "screenContext": {
     "title": "Active window context (OCR)",
