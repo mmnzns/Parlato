@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Copy, Globe, Info, Plus, Trash2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AppPicker } from "@/components/AppPicker";
 import { Block, Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { cn, powerShortcutLabel } from "@/lib/utils";
 import { promptTitle } from "@/lib/promptLabels";
@@ -20,6 +21,7 @@ import type { CloudModel } from "@/components/models/types";
 import {
   api,
   type CustomPrompt,
+  type InstalledApp,
   type LLMProviderInfo,
   type ParakeetModelState,
   type PowerModeConfig,
@@ -27,6 +29,9 @@ import {
 } from "@/lib/tauri";
 
 const inputClass = "h-[34px] min-w-0 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
+
+// Alt+1 .. Alt+9, then Alt+0 (the hook's digit order).
+const SHORTCUT_SLOTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 function emptyConfig(name: string): PowerModeConfig {
   return {
@@ -47,6 +52,7 @@ function emptyConfig(name: string): PowerModeConfig {
     parakeet_model_id: null,
     language: null,
     auto_send_key: "none",
+    shortcut_slot: null,
     is_enabled: true,
     is_default: false,
   };
@@ -116,6 +122,7 @@ export function PowerModePanel() {
         name: duplicateName(source.name, configs.map((c) => c.name)),
         app_triggers: [],
         url_triggers: [],
+        shortcut_slot: null,
         is_default: false,
       });
       await refresh();
@@ -126,12 +133,14 @@ export function PowerModePanel() {
   }
 
   async function save(next: PowerModeConfig) {
+    const prev = configs.find((c) => c.id === next.id);
     // Optimistic: the editor stays responsive, the list reflects the change.
     setConfigs((cs) => cs.map((c) => (c.id === next.id ? next : c)));
     try {
       await api.updatePowerConfig(next);
-      // is_default is exclusive: the backend may have cleared it elsewhere.
-      if (next.is_default) await refresh();
+      // is_default and shortcut_slot are exclusive: the backend may have
+      // cleared them on another mode.
+      if (next.is_default || next.shortcut_slot !== prev?.shortcut_slot) await refresh();
     } catch (e) {
       console.error(e);
       await refresh();
@@ -156,8 +165,7 @@ export function PowerModePanel() {
     await api.setPowerAutoRestore(v);
   }
 
-  const enabled = configs.filter((c) => c.is_enabled);
-  const shortcutFor = (c: PowerModeConfig) => (c.is_enabled ? powerShortcutLabel(enabled.indexOf(c)) : null);
+  const shortcutFor = (c: PowerModeConfig) => (c.is_enabled ? powerShortcutLabel(c.shortcut_slot) : null);
   const selected = configs.find((c) => c.id === selectedId) ?? null;
 
   return (
@@ -221,7 +229,7 @@ export function PowerModePanel() {
             <ModeEditor
               key={selected.id}
               config={selected}
-              shortcut={shortcutFor(selected)}
+              others={configs.filter((c) => c.id !== selected.id)}
               catalog={catalog}
               onChange={save}
               confirming={confirming}
@@ -255,7 +263,7 @@ export function PowerModePanel() {
 
 function ModeEditor({
   config: c,
-  shortcut,
+  others,
   catalog,
   onChange,
   confirming,
@@ -265,7 +273,7 @@ function ModeEditor({
   onDuplicate,
 }: {
   config: PowerModeConfig;
-  shortcut: string | null;
+  others: PowerModeConfig[];
   catalog: Catalog;
   onChange: (c: PowerModeConfig) => void;
   confirming: boolean;
@@ -278,6 +286,7 @@ function ModeEditor({
   const [name, setName] = useState(c.name);
   const [language, setLanguage] = useState(c.language ?? "");
   const [appDraft, setAppDraft] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [siteDraft, setSiteDraft] = useState<string | null>(null);
 
   function set<K extends keyof PowerModeConfig>(key: K, value: PowerModeConfig[K]) {
@@ -289,6 +298,15 @@ function ModeEditor({
     setAppDraft(null);
     if (!exe || c.app_triggers.some((a) => a.exe_name === exe)) return;
     onChange({ ...c, app_triggers: [...c.app_triggers, { id: crypto.randomUUID(), exe_name: exe, app_name: exe }] });
+  }
+
+  function addPickedApp(app: InstalledApp) {
+    setPicking(false);
+    if (c.app_triggers.some((a) => a.exe_name === app.exe_name)) return;
+    onChange({
+      ...c,
+      app_triggers: [...c.app_triggers, { id: crypto.randomUUID(), exe_name: app.exe_name, app_name: app.name }],
+    });
   }
 
   function addSite() {
@@ -330,7 +348,7 @@ function ModeEditor({
   const parakeet = catalog.parakeet.filter((m) => m.downloaded);
   const cloud = catalog.cloud.filter((m) => m.supports_batch);
   const triggers = [
-    ...c.app_triggers.map((a) => ({ id: a.id, label: a.exe_name, site: false })),
+    ...c.app_triggers.map((a) => ({ id: a.id, label: a.app_name || a.exe_name, site: false })),
     ...c.url_triggers.map((u) => ({ id: u.id, label: u.url, site: true })),
   ];
 
@@ -391,12 +409,24 @@ function ModeEditor({
       )}
 
       <Section title={t("pm.startsTitle")} description={t("pm.startsDesc")}>
-        <Row label={t("pm.shortcut")} description={shortcut ? t("pm.shortcutDesc") : t("pm.noShortcut")}>
-          {shortcut && (
-            <kbd className="rounded-sm border-[1.5px] border-edge bg-card px-2.5 py-1 font-mono text-xs font-semibold shadow-btn">
-              {shortcut}
-            </kbd>
-          )}
+        <Row label={t("pm.shortcut")} description={t("pm.shortcutDesc")}>
+          <select
+            aria-label={t("pm.shortcut")}
+            value={c.shortcut_slot ?? ""}
+            onChange={(e) => set("shortcut_slot", e.target.value === "" ? null : Number(e.target.value))}
+            className={cn(selectClass, "w-[180px]")}
+          >
+            <option value="">{t("pm.shortcutNone")}</option>
+            {SHORTCUT_SLOTS.map((slot) => {
+              const key = powerShortcutLabel(slot);
+              const owner = others.find((o) => o.shortcut_slot === slot);
+              return (
+                <option key={slot} value={slot}>
+                  {owner ? t("pm.shortcutTaken", { key, name: owner.name }) : key}
+                </option>
+              );
+            })}
+          </select>
         </Row>
         <Block className="flex flex-col gap-2.5">
           <div className="flex flex-col gap-0.5">
@@ -407,7 +437,10 @@ function ModeEditor({
             {triggers.map((tr) => (
               <span
                 key={tr.id}
-                className="flex h-8 items-center gap-1.5 rounded-full border-[1.5px] border-edge bg-card pr-1 pl-3 font-mono text-xs"
+                className={cn(
+                  "flex h-8 items-center gap-1.5 rounded-full border-[1.5px] border-edge bg-card pr-1 pl-3 text-xs",
+                  tr.site && "font-mono",
+                )}
               >
                 {tr.site && <Globe className="h-3 w-3 text-muted-foreground" />}
                 {tr.label}
@@ -428,6 +461,7 @@ function ModeEditor({
             <ChipInput
               draft={appDraft}
               setDraft={setAppDraft}
+              onOpen={() => setPicking(true)}
               onCommit={addApp}
               label={t("pm.addApp")}
               placeholder={t("pm.appPlaceholder")}
@@ -440,6 +474,17 @@ function ModeEditor({
               placeholder={t("pm.sitePlaceholder")}
             />
           </div>
+          {picking && (
+            <AppPicker
+              paired={c.app_triggers.map((a) => a.exe_name)}
+              onPick={addPickedApp}
+              onTypeName={() => {
+                setPicking(false);
+                setAppDraft("");
+              }}
+              onClose={() => setPicking(false)}
+            />
+          )}
         </Block>
         <Row label={t("pm.fallback")} description={t("pm.fallbackDesc")} htmlFor="pm-fallback">
           <Switch id="pm-fallback" checked={c.is_default} onChange={(v) => set("is_default", v)} />
@@ -582,12 +627,15 @@ function ModeEditor({
 function ChipInput({
   draft,
   setDraft,
+  onOpen,
   onCommit,
   label,
   placeholder,
 }: {
   draft: string | null;
   setDraft: (v: string | null) => void;
+  /** Parlato: what the button does instead of opening the text box. */
+  onOpen?: () => void;
   onCommit: () => void;
   label: string;
   placeholder: string;
@@ -596,7 +644,7 @@ function ChipInput({
     return (
       <button
         type="button"
-        onClick={() => setDraft("")}
+        onClick={() => (onOpen ? onOpen() : setDraft(""))}
         className="flex h-8 items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-input px-3 text-xs font-semibold text-muted-foreground hover:border-edge hover:text-foreground"
       >
         <Plus className="h-3.5 w-3.5" />

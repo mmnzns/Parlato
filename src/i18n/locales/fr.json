@@ -1112,8 +1112,7 @@
     "startsTitle": "Comment il demarre",
     "startsDesc": "Associez des apps ou des sites, ou utilisez le raccourci du mode.",
     "shortcut": "Raccourci",
-    "shortcutDesc": "Passe a ce mode pour votre prochaine dictee.",
-    "noShortcut": "Seuls les 10 premiers modes actives ont un raccourci.",
+    "shortcutDesc": "Pendant la dictee, appuyez sur cette touche pour passer a ce mode.",
     "paired": "Apps associees",
     "pairedDesc": "Quand vous dictez dans l'une d'elles, ce mode s'applique automatiquement. Sans raccourci.",
     "addApp": "Ajouter une app",
@@ -1146,7 +1145,14 @@
     "localWhisper": "Whisper (ce PC)",
     "localParakeet": "Parakeet (ce PC)",
     "online": "En ligne",
-    "duplicate": "Dupliquer ce mode"
+    "duplicate": "Dupliquer ce mode",
+    "shortcutNone": "Aucun",
+    "shortcutTaken": "{{key}} (utilise par {{name}})",
+    "appSearch": "Rechercher vos applications",
+    "appLoading": "Recherche de vos applications...",
+    "appNone": "Aucune application trouvee. Essayez un autre mot, ou saisissez le nom de son programme.",
+    "appOpen": "ouverte",
+    "appTypeName": "Absente de la liste ? Saisissez le nom de son programme"
   },
   "ob": {
     "setupTitle": "Configurer Parlato",

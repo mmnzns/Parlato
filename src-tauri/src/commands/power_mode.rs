@@ -30,6 +30,7 @@ pub fn add_power_config(app: AppHandle, config: PowerModeConfig) -> Result<Power
             x.is_default = false;
         }
     }
+    release_slot(&mut all, c.shortcut_slot);
     all.push(c.clone());
     config::save_all(&app, &all).map_err(|e| e.to_string())?;
     crate::tray::refresh(&app);
@@ -50,10 +51,40 @@ pub fn update_power_config(app: AppHandle, config: PowerModeConfig) -> Result<()
             }
         }
     }
+    // Parlato : un raccourci pris par ce mode est retire de l'autre mode.
+    let slot = config.shortcut_slot;
     all[pos] = config;
+    let id = all[pos].id.clone();
+    for x in all.iter_mut().filter(|x| x.id != id) {
+        if slot.is_some() && x.shortcut_slot == slot {
+            x.shortcut_slot = None;
+        }
+    }
     config::save_all(&app, &all).map_err(|e| e.to_string())?;
     crate::tray::refresh(&app);
     Ok(())
+}
+
+/// Parlato : libere un raccourci deja attribue a un autre mode.
+fn release_slot(all: &mut [PowerModeConfig], slot: Option<u8>) {
+    if slot.is_none() {
+        return;
+    }
+    for x in all.iter_mut() {
+        if x.shortcut_slot == slot {
+            x.shortcut_slot = None;
+        }
+    }
+}
+
+/// Parlato : applications de l'utilisateur (menu Demarrer + fenetres
+/// ouvertes) pour le choix "Ajouter une app" d'un Power Mode.
+#[command]
+pub async fn list_installed_apps(
+) -> Result<Vec<crate::power_mode::installed_apps::InstalledApp>, String> {
+    tauri::async_runtime::spawn_blocking(crate::power_mode::installed_apps::list)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[command]

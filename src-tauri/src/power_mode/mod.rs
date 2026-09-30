@@ -7,5 +7,6 @@
 pub mod active_window;
 pub mod browser_url;
 pub mod config;
+pub mod installed_apps;
 pub mod matcher;
 pub mod session;

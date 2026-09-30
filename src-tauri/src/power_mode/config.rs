@@ -99,6 +99,12 @@ pub struct PowerModeConfig {
     #[serde(default)]
     pub auto_send_key: AutoSendKey,
 
+    /// Parlato : raccourci choisi par l'utilisateur pendant l'enregistrement,
+    /// 0..=9 pour Alt+1..Alt+9 puis Alt+0 (meme index que le hook clavier).
+    /// None = pas de raccourci (defaut). Unique parmi les modes.
+    #[serde(default)]
+    pub shortcut_slot: Option<u8>,
+
     #[serde(default = "default_true")]
     pub is_enabled: bool,
     #[serde(default)]
@@ -130,6 +136,7 @@ impl PowerModeConfig {
             parakeet_model_id: None,
             language: None,
             auto_send_key: AutoSendKey::None,
+            shortcut_slot: None,
             is_enabled: true,
             is_default: false,
         }

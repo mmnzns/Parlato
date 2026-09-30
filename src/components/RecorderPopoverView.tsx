@@ -95,10 +95,9 @@ export function RecorderPopoverView() {
             </div>
           ) : (
             <>
-              {enabled.map((c, idx) => {
-                // Meme mapping que le backend : le raccourci cible le Nieme
-                // profil ACTIVE dans l'ordre stocke.
-                const shortcut = powerShortcutLabel(idx);
+              {enabled.map((c) => {
+                // Parlato : raccourci choisi par l'utilisateur (aucun par defaut).
+                const shortcut = powerShortcutLabel(c.shortcut_slot);
                 const isActive = c.id === session?.config_id;
                 return (
                   <button

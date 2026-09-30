@@ -6,13 +6,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Libelle du raccourci Alt+chiffre du Nieme profil Power Mode active (0-base).
+ * Libelle d'un raccourci Power Mode (config.shortcut_slot, 0-base).
  * 0..8 -> Alt+1..Alt+9, 9 -> Alt+0 (comme VoiceInk Option+1..0). Retourne
- * null au-dela du 10e profil (aucun raccourci) ou pour un index invalide.
- * L'ordre doit correspondre au backend (session::enabled_configs : configs
- * filtrees par is_enabled, dans l'ordre stocke).
+ * null sans raccourci ou pour un slot invalide.
  */
-export function powerShortcutLabel(enabledIndex: number): string | null {
-  if (enabledIndex < 0 || enabledIndex > 9) return null;
-  return enabledIndex < 9 ? `Alt+${enabledIndex + 1}` : "Alt+0";
+export function powerShortcutLabel(slot: number | null | undefined): string | null {
+  if (slot == null || slot < 0 || slot > 9) return null;
+  return slot < 9 ? `Alt+${slot + 1}` : "Alt+0";
 }

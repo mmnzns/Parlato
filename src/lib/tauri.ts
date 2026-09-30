@@ -188,8 +188,17 @@ export type PowerModeConfig = {
   parakeet_model_id: string | null;
   language: string | null;
   auto_send_key: AutoSendKey;
+  /** Parlato: 0..9 = Alt+1..Alt+9, Alt+0 while recording; null = none. */
+  shortcut_slot: number | null;
   is_enabled: boolean;
   is_default: boolean;
+};
+
+/** Parlato: an app found in the Start menu or open right now. */
+export type InstalledApp = {
+  name: string;
+  exe_name: string;
+  running: boolean;
 };
 
 export type PowerSession = {
@@ -511,6 +520,7 @@ export const api = {
     invoke<string>("parakeet_execution_provider"),
 
   listPowerConfigs: () => invoke<PowerModeConfig[]>("list_power_configs"),
+  listInstalledApps: () => invoke<InstalledApp[]>("list_installed_apps"),
   addPowerConfig: (config: PowerModeConfig) =>
     invoke<PowerModeConfig>("add_power_config", { config }),
   updatePowerConfig: (config: PowerModeConfig) =>

@@ -128,7 +128,7 @@ fn run_utility(app: &AppHandle, action: UtilityAction) {
 /// Applique manuellement le Nieme profil Power Mode active (raccourci
 /// Alt+chiffre pendant l'enregistrement) et notifie l'UI.
 fn select_power_mode(app: &AppHandle, index: usize) {
-    if let Some(session) = power_mode::session::select_by_index(app, index) {
+    if let Some(session) = power_mode::session::select_by_slot(app, index) {
         let _ = app.emit("power_mode:active", &session);
     }
 }
@@ -156,9 +156,9 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
     }
     // Arme les raccourcis Alt+chiffre de selection Power Mode pour la duree
     // de l'enregistrement (VoiceInk : shortcuts actifs tant que le recorder
-    // est visible). count = nombre de profils actives adressables ; 0 laisse
-    // les touches Alt+chiffre passer normalement a l'app cible.
-    keyboard_hook::set_power_shortcut_count(power_mode::session::enabled_configs(app).len());
+    // est visible). Parlato : count = plus haut raccourci attribue + 1 ; 0
+    // laisse les touches Alt+chiffre passer normalement a l'app cible.
+    keyboard_hook::set_power_shortcut_count(power_mode::session::shortcut_capture_count(app));
     // Capture + OCR de la fenetre active (background). Remplit
     // le cache consomme par l'enhancement service pour le bloc
     // <CURRENT_WINDOW_CONTEXT>. No-op si la feature est desactivee.

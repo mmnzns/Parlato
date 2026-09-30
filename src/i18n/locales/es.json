@@ -1112,8 +1112,7 @@
     "startsTitle": "Como empieza",
     "startsDesc": "Asocia apps o sitios web, o usa el atajo del modo.",
     "shortcut": "Atajo",
-    "shortcutDesc": "Cambia a este modo para tu proximo dictado.",
-    "noShortcut": "Solo los 10 primeros modos activados tienen atajo.",
+    "shortcutDesc": "Mientras dictas, pulsa esta tecla para cambiar a este modo.",
     "paired": "Apps asociadas",
     "pairedDesc": "Cuando dictas en una de ellas, este modo se usa automaticamente. Sin atajo.",
     "addApp": "Anadir app",
@@ -1146,7 +1145,14 @@
     "localWhisper": "Whisper (este PC)",
     "localParakeet": "Parakeet (este PC)",
     "online": "En linea",
-    "duplicate": "Duplicar este modo"
+    "duplicate": "Duplicar este modo",
+    "shortcutNone": "Ninguno",
+    "shortcutTaken": "{{key}} (usado por {{name}})",
+    "appSearch": "Busca tus aplicaciones",
+    "appLoading": "Buscando tus aplicaciones...",
+    "appNone": "No se encontro ninguna aplicacion. Prueba otra palabra o escribe el nombre de su programa.",
+    "appOpen": "abierta",
+    "appTypeName": "No esta en la lista? Escribe el nombre de su programa"
   },
   "ob": {
     "setupTitle": "Configurar Parlato",

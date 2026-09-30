@@ -1112,8 +1112,7 @@
     "startsTitle": "How it starts",
     "startsDesc": "Pair apps or websites, or press the mode's shortcut.",
     "shortcut": "Shortcut",
-    "shortcutDesc": "Switches to this mode for your next dictation.",
-    "noShortcut": "Only the first 10 modes that are on get a shortcut.",
+    "shortcutDesc": "While you are dictating, press this key to switch to this mode.",
     "paired": "Paired apps",
     "pairedDesc": "When you dictate in one of these, this mode is used automatically. No shortcut needed.",
     "addApp": "Add app",
@@ -1146,7 +1145,14 @@
     "localWhisper": "Whisper (this PC)",
     "localParakeet": "Parakeet (this PC)",
     "online": "Online",
-    "duplicate": "Duplicate this mode"
+    "duplicate": "Duplicate this mode",
+    "shortcutNone": "None",
+    "shortcutTaken": "{{key}} (used by {{name}})",
+    "appSearch": "Search your apps",
+    "appLoading": "Looking for your apps...",
+    "appNone": "No app found. Try another word, or type its program name.",
+    "appOpen": "open",
+    "appTypeName": "Not in the list? Type its program name"
   },
   "ob": {
     "setupTitle": "Set up Parlato",

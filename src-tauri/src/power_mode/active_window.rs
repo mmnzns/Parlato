@@ -76,7 +76,7 @@ unsafe fn window_title(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buf[..written as usize])
 }
 
-unsafe fn process_image_path(pid: u32) -> Result<PathBuf> {
+pub(crate) unsafe fn process_image_path(pid: u32) -> Result<PathBuf> {
     let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
         .map_err(|e| anyhow!("OpenProcess pid {pid}: {e}"))?;
 

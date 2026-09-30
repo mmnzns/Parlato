@@ -304,29 +304,16 @@ pub fn enabled_configs(app: &AppHandle) -> Vec<PowerModeConfig> {
         .collect()
 }
 
-/// Selectionne manuellement le Nieme profil active (raccourci Alt+chiffre,
-/// index 0-base). Contrairement a begin_session (matching auto fenetre/URL),
-/// on applique le profil demande explicitement.
-///
-/// Si une session Power Mode est deja active, on CONSERVE sa baseline
-/// d'origine : le restore de fin de dictee doit ramener aux reglages d'avant
-/// l'enregistrement, pas a ceux du profil precedemment applique. Sinon on
-/// snapshot l'etat courant (cas ou aucun profil n'avait matche au start).
-///
-/// Reference VoiceInk : MiniRecorderShortcutManager.setupPowerModeHandler ->
-/// setActiveConfiguration + PowerModeSessionManager.beginSession(with:).
 /// Selection manuelle d'un profil par id (menu tray "Power Mode: X").
-/// Pendant un enregistrement : comme `select_by_index` (baseline conservee).
+/// Pendant un enregistrement : comme `select_by_slot` (baseline conservee).
 /// Hors enregistrement : applique le profil et le marque actif, sans
 /// session (VoiceInk MenuBarView -> ModeManager.setActiveConfiguration).
 pub fn select_by_id(app: &AppHandle, id: &str) -> Option<PowerSession> {
     let configs = enabled_configs(app);
-    let index = configs.iter().position(|c| c.id == id)?;
-    let has_session = current(app).is_some();
-    if has_session {
-        return select_by_index(app, index);
+    let cfg = configs.iter().find(|c| c.id == id)?;
+    if current(app).is_some() {
+        return select_config(app, cfg);
     }
-    let cfg = &configs[index];
     if let Err(e) = apply(app, cfg) {
         warn!("power_mode select_by_id apply: {e}");
         return None;
@@ -349,10 +336,49 @@ pub fn effective_config_id(app: &AppHandle) -> Option<String> {
         .map(|c| c.id)
 }
 
-pub fn select_by_index(app: &AppHandle, index: usize) -> Option<PowerSession> {
+/// Parlato : raccourci Alt+chiffre, `slot` = index renvoye par le hook
+/// (0 = Alt+1 ... 9 = Alt+0). Cible le mode active qui porte ce raccourci,
+/// et non plus le Nieme mode active.
+pub fn select_by_slot(app: &AppHandle, slot: usize) -> Option<PowerSession> {
+    let cfg = config_for_slot(enabled_configs(app), slot)?;
+    select_config(app, &cfg)
+}
+
+fn config_for_slot(configs: Vec<PowerModeConfig>, slot: usize) -> Option<PowerModeConfig> {
+    configs
+        .into_iter()
+        .find(|c| c.shortcut_slot.map(usize::from) == Some(slot))
+}
+
+/// Nombre de touches Alt+chiffre a capturer pendant l'enregistrement : le
+/// plus haut raccourci attribue + 1 (0 = aucune, les touches passent a
+/// l'application).
+pub fn shortcut_capture_count(app: &AppHandle) -> usize {
+    capture_count(&enabled_configs(app))
+}
+
+fn capture_count(configs: &[PowerModeConfig]) -> usize {
+    configs
+        .iter()
+        .filter_map(|c| c.shortcut_slot)
+        .map(|s| usize::from(s) + 1)
+        .max()
+        .unwrap_or(0)
+}
+
+/// Selection manuelle d'un profil (raccourci Alt+chiffre ou tray).
+/// Contrairement a begin_session (matching auto fenetre/URL), on applique le
+/// profil demande explicitement.
+///
+/// Si une session Power Mode est deja active, on CONSERVE sa baseline
+/// d'origine : le restore de fin de dictee doit ramener aux reglages d'avant
+/// l'enregistrement, pas a ceux du profil precedemment applique. Sinon on
+/// snapshot l'etat courant (cas ou aucun profil n'avait matche au start).
+///
+/// Reference VoiceInk : MiniRecorderShortcutManager.setupPowerModeHandler ->
+/// setActiveConfiguration + PowerModeSessionManager.beginSession(with:).
+fn select_config(app: &AppHandle, cfg: &PowerModeConfig) -> Option<PowerSession> {
     let state = app.try_state::<PowerSessionState>()?;
-    let configs = enabled_configs(app);
-    let cfg = configs.get(index)?;
 
     // Bind avant le match pour relacher le lock immediatement (ne pas le tenir
     // pendant snapshot/apply).
@@ -377,8 +403,37 @@ pub fn select_by_index(app: &AppHandle, index: usize) -> Option<PowerSession> {
     let _ = config::set_active_id(app, Some(&session.config_id));
     info!(
         config = %session.config_name,
-        index,
         "Power Mode selectionne via raccourci"
     );
     Some(session)
+}
+
+#[cfg(test)]
+mod slot_tests {
+    use super::*;
+
+    fn cfg(id: &str, slot: Option<u8>) -> PowerModeConfig {
+        let mut c = PowerModeConfig::new(id.into(), "*".into());
+        c.id = id.into();
+        c.shortcut_slot = slot;
+        c
+    }
+
+    #[test]
+    fn no_shortcut_by_default() {
+        assert_eq!(
+            PowerModeConfig::new("a".into(), "*".into()).shortcut_slot,
+            None
+        );
+        assert_eq!(capture_count(&[cfg("a", None), cfg("b", None)]), 0);
+    }
+
+    #[test]
+    fn slot_picks_its_owner_not_the_nth_mode() {
+        let configs = vec![cfg("a", None), cfg("b", Some(2)), cfg("c", Some(0))];
+        assert_eq!(config_for_slot(configs.clone(), 0).unwrap().id, "c");
+        assert_eq!(config_for_slot(configs.clone(), 2).unwrap().id, "b");
+        assert!(config_for_slot(configs.clone(), 1).is_none());
+        assert_eq!(capture_count(&configs), 3);
+    }
 }

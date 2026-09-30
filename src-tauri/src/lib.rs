@@ -76,8 +76,8 @@ use commands::permissions::{
 };
 use commands::power_mode::{
     add_power_config, delete_power_config, get_active_power_session, get_power_auto_restore,
-    list_power_configs, power_mode_preview, reorder_power_configs, select_power_config,
-    set_power_auto_restore, update_power_config,
+    list_installed_apps, list_power_configs, power_mode_preview, reorder_power_configs,
+    select_power_config, set_power_auto_restore, update_power_config,
 };
 use commands::history::{
     count_history, delete_history_item, export_history_csv, get_history_item,
@@ -388,6 +388,7 @@ pub fn run() {
             delete_parakeet_model,
             parakeet_execution_provider,
             list_power_configs,
+            list_installed_apps,
             add_power_config,
             update_power_config,
             delete_power_config,
