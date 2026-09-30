@@ -12,6 +12,26 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import en from "./locales/en.json";
 import fr from "./locales/fr.json";
 import es from "./locales/es.json";
+import { isMac } from "@/lib/platform";
+
+// Parlato: each locale file has a `macOverrides` block holding the strings
+// that name Windows keys (Right Alt, Ctrl, Win). On macOS they replace the
+// base strings, so screens keep calling the same keys everywhere.
+type Tree = { [key: string]: string | Tree };
+
+function withMacOverrides(base: Tree): Tree {
+  const { macOverrides, ...rest } = base;
+  if (!isMac || !macOverrides || typeof macOverrides === "string") return rest;
+  const merge = (target: Tree, over: Tree): Tree => {
+    const out: Tree = { ...target };
+    for (const [k, v] of Object.entries(over)) {
+      const cur = out[k];
+      out[k] = typeof v === "string" || typeof cur !== "object" ? v : merge(cur, v);
+    }
+    return out;
+  };
+  return merge(rest, macOverrides);
+}
 
 export const SUPPORTED_LANGUAGES = ["en", "fr", "es"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -27,9 +47,9 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      en: { translation: en },
-      fr: { translation: fr },
-      es: { translation: es },
+      en: { translation: withMacOverrides(en) },
+      fr: { translation: withMacOverrides(fr) },
+      es: { translation: withMacOverrides(es) },
     },
     fallbackLng: "en",
     supportedLngs: SUPPORTED_LANGUAGES,

@@ -1330,5 +1330,49 @@
       "name": "Parakeet Ultra 0.6B (multilingue, int8)",
       "notes": "Le Parakeet v3 de NVIDIA, reentraine par Moondream pour faire moins d'erreurs, surtout hors anglais et dans le bruit. L'anglais et 24 autres langues europeennes, et il detecte celle que vous parlez. Environ 670 Mo."
     }
+  },
+  "macOverrides": {
+    "onboarding": {
+      "hotkey": {
+        "description": "Par defaut, Option droite. Maintenez pour enregistrer, relachez pour arreter. Un appui court active le mode mains libres."
+      },
+      "step": {
+        "hotkeyDescription": "Parlato ecoute un raccourci global pour declencher l'enregistrement. Par defaut : Option droite (maintenir ou double-tap selon le mode). Tu pourras le reconfigurer dans Settings."
+      }
+    },
+    "powerMode": {
+      "shortcutHint": "Raccourci : pendant l'enregistrement, maintenez Option et appuyez sur ce chiffre pour basculer sur ce profil"
+    },
+    "recorder": {
+      "recordingDescription": "Capture 16 kHz mono, declenchee par Option droite (maintenir pour PTT, tap pour mode mains libres)"
+    },
+    "permissions": {
+      "hotkeyTip": "Parlato a besoin de l'autorisation Accessibilite pour entendre le raccourci et coller le texte : Reglages Systeme > Confidentialite et securite > Accessibilite, puis activez Parlato. Le raccourci par defaut est Option droite.",
+      "hotkey": {
+        "hint": "Raccourci par defaut : Option droite. Configure-en un autre dans Reglages."
+      }
+    },
+    "miniRecorder": {
+      "autoSwitch": "Bascule automatiquement selon l'application courante. Option+chiffre pour choisir un profil a la main."
+    },
+    "errors": {
+      "shortcutReserved": "Option+chiffre est reserve aux profils Power Mode pendant l'enregistrement ({{action}}).",
+      "shortcutNeedsModifier": "Cette touche necessite un modificateur (Controle, Option, Maj ou Commande) ({{action}})."
+    },
+    "hotkey": {
+      "cardDescription": "Choisis la touche (ou combinaison) qui active la dictee. Par defaut Option droite.",
+      "altGrTip": "Sur Mac, Option sert aussi a taper des caracteres speciaux (comme é ou ©). Si Option droite te gene, choisis Commande droite ou une combinaison personnalisee.",
+      "options": {
+        "rightAlt": "Option droite",
+        "leftAlt": "Option gauche",
+        "rightCtrl": "Controle droit",
+        "leftCtrl": "Controle gauche",
+        "rightWin": "Commande droite"
+      },
+      "record": {
+        "hint": "Presse les touches que tu veux utiliser. Il faut au moins un modifier et une touche finale (ex Controle + Option + R, F13, Commande + Espace). Esc annule.",
+        "needsModifier": "Une touche seule n'est autorisee que pour F1-F24, Home, End, PageUp/Down et Suppr. Sinon ajoute Controle, Option, Maj ou Commande."
+      }
+    }
   }
 }

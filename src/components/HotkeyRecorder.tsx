@@ -15,6 +15,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { HotkeyTrigger } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 
 // VK codes des modifiers. On inclut a la fois les codes "generiques" Windows
 // (0x10/0x11/0x12) que WebView2 renvoie via e.keyCode, et les variantes L/R
@@ -28,6 +29,9 @@ const MODIFIER_VKS = new Set([
   0x5b, 0x5c, // Win L/R
   0x14, // CapsLock
   0x90, 0x91, // NumLock, ScrollLock
+  // Parlato: WebKit on macOS reports Right Command as 93 (0x5d), which is
+  // the Apps key on Windows, so only treat it as a modifier on the Mac.
+  ...(isMac ? [0x5d] : []),
 ]);
 
 // Touches autorisees comme combo "sans modifier". Sans cette whitelist,
@@ -242,10 +246,10 @@ export function formatCombo(
   combo: Extract<HotkeyTrigger, { kind: "combo" }>,
 ): string {
   const parts: string[] = [];
-  if (combo.ctrl) parts.push("Ctrl");
-  if (combo.alt) parts.push("Alt");
+  if (combo.ctrl) parts.push(isMac ? "Control" : "Ctrl");
+  if (combo.alt) parts.push(isMac ? "Option" : "Alt");
   if (combo.shift) parts.push("Shift");
-  if (combo.win) parts.push("Win");
+  if (combo.win) parts.push(isMac ? "Command" : "Win");
   parts.push(vkLabel(combo.vk));
   return parts.join(" + ");
 }

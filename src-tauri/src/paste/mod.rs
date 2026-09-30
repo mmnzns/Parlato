@@ -25,6 +25,8 @@ use tracing::{debug, warn};
 
 #[cfg(windows)]
 mod clipboard_backup;
+#[cfg(target_os = "macos")]
+mod macos;
 
 /// Delai apres le set clipboard avant d'envoyer Ctrl+V (VoiceInk L29 : 0.05 s).
 const CLIPBOARD_TO_PASTE_DELAY: Duration = Duration::from_millis(50);
@@ -187,7 +189,12 @@ fn send_ctrl_v() -> Result<()> {
     Ok(())
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+fn send_ctrl_v() -> Result<()> {
+    macos::send_cmd_v()
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn send_ctrl_v() -> Result<()> {
     Err(anyhow!("paste non implemente sur cette plateforme"))
 }

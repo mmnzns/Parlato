@@ -1330,5 +1330,49 @@
       "name": "Parakeet Ultra 0.6B (multilingual, int8)",
       "notes": "NVIDIA's Parakeet v3, retrained by Moondream to make fewer mistakes, especially outside English and in noisy rooms. English and 24 other European languages, and it detects which one you speak. About 670 MB."
     }
+  },
+  "macOverrides": {
+    "onboarding": {
+      "hotkey": {
+        "description": "The default is Right Option. Press and hold to record, release to stop. A short tap enters hands-free mode."
+      },
+      "step": {
+        "hotkeyDescription": "Parlato listens to a global shortcut to trigger recording. Default: Right Option (hold or double-tap depending on the mode). You can reconfigure it in Settings."
+      }
+    },
+    "powerMode": {
+      "shortcutHint": "Shortcut: while recording, hold Option and press this number to switch to this profile"
+    },
+    "recorder": {
+      "recordingDescription": "16 kHz mono capture, triggered by Right Option (hold for push-to-talk, tap for hands-free mode)"
+    },
+    "permissions": {
+      "hotkeyTip": "Parlato needs the Accessibility permission to hear the shortcut and paste the text: System Settings > Privacy & Security > Accessibility, then turn on Parlato. The default shortcut is Right Option.",
+      "hotkey": {
+        "hint": "Default trigger is Right Option. Configure a different one in Settings."
+      }
+    },
+    "miniRecorder": {
+      "autoSwitch": "Switches automatically based on the current app. Option+number picks a profile manually."
+    },
+    "errors": {
+      "shortcutReserved": "Option+digit is reserved for Power Mode profiles while recording ({{action}}).",
+      "shortcutNeedsModifier": "This key needs a modifier (Control, Option, Shift or Command) ({{action}})."
+    },
+    "hotkey": {
+      "cardDescription": "Pick the key (or combination) that activates dictation. Default is Right Option.",
+      "altGrTip": "On a Mac, Option also types special characters (like é or ©). If Right Option gets in the way, pick Right Command or a custom combination.",
+      "options": {
+        "rightAlt": "Right Option",
+        "leftAlt": "Left Option",
+        "rightCtrl": "Right Control",
+        "leftCtrl": "Left Control",
+        "rightWin": "Right Command"
+      },
+      "record": {
+        "hint": "Press the keys you want to use. Need at least one modifier and a final key (e.g. Control + Option + R, F13, Command + Space). Esc cancels.",
+        "needsModifier": "A standalone key is only allowed for F1-F24, Home, End, PageUp/Down and Forward Delete. Otherwise add Control, Option, Shift or Command."
+      }
+    }
   }
 }

@@ -41,7 +41,7 @@ export function Onboarding({
   const [index, setIndex] = useState(0);
   const step: Step = STEPS[index];
   const { label: keyLabel } = useHotkeyLabel(step);
-  const key = keyLabel ?? "Right Alt";
+  const key = keyLabel ?? t("hotkey.options.rightAlt");
 
   const copy: Record<Step, { label: string; title: string; desc: string }> = {
     mic: { label: t("ob.micLabel"), title: t("ob.micTitle"), desc: t("ob.micDesc") },

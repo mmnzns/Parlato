@@ -44,6 +44,12 @@ use windows::Win32::UI::WindowsAndMessaging::{
 /// Touches modifier surveillees individuellement (legacy enum, conserve pour
 /// retro-compatibilite avec les tests et la config 0.1.x ou seul un modifier
 /// pouvait etre choisi).
+#[cfg(target_os = "macos")]
+#[path = "keyboard_hook_macos.rs"]
+mod macos;
+#[cfg(target_os = "macos")]
+pub use macos::{accessibility_trusted, request_accessibility};
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HotkeyOption {
@@ -245,13 +251,13 @@ struct WatchedKeys {
     consumed_vk: Option<u32>,
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 struct HookContext {
     tx: mpsc::Sender<HotkeyEvent>,
     watched: Mutex<WatchedKeys>,
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 static HOOK_CONTEXT: OnceLock<HookContext> = OnceLock::new();
 
 /// Installe le hook clavier bas niveau dans un thread dedie.
@@ -270,7 +276,7 @@ pub fn install_hook(
 ) -> mpsc::Receiver<HotkeyEvent> {
     let (tx, rx) = mpsc::channel();
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         let _ = HOOK_CONTEXT.set(HookContext {
             tx,
@@ -290,11 +296,14 @@ pub fn install_hook(
                 consumed_vk: None,
             }),
         });
+        #[cfg(windows)]
         let _ = std::thread::Builder::new()
             .name("parla-hotkey-hook".into())
             .spawn(run_hook_thread);
+        #[cfg(target_os = "macos")]
+        macos::spawn_tap_thread();
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (tx, primary, secondary, utilities, cancel);
     }
@@ -305,7 +314,7 @@ pub fn install_hook(
 /// Met a jour les triggers surveilles sans re-installer le hook. Appele
 /// quand l'utilisateur change son raccourci dans Settings.
 pub fn update_watched(primary: HotkeyTrigger, secondary: HotkeyTrigger) {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         if let Some(ctx) = HOOK_CONTEXT.get() {
             let mut g = ctx.watched.lock();
@@ -322,7 +331,7 @@ pub fn update_watched(primary: HotkeyTrigger, secondary: HotkeyTrigger) {
             );
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (primary, secondary);
     }
@@ -332,7 +341,7 @@ pub fn update_watched(primary: HotkeyTrigger, secondary: HotkeyTrigger) {
 /// personnalise sans re-installer le hook. Meme contrat que
 /// `update_watched` : appele au boot et a chaque sauvegarde de la config.
 pub fn update_utilities(utilities: Vec<(UtilityAction, HotkeyTrigger)>, cancel: HotkeyTrigger) {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         if let Some(ctx) = HOOK_CONTEXT.get() {
             let mut g = ctx.watched.lock();
@@ -349,7 +358,7 @@ pub fn update_utilities(utilities: Vec<(UtilityAction, HotkeyTrigger)>, cancel: 
             );
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (utilities, cancel);
     }
@@ -422,7 +431,7 @@ unsafe extern "system" fn low_level_proc(
 /// Fenetre de detection AltGr : Windows synthetise un LCtrl DOWN 0-1ms
 /// avant chaque RAlt DOWN sur AZERTY/QWERTZ. 5ms est large vs le delai
 /// observable et bien sous ce qu'un humain peut faire a la main.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 const ALTGR_GATE: Duration = Duration::from_millis(5);
 
 const VK_LCONTROL: u32 = 0xA2;
@@ -442,7 +451,7 @@ const VK_ESCAPE: u32 = 0x1B;
 /// le raccourci d'annulation personnalise ; les triggers record et Escape
 /// retournent `false` pour preserver le comportement historique (l'app
 /// recoit bien la touche).
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 fn handle_key(ctx: &HookContext, vk: u32, is_down: bool) -> bool {
     let now = Instant::now();
     let mut watched = ctx.watched.lock();
@@ -581,25 +590,48 @@ fn handle_key(ctx: &HookContext, vk: u32, is_down: bool) -> bool {
     false
 }
 
+/// Parlato : noms des modifiers selon la plateforme (Option / Command sur
+/// macOS), dans l'ordre Ctrl, Alt, Shift, Win.
+#[cfg(not(target_os = "macos"))]
+const MODIFIER_NAMES: [&str; 4] = ["Ctrl", "Alt", "Shift", "Win"];
+#[cfg(target_os = "macos")]
+const MODIFIER_NAMES: [&str; 4] = ["Control", "Option", "Shift", "Command"];
+
+#[cfg(not(target_os = "macos"))]
+fn option_name(option: HotkeyOption) -> Option<&'static str> {
+    Some(match option {
+        HotkeyOption::None => return None,
+        HotkeyOption::RightAlt => "Right Alt",
+        HotkeyOption::LeftAlt => "Left Alt",
+        HotkeyOption::LeftCtrl => "Left Ctrl",
+        HotkeyOption::RightCtrl => "Right Ctrl",
+        HotkeyOption::RightWin => "Right Win",
+        HotkeyOption::RightShift => "Right Shift",
+        HotkeyOption::LeftShift => "Left Shift",
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn option_name(option: HotkeyOption) -> Option<&'static str> {
+    Some(match option {
+        HotkeyOption::None => return None,
+        HotkeyOption::RightAlt => "Right Option",
+        HotkeyOption::LeftAlt => "Left Option",
+        HotkeyOption::LeftCtrl => "Left Control",
+        HotkeyOption::RightCtrl => "Right Control",
+        HotkeyOption::RightWin => "Right Command",
+        HotkeyOption::RightShift => "Right Shift",
+        HotkeyOption::LeftShift => "Left Shift",
+    })
+}
+
 /// Libelle lisible d'un trigger, pour le menu tray et les badges UI.
-/// Format Windows : "Ctrl+Shift+C", "F13", "Right Alt". `None` pour un
-/// trigger `None`.
+/// Format Windows : "Ctrl+Shift+C", "F13", "Right Alt" (macOS : "Control",
+/// "Option", "Command"). `None` pour un trigger `None`.
 pub fn trigger_label(trigger: HotkeyTrigger) -> Option<String> {
     match trigger {
         HotkeyTrigger::None => None,
-        HotkeyTrigger::Modifier { option } => {
-            let s = match option {
-                HotkeyOption::None => return None,
-                HotkeyOption::RightAlt => "Right Alt",
-                HotkeyOption::LeftAlt => "Left Alt",
-                HotkeyOption::LeftCtrl => "Left Ctrl",
-                HotkeyOption::RightCtrl => "Right Ctrl",
-                HotkeyOption::RightWin => "Right Win",
-                HotkeyOption::RightShift => "Right Shift",
-                HotkeyOption::LeftShift => "Left Shift",
-            };
-            Some(s.to_string())
-        }
+        HotkeyTrigger::Modifier { option } => option_name(option).map(str::to_string),
         HotkeyTrigger::Combo {
             vk,
             ctrl,
@@ -608,17 +640,10 @@ pub fn trigger_label(trigger: HotkeyTrigger) -> Option<String> {
             win,
         } => {
             let mut parts: Vec<String> = Vec::new();
-            if ctrl {
-                parts.push("Ctrl".into());
-            }
-            if alt {
-                parts.push("Alt".into());
-            }
-            if shift {
-                parts.push("Shift".into());
-            }
-            if win {
-                parts.push("Win".into());
+            for (on, name) in [ctrl, alt, shift, win].into_iter().zip(MODIFIER_NAMES) {
+                if on {
+                    parts.push(name.into());
+                }
             }
             parts.push(vk_name(vk));
             Some(parts.join("+"))
@@ -751,7 +776,10 @@ mod tests {
             shift: true,
             win: false,
         };
+        #[cfg(not(target_os = "macos"))]
         assert_eq!(trigger_label(combo).as_deref(), Some("Ctrl+Shift+C"));
+        #[cfg(target_os = "macos")]
+        assert_eq!(trigger_label(combo).as_deref(), Some("Control+Shift+C"));
         let f13 = HotkeyTrigger::Combo {
             vk: 0x7C,
             ctrl: false,
@@ -763,7 +791,10 @@ mod tests {
         let m = HotkeyTrigger::Modifier {
             option: HotkeyOption::RightAlt,
         };
+        #[cfg(not(target_os = "macos"))]
         assert_eq!(trigger_label(m).as_deref(), Some("Right Alt"));
+        #[cfg(target_os = "macos")]
+        assert_eq!(trigger_label(m).as_deref(), Some("Right Option"));
         assert_eq!(trigger_label(HotkeyTrigger::None), None);
     }
 

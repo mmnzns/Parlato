@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Parlato listens to your microphone while you dictate. Audio stays on this computer unless you choose an online speech service.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Parlato reads the current browser address to pick the right Power Mode.</string>
+</dict>
+</plist>

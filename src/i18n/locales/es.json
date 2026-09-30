@@ -1330,5 +1330,49 @@
       "name": "Parakeet Ultra 0.6B (multilingue, int8)",
       "notes": "El Parakeet v3 de NVIDIA, reentrenado por Moondream para cometer menos errores, sobre todo fuera del ingles y con ruido. Ingles y otros 24 idiomas europeos, y detecta cual hablas. Unos 670 MB."
     }
+  },
+  "macOverrides": {
+    "onboarding": {
+      "hotkey": {
+        "description": "Por defecto, Opcion derecha. Mantenga pulsado para grabar, suelte para detener. Una pulsacion corta activa el modo manos libres."
+      },
+      "step": {
+        "hotkeyDescription": "Parlato escucha un atajo global para activar la grabacion. Por defecto: Opcion derecha (mantener o doble toque segun el modo). Podra reconfigurarlo en Ajustes."
+      }
+    },
+    "powerMode": {
+      "shortcutHint": "Atajo: durante la grabacion, manten Opcion y pulsa este numero para cambiar a este perfil"
+    },
+    "recorder": {
+      "recordingDescription": "Captura 16 kHz mono, activada por Opcion derecha (mantener para PTT, pulsacion para modo manos libres)"
+    },
+    "permissions": {
+      "hotkeyTip": "Parlato necesita el permiso de Accesibilidad para oir el atajo y pegar el texto: Ajustes del Sistema > Privacidad y seguridad > Accesibilidad, y activa Parlato. El atajo por defecto es Opcion derecha.",
+      "hotkey": {
+        "hint": "Atajo por defecto: Opcion derecha. Configura otro en Ajustes."
+      }
+    },
+    "miniRecorder": {
+      "autoSwitch": "Cambia automaticamente segun la aplicacion actual. Opcion+numero para elegir un perfil manualmente."
+    },
+    "errors": {
+      "shortcutReserved": "Opcion+numero esta reservado a los perfiles de Power Mode durante la grabacion ({{action}}).",
+      "shortcutNeedsModifier": "Esta tecla necesita un modificador (Control, Opcion, Mayusculas o Comando) ({{action}})."
+    },
+    "hotkey": {
+      "cardDescription": "Elige la tecla (o combinacion) que activa el dictado. Por defecto es Opcion derecha.",
+      "altGrTip": "En un Mac, Opcion tambien escribe caracteres especiales (como é o ©). Si Opcion derecha te molesta, elige Comando derecho o una combinacion personalizada.",
+      "options": {
+        "rightAlt": "Opcion derecha",
+        "leftAlt": "Opcion izquierda",
+        "rightCtrl": "Control derecho",
+        "leftCtrl": "Control izquierdo",
+        "rightWin": "Comando derecho"
+      },
+      "record": {
+        "hint": "Pulsa las teclas que quieras usar. Necesitas al menos un modificador y una tecla final (ej. Control + Opcion + R, F13, Comando + Espacio). Esc cancela.",
+        "needsModifier": "Una tecla sola solo se admite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, agrega Control, Opcion, Mayusculas o Comando."
+      }
+    }
   }
 }
