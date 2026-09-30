@@ -87,6 +87,12 @@ const UNIFIED_REVISION: &str = "09e9060322d99c5f070010724786e6ee090fd51d";
 const NEMOTRON_REPO: &str = "altunenes/parakeet-rs";
 const NEMOTRON_REVISION: &str = "4d2a8bc71f5c896ec40faa59732e6716295edaf2";
 
+/// Parlato : Parakeet Ultra de Moondream (parakeet-tdt-0.6b-v3 post-entraine,
+/// meme architecture), export ONNX int8 d'Olicorne au format onnx-asr, fige
+/// sur le commit du 2026-09-29. CC-BY-4.0. Reference VoiceInk 2.21 593fadb.
+const ULTRA_REPO: &str = "Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx";
+const ULTRA_REVISION: &str = "3646b2f1a516a2310810902bfaa67515f3c89d38";
+
 /// Langues de la fiche NVIDIA de Nemotron 3.5 ASR, "auto" en tete.
 pub const NEMOTRON_LANGS: &[&str] = &[
     "auto", "ar", "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr",
@@ -136,6 +142,28 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         speed: 0.99,
         accuracy: 0.94,
         language_codes: &["en"],
+    },
+    ParakeetVariant {
+        id: "parakeet-ultra-0.6b-int8",
+        display_name: "Parakeet Ultra 0.6B (multilingue, int8)",
+        repo: ULTRA_REPO,
+        revision: ULTRA_REVISION,
+        subdir: "",
+        kind: ParakeetKind::Tdt,
+        is_quantized: true,
+        multilingual: true,
+        size_bytes: 667_961_292,
+        files: &[
+            "config.json",
+            "vocab.txt",
+            "nemo128.onnx",
+            "int8/encoder-model.int8.onnx",
+            "int8/decoder_joint-model.int8.onnx",
+        ],
+        notes: "Parakeet v3 ameliore par Moondream (septembre 2026). 25 langues europeennes. ~670 MB.",
+        speed: 0.99,
+        accuracy: 0.95,
+        language_codes: PARAKEET_V3_LANGS,
     },
     ParakeetVariant {
         id: "nemotron-3.5-asr-streaming-0.6b",
@@ -332,12 +360,12 @@ impl ParakeetModelManager {
 
     fn missing_files(&self, v: &ParakeetVariant) -> Vec<String> {
         let Ok(dir) = self.variant_dir(v) else {
-            return v.files.iter().map(|s| s.to_string()).collect();
+            return v.files.iter().map(|f| local_name(f).to_string()).collect();
         };
         v.files
             .iter()
-            .filter(|f| !dir.join(f).exists())
-            .map(|s| s.to_string())
+            .filter(|f| !dir.join(local_name(f)).exists())
+            .map(|f| local_name(f).to_string())
             .collect()
     }
 
@@ -350,7 +378,7 @@ impl ParakeetModelManager {
             let on_disk_bytes = if downloaded {
                 let mut sum = 0u64;
                 for f in v.files {
-                    if let Ok(meta) = dir.join(f).metadata() {
+                    if let Ok(meta) = dir.join(local_name(f)).metadata() {
                         sum += meta.len();
                     }
                 }
@@ -443,7 +471,7 @@ impl ParakeetModelManager {
         let mut total_global: u64 = 0;
         let mut missing: Vec<&str> = Vec::new();
         for f in v.files {
-            let target = dir.join(f);
+            let target = dir.join(local_name(f));
             if target.exists() {
                 continue;
             }
@@ -467,7 +495,7 @@ impl ParakeetModelManager {
                 return Err(anyhow!("telechargement annule"));
             }
             let url = file_url(v.repo, v.revision, v.subdir, f);
-            let target = dir.join(f);
+            let target = dir.join(local_name(f));
             let tmp = target.with_extension("part");
             let _ = fs::remove_file(&tmp);
 
@@ -526,6 +554,12 @@ impl ParakeetModelManager {
     }
 }
 
+/// Parlato : une entree de `files` peut porter un chemin dans le depot
+/// ("int8/encoder-model.int8.onnx") ; en local le fichier reste a plat.
+fn local_name(file: &str) -> &str {
+    file.rsplit('/').next().unwrap_or(file)
+}
+
 fn file_url(repo: &str, revision: &str, subdir: &str, file: &str) -> String {
     if subdir.is_empty() {
         format!("https://huggingface.co/{repo}/resolve/{revision}/{file}")
@@ -539,5 +573,33 @@ pub struct ParakeetModelManagerState(pub Arc<ParakeetModelManager>);
 impl ParakeetModelManagerState {
     pub fn new(app: AppHandle) -> Self {
         Self(Arc::new(ParakeetModelManager::new(app)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_name_drops_repo_folders() {
+        assert_eq!(local_name("int8/encoder-model.int8.onnx"), "encoder-model.int8.onnx");
+        assert_eq!(local_name("vocab.txt"), "vocab.txt");
+    }
+
+    #[test]
+    fn file_url_keeps_repo_folders() {
+        let v = find_variant("parakeet-ultra-0.6b-int8").unwrap();
+        assert_eq!(
+            file_url(v.repo, v.revision, v.subdir, v.files[3]),
+            "https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx/resolve/3646b2f1a516a2310810902bfaa67515f3c89d38/int8/encoder-model.int8.onnx"
+        );
+    }
+
+    #[test]
+    fn variant_ids_are_unique() {
+        let mut ids: Vec<_> = PARAKEET_VARIANTS.iter().map(|v| v.id).collect();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), PARAKEET_VARIANTS.len());
     }
 }

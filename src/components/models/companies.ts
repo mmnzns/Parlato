@@ -26,7 +26,7 @@ export const LOCAL_COMPANIES: {
     family: "Parakeet, Nemotron",
     picks: [
       { label: "speech.pickBestEnglish", id: "parakeet-unified-en-0.6b-int8" },
-      { label: "speech.pickManyLanguages", id: "parakeet-tdt-0.6b-v3-int8" },
+      { label: "speech.pickManyLanguages", id: "parakeet-ultra-0.6b-int8" },
       { label: "speech.pickMostLanguages", id: "nemotron-3.5-asr-streaming-0.6b" },
     ],
   },

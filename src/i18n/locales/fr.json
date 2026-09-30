@@ -1313,6 +1313,10 @@
     "nemotron_3_5_asr_streaming_0_6b": {
       "name": "Nemotron 3.5 ASR 0.6B (multilingue)",
       "notes": "Le modele vocal le plus recent de NVIDIA : 35 langues, dont le chinois, le japonais, le coreen, l'hindi et l'arabe, et il detecte celle que vous parlez. Environ 2.6 Go. Fourni par NVIDIA sous la licence OpenMDW-1.1."
+    },
+    "parakeet_ultra_0_6b_int8": {
+      "name": "Parakeet Ultra 0.6B (multilingue, int8)",
+      "notes": "Le Parakeet v3 de NVIDIA, reentraine par Moondream pour faire moins d'erreurs, surtout hors anglais et dans le bruit. L'anglais et 24 autres langues europeennes, et il detecte celle que vous parlez. Environ 670 Mo."
     }
   }
 }

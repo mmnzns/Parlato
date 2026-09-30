@@ -40,6 +40,18 @@ version 1.1 (OpenMDW-1.1).
   `4d2a8bc71f5c896ec40faa59732e6716295edaf2`. As an export of NVIDIA's model
   it remains subject to OpenMDW-1.1.
 
+### Moondream Parakeet Ultra
+
+Post-trained version of NVIDIA's parakeet-tdt-0.6b-v3 by Moondream, licensed
+under CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/).
+
+- Model: https://huggingface.co/moondream/parakeet-ultra
+- Based on: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3 (Copyright
+  NVIDIA Corporation, CC-BY-4.0)
+- ONNX conversion and int8 quantization by Olicorne, downloaded from
+  https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx at the fixed
+  revision `3646b2f1a516a2310810902bfaa67515f3c89d38` (CC-BY-4.0)
+
 ### NVIDIA Parakeet TDT 0.6B v2 and v3
 
 Copyright NVIDIA Corporation, licensed under CC-BY-4.0

@@ -68,7 +68,7 @@ and then work offline.
 
 | Runs | Company | Models |
 |---|---|---|
-| On this PC | NVIDIA | Parakeet Unified EN 0.6B (best for English), Parakeet TDT 0.6B v2 and v3 (25 European languages), Nemotron 3.5 ASR 0.6B (35 languages) |
+| On this PC | NVIDIA | Parakeet Unified EN 0.6B (best for English), Parakeet Ultra and Parakeet TDT 0.6B v2 and v3 (25 European languages), Nemotron 3.5 ASR 0.6B (35 languages) |
 | On this PC | OpenAI | Whisper tiny, base, small, medium, large v2, large v3, large v3 turbo (99 languages), plus your own `.bin` models |
 | Online | Your account | Groq, ElevenLabs, Deepgram, Mistral, Soniox, Speechmatics, Google Gemini, xAI, AssemblyAI |
 
@@ -106,7 +106,7 @@ VoiceInk before it. The full source is in this repository.
   the Windows engine Parlato is built on.
 - **VoiceInk** by [Pax](https://github.com/Beingpax): the macOS app Parla
   re-implements.
-- **Models** are made by NVIDIA, OpenAI, IBM, Meta, Google and Microsoft, each
+- **Models** are made by NVIDIA, Moondream, OpenAI, IBM, Meta, Google and Microsoft, each
   under its own licence. Parlato does not include or host any model; they
   download from their original source. Authors, licences and required
   notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
