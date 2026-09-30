@@ -301,7 +301,8 @@
     "licenceButton": "Ver el codigo",
     "modelLicencesLabel": "Licencias de los modelos",
     "modelLicencesHint": "Los modelos de voz y de IA son creados por otras empresas y tienen sus propias licencias. Parakeet Unified tiene licencia de NVIDIA Corporation bajo la NVIDIA Open Model License.",
-    "modelLicencesButton": "Ver avisos"
+    "modelLicencesButton": "Ver avisos",
+    "updateNow": "Actualizar ahora"
   },
   "onboarding": {
     "welcome": {

@@ -301,7 +301,8 @@
     "licenceButton": "View source",
     "modelLicencesLabel": "Model licences",
     "modelLicencesHint": "Speech and AI models are made by other companies and come with their own licences. Parakeet Unified is licensed by NVIDIA Corporation under the NVIDIA Open Model License.",
-    "modelLicencesButton": "View notices"
+    "modelLicencesButton": "View notices",
+    "updateNow": "Update now"
   },
   "onboarding": {
     "welcome": {

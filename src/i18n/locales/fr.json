@@ -301,7 +301,8 @@
     "licenceButton": "Voir le code",
     "modelLicencesLabel": "Licences des modeles",
     "modelLicencesHint": "Les modeles vocaux et d'IA sont concus par d'autres entreprises et ont leurs propres licences. Parakeet Unified est distribue par NVIDIA Corporation sous la NVIDIA Open Model License.",
-    "modelLicencesButton": "Voir les mentions"
+    "modelLicencesButton": "Voir les mentions",
+    "updateNow": "Mettre a jour"
   },
   "onboarding": {
     "welcome": {

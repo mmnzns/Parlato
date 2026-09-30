@@ -465,10 +465,18 @@ export function SettingsPanel() {
               {update === "failed" && t("settings.checkFailed")}
             </span>
           )}
-          <Button size="sm" variant="outline" onClick={checkForUpdates} disabled={update === "checking"}>
-            {t("settings.checkUpdates")}
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
+          {update === "available" ? (
+            // Parlato : une mise a jour existe, on envoie vers la page des versions.
+            <Button size="sm" onClick={() => openUrl(`${REPO_URL}/releases`)}>
+              {t("settings.updateNow")}
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={checkForUpdates} disabled={update === "checking"}>
+              {t("settings.checkUpdates")}
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </Row>
         <Row label={t("settings.releaseNotesLabel")} description={t("settings.releaseNotesHint")}>
           {link(t("settings.releaseNotesButton"), `${REPO_URL}/releases`)}
