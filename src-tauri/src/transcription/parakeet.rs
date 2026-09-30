@@ -1,3 +1,6 @@
+// Parlato : gere aussi `parakeet_rs::ParakeetUnified` (Parakeet Unified EN),
+// selon le ParakeetKind de la variante.
+//
 // Wrapper autour de `parakeet_rs::ParakeetTDT` pour reproduire l'API
 // publique de WhisperEngine (load paresseux + transcribe_samples).
 //
@@ -12,11 +15,19 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
-use parakeet_rs::{ParakeetTDT, Transcriber};
+use parakeet_rs::{ParakeetTDT, ParakeetUnified, Transcriber};
+
+use super::parakeet_model_manager::ParakeetKind;
+
+/// Parlato : une famille de modele = un type parakeet-rs.
+enum Engine {
+    Tdt(ParakeetTDT),
+    Unified(ParakeetUnified),
+}
 
 struct Loaded {
     path: PathBuf,
-    engine: ParakeetTDT,
+    engine: Engine,
 }
 
 pub struct ParakeetEngine {
@@ -32,7 +43,7 @@ impl ParakeetEngine {
 
     /// Charge le modele (repertoire contenant config.json + *.onnx + vocab.txt)
     /// si ce n'est pas deja celui-ci qui est charge. Bloquant.
-    pub fn ensure_loaded(&self, model_dir: &Path) -> Result<()> {
+    pub fn ensure_loaded(&self, model_dir: &Path, kind: ParakeetKind) -> Result<()> {
         let mut guard = self.current.lock();
         if let Some(cur) = guard.as_ref() {
             if cur.path == model_dir {
@@ -62,8 +73,16 @@ impl ParakeetEngine {
         #[cfg(all(not(feature = "cuda-onnx"), not(feature = "directml-onnx")))]
         let cfg: Option<parakeet_rs::ExecutionConfig> = None;
 
-        let engine = ParakeetTDT::from_pretrained(model_dir, cfg)
-            .map_err(|e| anyhow!("parakeet load: {e:?}"))?;
+        let engine = match kind {
+            ParakeetKind::Tdt => Engine::Tdt(
+                ParakeetTDT::from_pretrained(model_dir, cfg)
+                    .map_err(|e| anyhow!("parakeet load: {e:?}"))?,
+            ),
+            ParakeetKind::Unified => Engine::Unified(
+                ParakeetUnified::from_pretrained(model_dir, cfg)
+                    .map_err(|e| anyhow!("parakeet unified load: {e:?}"))?,
+            ),
+        };
         *guard = Some(Loaded {
             path: model_dir.to_path_buf(),
             engine,
@@ -81,10 +100,11 @@ impl ParakeetEngine {
             .ok_or_else(|| anyhow!("modele Parakeet non charge"))?;
         // Pas de timestamps pour l'usage dictee : on veut juste le texte.
         // parakeet-rs attend un Vec<f32>. Une copie est inevitable ici.
-        let result = loaded
-            .engine
-            .transcribe_samples(samples.to_vec(), 16000, 1, None)
-            .map_err(|e| anyhow!("parakeet transcribe: {e:?}"))?;
+        let result = match &mut loaded.engine {
+            Engine::Tdt(e) => e.transcribe_samples(samples.to_vec(), 16000, 1, None),
+            Engine::Unified(e) => e.transcribe_samples(samples.to_vec(), 16000, 1, None),
+        }
+        .map_err(|e| anyhow!("parakeet transcribe: {e:?}"))?;
         Ok(result.text)
     }
 
@@ -103,3 +123,35 @@ impl Default for ParakeetEngine {
 
 #[derive(Default)]
 pub struct ParakeetEngineState(pub Arc<ParakeetEngine>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Smoke test against a real model directory :
+    /// `PARLATO_PARAKEET_DIR=<dir> PARLATO_PARAKEET_KIND=unified|tdt
+    /// PARLATO_WAV=<16 kHz wav> cargo test --lib parakeet_smoke -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn parakeet_smoke() {
+        let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let kind = match std::env::var("PARLATO_PARAKEET_KIND").as_deref() {
+            Ok("unified") => ParakeetKind::Unified,
+            _ => ParakeetKind::Tdt,
+        };
+        let engine = ParakeetEngine::new();
+        let t0 = std::time::Instant::now();
+        engine.ensure_loaded(Path::new(&dir), kind).unwrap();
+        let loaded_in = t0.elapsed().as_secs_f32();
+        let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
+        let t1 = std::time::Instant::now();
+        let text = engine.transcribe_samples(&samples, None).unwrap();
+        println!(
+            "--- load {loaded_in:.1}s, {:.1}s audio in {:.1}s ---\n{text}\n---",
+            samples.len() as f32 / 16000.0,
+            t1.elapsed().as_secs_f32()
+        );
+        assert!(!text.trim().is_empty());
+    }
+}

@@ -298,7 +298,10 @@
     "basedOnButton": "Ver perfil",
     "licenceLabel": "Licencia de codigo abierto",
     "licenceHint": "Parlato es software libre bajo la licencia GNU GPL v3. El codigo fuente completo esta en GitHub.",
-    "licenceButton": "Ver el codigo"
+    "licenceButton": "Ver el codigo",
+    "modelLicencesLabel": "Licencias de los modelos",
+    "modelLicencesHint": "Los modelos de voz y de IA son creados por otras empresas y tienen sus propias licencias. Parakeet Unified tiene licencia de NVIDIA Corporation bajo la NVIDIA Open Model License.",
+    "modelLicencesButton": "Ver avisos"
   },
   "onboarding": {
     "welcome": {
@@ -1285,6 +1288,14 @@
     },
     "granite_4_2_3b_q4": {
       "notes": "El modelo pequeno mas reciente de IBM. Preciso y fiel a lo que dijiste."
+    },
+    "parakeet_unified_en_0_6b": {
+      "name": "Parakeet Unified EN 0.6B (ingles, F16)",
+      "notes": "El modelo en ingles mas reciente y preciso de NVIDIA. Unos 2,5 GB. Licencia de NVIDIA Corporation bajo la NVIDIA Open Model License."
+    },
+    "parakeet_unified_en_0_6b_int8": {
+      "name": "Parakeet Unified EN 0.6B (ingles, int8)",
+      "notes": "El modelo en ingles mas reciente de NVIDIA, comprimido a unos 660 MB con los mismos resultados en nuestras pruebas. Licencia de NVIDIA Corporation bajo la NVIDIA Open Model License."
     }
   }
 }

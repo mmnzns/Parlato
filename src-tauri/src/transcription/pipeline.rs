@@ -590,11 +590,14 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
             .state::<crate::transcription::parakeet::ParakeetEngineState>()
             .0
             .clone();
+        let kind = crate::transcription::parakeet_model_manager::find_variant(model_id)
+            .map(|v| v.kind)
+            .unwrap_or(crate::transcription::parakeet_model_manager::ParakeetKind::Tdt);
         let wav_path_clone = wav_path.clone();
         let language_clone = language.clone();
         let start = std::time::Instant::now();
         let text = task::spawn_blocking(move || -> Result<String> {
-            engine_state.ensure_loaded(&model_dir)?;
+            engine_state.ensure_loaded(&model_dir, kind)?;
             let samples = whisper_core::read_wav_as_f32(&wav_path_clone)?;
             engine_state.transcribe_samples(&samples, language_clone.as_deref())
         })

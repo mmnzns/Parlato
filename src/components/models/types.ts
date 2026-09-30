@@ -54,9 +54,10 @@ export type ModelRow =
 /// Modeles recommandes, memes ids et meme ordre que VoiceInk
 /// ModelManagementView.filteredModels (.recommended). Le 4e est le modele
 /// cloud Groq (model_id, unique dans le catalogue).
+/// Parlato : Parakeet Unified EN (int8, 660 MB) remplace Parakeet TDT v2.
 export const RECOMMENDED_MODELS = [
   "ggml-base.en",
-  "parakeet-tdt-0.6b-v2",
+  "parakeet-unified-en-0.6b-int8",
   "ggml-large-v3-turbo-q5_0",
   "whisper-large-v3-turbo",
 ];

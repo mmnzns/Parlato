@@ -485,6 +485,10 @@ export function SettingsPanel() {
         <Row label={t("settings.licenceLabel")} description={t("settings.licenceHint")}>
           {link(t("settings.licenceButton"), REPO_URL)}
         </Row>
+        {/* Parlato: credits and licences of the downloadable models. */}
+        <Row label={t("settings.modelLicencesLabel")} description={t("settings.modelLicencesHint")}>
+          {link(t("settings.modelLicencesButton"), `${REPO_URL}/blob/main/THIRD_PARTY_NOTICES.md`)}
+        </Row>
       </Section>
     </>
   );

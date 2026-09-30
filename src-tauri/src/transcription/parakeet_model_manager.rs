@@ -25,12 +25,26 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
+/// Parlato : famille de modele, chaque famille a son type parakeet-rs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParakeetKind {
+    /// Parakeet TDT v2 / v3 (`parakeet_rs::ParakeetTDT`).
+    Tdt,
+    /// Parakeet Unified EN (`parakeet_rs::ParakeetUnified`).
+    Unified,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ParakeetVariant {
     /// Identifiant stable (utilise en UI + store).
     pub id: &'static str,
     pub display_name: &'static str,
     pub repo: &'static str,
+    /// Parlato : revision HuggingFace ("main" ou sha de commit fige, pour
+    /// qu'un depot tiers ne puisse pas changer les fichiers sous nos pieds).
+    pub revision: &'static str,
+    /// Parlato : architecture parakeet-rs a charger.
+    pub kind: ParakeetKind,
     pub is_quantized: bool,
     pub multilingual: bool,
     /// Taille totale approximative des fichiers a telecharger (affichage).
@@ -55,11 +69,60 @@ pub const PARAKEET_V3_LANGS: &[&str] = &[
     "sv", "uk",
 ];
 
+/// Parlato : export ONNX communautaire de nvidia/parakeet-unified-en-0.6b,
+/// celui que documente parakeet-rs. Fige sur le commit du 2026-04-09.
+/// Le modele est sous NVIDIA Open Model License (voir THIRD_PARTY_NOTICES.md),
+/// quelle que soit l'etiquette du depot.
+const UNIFIED_REPO: &str = "bobNight/parakeet-unified-en-0.6b-onnx";
+const UNIFIED_REVISION: &str = "09e9060322d99c5f070010724786e6ee090fd51d";
+
 pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
+    ParakeetVariant {
+        id: "parakeet-unified-en-0.6b",
+        display_name: "Parakeet Unified EN 0.6B (anglais, F16)",
+        repo: UNIFIED_REPO,
+        revision: UNIFIED_REVISION,
+        kind: ParakeetKind::Unified,
+        is_quantized: false,
+        multilingual: false,
+        size_bytes: 2_515_023_099,
+        files: &[
+            "tokenizer.model",
+            "encoder.onnx",
+            "encoder.onnx.data",
+            "decoder_joint.onnx",
+        ],
+        notes: "Le plus recent Parakeet anglais de NVIDIA (avril 2026). ~2.5 GB.",
+        speed: 0.99,
+        accuracy: 0.95,
+        language_codes: &["en"],
+    },
+    ParakeetVariant {
+        id: "parakeet-unified-en-0.6b-int8",
+        display_name: "Parakeet Unified EN 0.6B (anglais, int8)",
+        repo: UNIFIED_REPO,
+        revision: UNIFIED_REVISION,
+        kind: ParakeetKind::Unified,
+        is_quantized: true,
+        multilingual: false,
+        size_bytes: 663_344_373,
+        files: &[
+            "tokenizer.model",
+            "encoder.int8.onnx",
+            "encoder.int8.onnx.data",
+            "decoder_joint.int8.onnx",
+        ],
+        notes: "Variante quantizee int8. ~660 MB. Anglais uniquement.",
+        speed: 0.99,
+        accuracy: 0.94,
+        language_codes: &["en"],
+    },
     ParakeetVariant {
         id: "parakeet-tdt-0.6b-v2",
         display_name: "Parakeet TDT 0.6B v2 (anglais, F16)",
         repo: "istupakov/parakeet-tdt-0.6b-v2-onnx",
+        revision: "main",
+        kind: ParakeetKind::Tdt,
         is_quantized: false,
         multilingual: false,
         size_bytes: 2_500_000_000,
@@ -80,6 +143,8 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         id: "parakeet-tdt-0.6b-v2-int8",
         display_name: "Parakeet TDT 0.6B v2 (anglais, int8)",
         repo: "istupakov/parakeet-tdt-0.6b-v2-onnx",
+        revision: "main",
+        kind: ParakeetKind::Tdt,
         is_quantized: true,
         multilingual: false,
         size_bytes: 680_000_000,
@@ -99,6 +164,8 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         id: "parakeet-tdt-0.6b-v3",
         display_name: "Parakeet TDT 0.6B v3 (multilingue, F16)",
         repo: "istupakov/parakeet-tdt-0.6b-v3-onnx",
+        revision: "main",
+        kind: ParakeetKind::Tdt,
         is_quantized: false,
         multilingual: true,
         size_bytes: 2_500_000_000,
@@ -119,6 +186,8 @@ pub const PARAKEET_VARIANTS: &[ParakeetVariant] = &[
         id: "parakeet-tdt-0.6b-v3-int8",
         display_name: "Parakeet TDT 0.6B v3 (multilingue, int8)",
         repo: "istupakov/parakeet-tdt-0.6b-v3-onnx",
+        revision: "main",
+        kind: ParakeetKind::Tdt,
         is_quantized: true,
         multilingual: true,
         size_bytes: 680_000_000,
@@ -334,7 +403,7 @@ impl ParakeetModelManager {
                 continue;
             }
             missing.push(f);
-            let url = file_url(v.repo, f);
+            let url = file_url(v.repo, v.revision, f);
             if let Ok(resp) = client.head(&url).send().await {
                 if let Some(len) = resp.content_length() {
                     total_global += len;
@@ -352,7 +421,7 @@ impl ParakeetModelManager {
             if cancel.load(std::sync::atomic::Ordering::SeqCst) {
                 return Err(anyhow!("telechargement annule"));
             }
-            let url = file_url(v.repo, f);
+            let url = file_url(v.repo, v.revision, f);
             let target = dir.join(f);
             let tmp = target.with_extension("part");
             let _ = fs::remove_file(&tmp);
@@ -412,8 +481,8 @@ impl ParakeetModelManager {
     }
 }
 
-fn file_url(repo: &str, file: &str) -> String {
-    format!("https://huggingface.co/{repo}/resolve/main/{file}")
+fn file_url(repo: &str, revision: &str, file: &str) -> String {
+    format!("https://huggingface.co/{repo}/resolve/{revision}/{file}")
 }
 
 pub struct ParakeetModelManagerState(pub Arc<ParakeetModelManager>);
