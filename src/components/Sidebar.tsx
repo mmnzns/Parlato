@@ -21,7 +21,9 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getVersion } from "@tauri-apps/api/app";
 import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
 import { cn } from "@/lib/utils";
 
@@ -102,6 +104,11 @@ export function Sidebar({
   // Re-read on every navigation so the status card reflects a shortcut
   // just changed on the Microphone & shortcut page.
   const { label: hotkeyLabel } = useHotkeyLabel(current);
+  // Parlato: installed version, shown under the status card.
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    getVersion().then(setVersion).catch(console.error);
+  }, []);
 
   return (
     <aside className="flex h-full w-[232px] shrink-0 flex-col border-r-[1.5px] border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -155,7 +162,7 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="m-3 flex flex-col gap-2 rounded-lg border-[1.5px] border-sidebar-border bg-card p-3">
+      <div className="mx-3 mt-3 flex flex-col gap-2 rounded-lg border-[1.5px] border-sidebar-border bg-card p-3">
         <div className="flex items-center gap-2">
           <span
             className={cn(
@@ -185,6 +192,9 @@ export function Sidebar({
             {t("sidebar.statusHoldAfter")}
           </div>
         )}
+      </div>
+      <div className="px-[18px] pt-2 pb-3 font-mono text-[11px] leading-[14px] text-sidebar-muted">
+        {version && `Parlato v${version}`}
       </div>
     </aside>
   );

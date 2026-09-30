@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Power modes: "Add app" lists the apps installed on this PC (open ones
+  first) with a search box, so there is no program name to guess. Typing
+  a program name is still possible for apps not in the list.
+- The installed version ("Parlato v0.7.1") shows at the bottom of the
+  sidebar.
+
 ### Changed
+- Power mode shortcuts are chosen per mode (Alt+1 to Alt+0, or none)
+  instead of following the order of the list. New modes have no shortcut.
+  Modes made before this change start without one and need it set again.
 - New users start with "Add a space after the text", "Tidy up paragraphs"
   and "Remove filler words" turned on ("Put my clipboard back" already
   was). Anyone who has set these switches keeps their choice.
