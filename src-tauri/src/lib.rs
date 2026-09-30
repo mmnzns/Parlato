@@ -81,7 +81,8 @@ use commands::power_mode::{
 };
 use commands::history::{
     count_history, delete_history_item, export_history_csv, get_history_item,
-    get_retention_settings, list_history, run_history_cleanup, set_retention_settings,
+    get_retention_settings, list_history, read_history_audio, retranscribe_history_item,
+    run_history_cleanup, set_retention_settings,
 };
 use commands::metrics::get_model_performance_metrics;
 use commands::screen_context::{
@@ -398,6 +399,8 @@ pub fn run() {
             list_history,
             get_history_item,
             delete_history_item,
+            read_history_audio,
+            retranscribe_history_item,
             count_history,
             export_history_csv,
             get_retention_settings,

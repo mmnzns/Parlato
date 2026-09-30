@@ -779,7 +779,7 @@
     "shortcutNeedsModifier": "Cette touche necessite un modificateur (Ctrl, Alt, Shift ou Win) ({{action}}).",
     "historyEmpty": "L'historique est vide.",
     "lastTranscriptionEmpty": "La derniere transcription est vide.",
-    "audioMissing": "Impossible de reessayer : le fichier audio de la derniere transcription est introuvable.",
+    "audioMissing": "Le fichier audio de cette dictee est introuvable.",
     "recordingInProgress": "Un enregistrement est en cours.",
     "fileUnsupported": "Ce type de fichier ne peut pas etre lu. Essayez MP3, WAV, M4A, FLAC, OGG ou MP4.",
     "fileNoAudio": "Ce fichier n'a pas de piste audio, ou il est silencieux.",
@@ -928,7 +928,13 @@
     "loadMore": "Plus anciennes",
     "privacy": "Le texte et les enregistrements restent sur ce PC.",
     "count": "{{count}} dictees au total.",
-    "privacyLink": "Choisir combien de temps les garder"
+    "privacyLink": "Choisir combien de temps les garder",
+    "play": "Ecouter l'enregistrement",
+    "pause": "Pause",
+    "again": "Retranscrire",
+    "againHint": "Utilise votre modele vocal et vos reglages de nettoyage IA actuels. L'original reste tel quel.",
+    "againStarted": "En cours. La nouvelle version apparait en haut.",
+    "noAudio": "L'enregistrement n'a pas ete conserve."
   },
   "ai": {
     "on": "Active",

@@ -60,6 +60,59 @@ pub fn delete_history_item(app: AppHandle, id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Parlato : chemin du WAV d'une entree, ou PARLA_ERR:audioMissing si
+/// l'entree n'a pas (ou plus) d'audio.
+fn audio_path(app: &AppHandle, id: &str) -> Result<std::path::PathBuf, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let rec = {
+        let conn = db.0.lock();
+        repo::get(&conn, id).map_err(|e| e.to_string())?
+    };
+    let name = rec
+        .and_then(|r| r.audio_file_name)
+        .filter(|n| !n.is_empty())
+        .ok_or_else(|| "PARLA_ERR:audioMissing".to_string())?;
+    let path = super::recording::recordings_dir(app)
+        .map_err(|e| e.to_string())?
+        .join(name);
+    if !path.is_file() {
+        return Err("PARLA_ERR:audioMissing".into());
+    }
+    Ok(path)
+}
+
+/// Parlato : renvoie les octets du WAV d'une entree pour la reecoute dans
+/// l'historique. Reponse binaire brute (pas de JSON), le frontend en fait
+/// un Blob ; evite d'ouvrir le protocole asset sur le dossier Recordings.
+#[command]
+pub fn read_history_audio(app: AppHandle, id: String) -> Result<tauri::ipc::Response, String> {
+    let path = audio_path(&app, &id)?;
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Parlato : retranscrit une entree de l'historique avec la source
+/// courante (meme chemin que "Retry last transcription", pour n'importe
+/// quelle entree). Le WAV est copie sous un nouveau nom : la nouvelle
+/// entree possede son propre fichier, supprimer l'une ne casse pas l'autre.
+#[command]
+pub fn retranscribe_history_item(app: AppHandle, id: String) -> Result<(), String> {
+    let recording = app
+        .try_state::<crate::commands::recording::RecorderState>()
+        .map(|s| s.0.lock().is_some())
+        .unwrap_or(false);
+    if recording {
+        return Err("PARLA_ERR:recordingInProgress".into());
+    }
+    let src = audio_path(&app, &id)?;
+    let copy = src.with_file_name(format!("{}.wav", uuid::Uuid::new_v4()));
+    std::fs::copy(&src, &copy).map_err(|e| e.to_string())?;
+    crate::transcription::pipeline::run_file(app, copy);
+    Ok(())
+}
+
 #[command]
 pub fn count_history(app: AppHandle) -> Result<i64, String> {
     let db = app

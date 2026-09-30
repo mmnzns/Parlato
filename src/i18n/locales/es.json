@@ -779,7 +779,7 @@
     "shortcutNeedsModifier": "Esta tecla necesita un modificador (Ctrl, Alt, Shift o Win) ({{action}}).",
     "historyEmpty": "El historial esta vacio.",
     "lastTranscriptionEmpty": "La ultima transcripcion esta vacia.",
-    "audioMissing": "No se puede reintentar: falta el archivo de audio de la ultima transcripcion.",
+    "audioMissing": "Falta el archivo de audio de este dictado.",
     "recordingInProgress": "Hay una grabacion en curso.",
     "fileUnsupported": "No se puede leer este tipo de archivo. Prueba MP3, WAV, M4A, FLAC, OGG o MP4.",
     "fileNoAudio": "Este archivo no tiene pista de audio o esta en silencio.",
@@ -928,7 +928,13 @@
     "loadMore": "Ver anteriores",
     "privacy": "El texto y las grabaciones se quedan en este PC.",
     "count": "{{count}} dictados en total.",
-    "privacyLink": "Elegir cuanto tiempo se guardan"
+    "privacyLink": "Elegir cuanto tiempo se guardan",
+    "play": "Escuchar la grabacion",
+    "pause": "Pausa",
+    "again": "Transcribir de nuevo",
+    "againHint": "Usa tu modelo de voz y tus ajustes de limpieza IA actuales. El original no cambia.",
+    "againStarted": "En curso. La nueva version aparece arriba.",
+    "noAudio": "La grabacion no se conservo."
   },
   "ai": {
     "on": "Activado",

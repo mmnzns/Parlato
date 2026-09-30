@@ -779,7 +779,7 @@
     "shortcutNeedsModifier": "This key needs a modifier (Ctrl, Alt, Shift or Win) ({{action}}).",
     "historyEmpty": "The history is empty.",
     "lastTranscriptionEmpty": "The last transcription is empty.",
-    "audioMissing": "Cannot retry: the audio file of the last transcription is missing.",
+    "audioMissing": "The audio file for this dictation is missing.",
     "recordingInProgress": "A recording is in progress.",
     "fileUnsupported": "This file type can't be read. Try MP3, WAV, M4A, FLAC, OGG or MP4.",
     "fileNoAudio": "This file has no audio track, or it is silent.",
@@ -928,7 +928,13 @@
     "loadMore": "Show older",
     "privacy": "Text and recordings stay on this PC.",
     "count": "{{count}} dictations in total.",
-    "privacyLink": "Change how long they are kept"
+    "privacyLink": "Change how long they are kept",
+    "play": "Play recording",
+    "pause": "Pause",
+    "again": "Transcribe again",
+    "againHint": "Uses your current speech model and AI cleanup settings. The original stays as it is.",
+    "againStarted": "Working on it. The new version appears at the top.",
+    "noAudio": "The recording was not kept."
   },
   "ai": {
     "on": "On",

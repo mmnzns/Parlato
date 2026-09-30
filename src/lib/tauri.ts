@@ -552,6 +552,11 @@ export const api = {
     invoke<TranscriptionRecord | null>("get_history_item", { id }),
   deleteHistoryItem: (id: string) =>
     invoke<void>("delete_history_item", { id }),
+  // Parlato: raw WAV bytes (binary IPC response) for replay in History.
+  readHistoryAudio: (id: string) =>
+    invoke<ArrayBuffer>("read_history_audio", { id }),
+  retranscribeHistoryItem: (id: string) =>
+    invoke<void>("retranscribe_history_item", { id }),
   countHistory: () => invoke<number>("count_history"),
   exportHistoryCsv: (ids: string[]) =>
     invoke<string | null>("export_history_csv", { ids }),
