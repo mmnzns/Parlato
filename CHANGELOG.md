@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-09-30
+
+### Added
+- Settings > **Delete all Parlato data**: removes downloaded models,
+  history and recordings, settings, logs, start at login and saved
+  account keys from this computer (and, on a Mac, Parlato's privacy
+  permissions), then quits. Do this before removing the app so nothing
+  is left behind. The [install guide](docs/INSTALL.md#removing-parlato)
+  has the full removal steps for Windows and Mac.
+
+### Changed
+- Windows: answering **Yes** to "delete all Parlato user data" when
+  uninstalling now also deletes the saved account keys from Windows
+  Credential Manager.
+
 ## [0.9.0] - 2026-09-30
 
 ### Added
