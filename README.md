@@ -7,6 +7,8 @@
     &nbsp;&middot;&nbsp;
     <a href="docs/INSTALL.md">Install guide</a>
     &nbsp;&middot;&nbsp;
+    <a href="docs/FAQ.md">FAQ</a>
+    &nbsp;&middot;&nbsp;
     <a href="https://github.com/mmnzns/Parlato/issues">Help &amp; feedback</a>
     &nbsp;&middot;&nbsp;
     <a href="CHANGELOG.md">What's new</a>
@@ -182,5 +184,15 @@ history in SQLite.
 ## Feedback
 
 Bug reports and ideas are welcome in
-[issues](https://github.com/mmnzns/Parlato/issues). See
+[issues](https://github.com/mmnzns/Parlato/issues), questions in
+[Discussions](https://github.com/mmnzns/Parlato/discussions). Common
+questions are answered in the [FAQ](docs/FAQ.md). See
 [CONTRIBUTING.md](CONTRIBUTING.md) before sending a pull request.
+
+## Support Parlato
+
+Parlato is free and made by one person. If it saves you time, a coffee
+helps get it signed for Windows and Mac, so nobody has to click past a
+warning again ([why it isn't signed](docs/FAQ.md#why-isnt-parlato-signed)).
+
+<a href="https://buymeacoffee.com/zsvupkhqcb"><img src="assets/support-coffee-button.webp" alt="Buy me a coffee" width="320" /></a>

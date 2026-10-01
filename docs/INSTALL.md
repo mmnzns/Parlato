@@ -18,8 +18,8 @@ what to do when something doesn't work.
 
 Parlato is free and made by one person, so it is not signed with a paid
 Apple or Microsoft certificate. Windows and macOS warn about apps like that
-the first time you open them. The steps below show how to get past that
-warning. Everything Parlato runs is built from the public source code in
+the first time you open them ([why](FAQ.md#why-isnt-parlato-signed)). The
+steps below show how to get past that warning. Everything Parlato runs is built from the public source code in
 [this repository](https://github.com/mmnzns/Parlato).
 
 ---
