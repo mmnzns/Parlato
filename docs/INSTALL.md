@@ -210,7 +210,8 @@ removes every downloaded model, your history and recordings, settings,
 logs, start at login and saved account keys (and, on a Mac, Parlato's
 privacy permissions), then quits Parlato. Then remove the app itself:
 uninstall it on Windows (step 1 below, answer either way), or drag it to the
-Trash on a Mac (step 2 below). That's all.
+Trash on a Mac (step 2 below). On a Mac, also check step 6 below (Allow
+in the Background). That's all.
 
 The steps below do the same by hand, for older versions or if Parlato won't
 open.
@@ -266,6 +267,10 @@ models, history and settings stay until you delete them too:
 5. Optional clean-up in **System Settings** > **Privacy & Security**: in
    **Accessibility** and **Microphone**, select **Parlato** and click
    **-**.
-6. Account keys for online services: open **Keychain Access**, search for
+6. If you ever turned on start at login, macOS may keep Parlato in
+   **System Settings** > **General** > **Login Items & Extensions** >
+   **Allow in the Background** after the app is gone. Switch **Parlato**
+   off there. It's only a leftover entry; nothing is running.
+7. Account keys for online services: open **Keychain Access**, search for
    **Parlato**, and delete the entries (they are named like
    `openAIAPIKey`).
