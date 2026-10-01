@@ -9,7 +9,12 @@ what to do when something doesn't work.
 - [Windows](#windows)
 - [Mac](#mac)
 - [Troubleshooting](#troubleshooting)
-- [Removing Parlato](#removing-parlato)
+- [Removing Parlato](#removing-parlato) (leaves nothing behind)
+
+> **Mac users:** macOS will block Parlato **twice** the first time, once
+> when you open the download and once when you first open the app. Each
+> time, click **Done** (not Move to Trash), then **Open Anyway** in System
+> Settings > Privacy & Security. [Step by step](#2-open-the-download-and-install).
 
 Parlato is free and made by one person, so it is not signed with a paid
 Apple or Microsoft certificate. Windows and macOS warn about apps like that
@@ -199,9 +204,16 @@ your computer. The models are the big part: each one you downloaded is
 between about 75 MB and 3 GB. Removing the app alone does not remove them,
 so follow every step below to leave nothing behind.
 
-Tip for both platforms: account keys for online services are removed most
-easily from inside Parlato before you uninstall. On the **Speech model** and
-**AI cleanup** pages, clear each key you added.
+**Easiest, on both platforms (Parlato 0.9.1 or later):** open Parlato's
+**Settings** > **Delete all Parlato data** > **Delete everything**. It
+removes every downloaded model, your history and recordings, settings,
+logs, start at login and saved account keys (and, on a Mac, Parlato's
+privacy permissions), then quits Parlato. Then remove the app itself:
+uninstall it on Windows (step 1 below, answer either way), or drag it to the
+Trash on a Mac (step 2 below). That's all.
+
+The steps below do the same by hand, for older versions or if Parlato won't
+open.
 
 ### Windows
 
@@ -214,12 +226,13 @@ easily from inside Parlato before you uninstall. On the **Speech model** and
    - settings, prompts and power modes
    - logs
    - the "start when my computer starts" entry
+   - saved account keys for online services (from 0.9.1)
 
    Click **No** only if you plan to reinstall and want to keep them.
-3. Account keys for online services stay in Windows Credential Manager until
-   you delete them: open **Control Panel** > **Credential Manager** >
-   **Windows Credentials** and remove each entry ending in `.Parlato` (for
-   example `openAIAPIKey.Parlato`).
+3. Uninstalled a version before 0.9.1? Its account keys stay in Windows
+   Credential Manager until you delete them: open **Control Panel** >
+   **Credential Manager** > **Windows Credentials** and remove each entry
+   ending in `.Parlato` (for example `openAIAPIKey.Parlato`).
 
 If you clicked **No** earlier and want the data gone now, delete these two
 folders (paste each path into File Explorer's address bar):
