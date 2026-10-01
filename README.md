@@ -195,4 +195,4 @@ Parlato is free and made by one person. If it saves you time, a coffee
 helps get it signed for Windows and Mac, so nobody has to click past a
 warning again ([why it isn't signed](docs/FAQ.md#why-isnt-parlato-signed)).
 
-<a href="https://buymeacoffee.com/zsvupkhqcb"><img src="assets/support-coffee-button.webp" alt="Buy me a coffee" width="320" /></a>
+<a href="https://buymeacoffee.com/mnmnzns"><img src="assets/support-coffee-button.webp" alt="Buy me a coffee" width="320" /></a>

@@ -221,7 +221,7 @@ give something back, here's how:
 - **Report bugs and ideas.** They make Parlato better for everyone.
 
 <p align="center">
-  <a href="https://buymeacoffee.com/zsvupkhqcb">
+  <a href="https://buymeacoffee.com/mnmnzns">
     <img src="../assets/support-coffee-card.webp" alt="Buy me a coffee" width="480" />
   </a>
 </p>
