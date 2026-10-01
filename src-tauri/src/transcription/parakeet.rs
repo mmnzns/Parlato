@@ -30,6 +30,11 @@ enum Engine {
 struct Loaded {
     path: PathBuf,
     engine: Engine,
+    /// Parlato : live preview bookkeeping for Nemotron, which encodes at
+    /// most one 560 ms chunk per `transcribe_chunk` call. Audio fed since
+    /// `stream_reset`, and chunks the model was asked to encode.
+    stream_fed: usize,
+    stream_chunks: usize,
 }
 
 pub struct ParakeetEngine {
@@ -92,6 +97,8 @@ impl ParakeetEngine {
         *guard = Some(Loaded {
             path: model_dir.to_path_buf(),
             engine,
+            stream_fed: 0,
+            stream_chunks: 0,
         });
         Ok(())
     }
@@ -115,15 +122,25 @@ impl ParakeetEngine {
         Ok(result.text)
     }
 
-    /// Parlato : apercu en direct (Parakeet Unified seulement). Remet l'etat
-    /// de flux a zero ; sans effet si le modele charge n'est pas Unified.
-    pub fn stream_reset(&self) {
-        if let Some(Loaded {
-            engine: Engine::Unified(e),
-            ..
-        }) = self.current.lock().as_mut()
-        {
-            e.reset();
+    /// Parlato : apercu en direct (Parakeet Unified et Nemotron). Remet
+    /// l'etat de flux a zero ; sans effet pour les autres modeles. `language`
+    /// ne sert qu'a Nemotron (langue de dictee, sinon detection auto).
+    pub fn stream_reset(&self, language: Option<&str>) {
+        let mut guard = self.current.lock();
+        let Some(loaded) = guard.as_mut() else {
+            return;
+        };
+        loaded.stream_fed = 0;
+        loaded.stream_chunks = 0;
+        match &mut loaded.engine {
+            Engine::Unified(e) => e.reset(),
+            Engine::Nemotron(e) => {
+                e.reset();
+                if e.set_target_lang(nemotron_lang(language)).is_err() {
+                    let _ = e.set_target_lang("auto");
+                }
+            }
+            Engine::Tdt(_) => {}
         }
     }
 
@@ -133,18 +150,39 @@ impl ParakeetEngine {
     /// qui remet lui-meme l'etat de flux a zero.
     pub fn stream_chunk(&self, samples: &[f32]) -> Option<Result<String>> {
         let mut guard = self.current.lock();
-        let Some(Loaded {
-            engine: Engine::Unified(e),
-            ..
-        }) = guard.as_mut()
-        else {
-            return None;
-        };
-        Some(
-            e.transcribe_chunk(samples)
-                .map(|_| e.get_transcript())
-                .map_err(|err| anyhow!("parakeet unified stream: {err:?}")),
-        )
+        let loaded = guard.as_mut()?;
+        match &mut loaded.engine {
+            Engine::Unified(e) => Some(
+                e.transcribe_chunk(samples)
+                    .map(|_| e.get_transcript())
+                    .map_err(|err| anyhow!("parakeet unified stream: {err:?}")),
+            ),
+            Engine::Nemotron(e) => {
+                // Nemotron encodes at most one chunk per call: keep calling
+                // until every chunk the fed audio allows has been encoded,
+                // or the preview falls further behind with each batch.
+                loaded.stream_fed += samples.len();
+                let ready = loaded.stream_fed / e.chunk_samples().max(1);
+                let mut input = samples;
+                loop {
+                    if let Err(err) = e.transcribe_chunk(input) {
+                        return Some(Err(anyhow!("nemotron stream: {err:?}")));
+                    }
+                    input = &[];
+                    if loaded.stream_chunks >= ready {
+                        break;
+                    }
+                    loaded.stream_chunks += 1;
+                    if loaded.stream_chunks >= ready {
+                        break;
+                    }
+                }
+                // Same clean-up as the full pass: single spaces.
+                let text = e.get_transcript();
+                Some(Ok(text.split_whitespace().collect::<Vec<_>>().join(" ")))
+            }
+            Engine::Tdt(_) => None,
+        }
     }
 
     /// Libere la memoire (ONNX session). Utile quand l'utilisateur change de
@@ -253,21 +291,19 @@ mod tests {
         assert!(!text.trim().is_empty());
     }
 
-    /// Parlato : apercu en direct Unified. Donne le WAV par morceaux de
-    /// 200 ms comme pendant une dictee et verifie que le flux tient le temps
-    /// reel : `PARLATO_PARAKEET_DIR=<unified dir> PARLATO_WAV=<wav>
-    /// cargo test --release --lib unified_stream_smoke -- --ignored --nocapture`.
-    #[test]
-    #[ignore]
-    fn unified_stream_smoke() {
+    /// Parlato : apercu en direct. Donne le WAV par morceaux de 200 ms comme
+    /// pendant une dictee et verifie que le flux tient le temps reel :
+    /// `PARLATO_PARAKEET_DIR=<model dir> PARLATO_WAV=<wav> [PARLATO_LANG=fr]
+    /// cargo test --release --lib unified_stream_smoke -- --ignored --nocapture`
+    /// (ou `nemotron_stream_smoke` avec un dossier Nemotron).
+    fn stream_smoke(kind: ParakeetKind) {
         let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
         let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let lang = std::env::var("PARLATO_LANG").ok();
         let engine = ParakeetEngine::new();
-        engine
-            .ensure_loaded(Path::new(&dir), ParakeetKind::Unified)
-            .unwrap();
+        engine.ensure_loaded(Path::new(&dir), kind).unwrap();
         let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
-        engine.stream_reset();
+        engine.stream_reset(lang.as_deref());
         let t0 = std::time::Instant::now();
         let mut last = String::new();
         let mut slowest = 0f32;
@@ -282,7 +318,7 @@ mod tests {
         }
         let stream_secs = t0.elapsed().as_secs_f32();
         let audio_secs = samples.len() as f32 / 16000.0;
-        let offline = engine.transcribe_samples(&samples, None).unwrap();
+        let offline = engine.transcribe_samples(&samples, lang.as_deref()).unwrap();
         println!(
             "--- {audio_secs:.1}s audio streamed in {stream_secs:.1}s (slowest call {slowest:.2}s)\n\
              offline: {offline}"
@@ -292,5 +328,17 @@ mod tests {
             stream_secs < audio_secs,
             "le flux ne tient pas le temps reel"
         );
+    }
+
+    #[test]
+    #[ignore]
+    fn unified_stream_smoke() {
+        stream_smoke(ParakeetKind::Unified);
+    }
+
+    #[test]
+    #[ignore]
+    fn nemotron_stream_smoke() {
+        stream_smoke(ParakeetKind::Nemotron);
     }
 }

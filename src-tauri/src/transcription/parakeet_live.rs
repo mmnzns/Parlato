@@ -1,5 +1,5 @@
 // Parlato : apercu du texte en direct pendant la dictee avec Parakeet Unified
-// (modele local), comme le fait deja le streaming cloud.
+// ou Nemotron (modeles locaux), comme le fait deja le streaming cloud.
 //
 // Reference VoiceInk : Transcription/Streaming (texte partiel affiche dans
 // la mini-recorder pendant l'enregistrement). VoiceInk le fait aussi pour
@@ -49,9 +49,12 @@ pub fn start(app: &AppHandle) -> Option<ChunkCallback> {
         return None;
     }
     let model_id = store.get("selected_parakeet_model")?.as_str()?.to_string();
-    if find_variant(&model_id)?.kind != ParakeetKind::Unified {
+    let kind = find_variant(&model_id)?.kind;
+    if !matches!(kind, ParakeetKind::Unified | ParakeetKind::Nemotron) {
         return None;
     }
+    // Nemotron : meme langue que le passage final (sinon detection auto).
+    let language = crate::transcription::pipeline::get_language(app);
     let model_dir = app
         .state::<crate::commands::parakeet::ParakeetModelManagerState>()
         .0
@@ -65,11 +68,11 @@ pub fn start(app: &AppHandle) -> Option<ChunkCallback> {
     let spawned = std::thread::Builder::new()
         .name("parakeet-live".into())
         .spawn(move || {
-            if let Err(e) = engine.ensure_loaded(&model_dir, ParakeetKind::Unified) {
+            if let Err(e) = engine.ensure_loaded(&model_dir, kind) {
                 warn!("apercu Parakeet : chargement impossible : {e}");
                 return;
             }
-            engine.stream_reset();
+            engine.stream_reset(language.as_deref());
             let mut shown = String::new();
             let mut pcm: Vec<f32> = Vec::new();
             loop {
