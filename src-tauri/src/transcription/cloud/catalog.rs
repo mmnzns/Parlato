@@ -103,7 +103,7 @@ pub struct CloudModelInfo {
 
 /// Catalogue des providers cloud (id canonique lowercase).
 pub fn cloud_providers() -> &'static [CloudProviderInfo] {
-    &PROVIDERS
+    PROVIDERS
 }
 
 static PROVIDERS: &[CloudProviderInfo] = &[

@@ -29,10 +29,7 @@ pub fn extract_url(active: &ActiveWindow) -> Option<String> {
     if !super::active_window::is_browser(active) {
         return None;
     }
-    match try_extract(active) {
-        Ok(url) => url,
-        Err(_) => None,
-    }
+    try_extract(active).unwrap_or_default()
 }
 
 #[cfg(not(windows))]

@@ -128,9 +128,7 @@ impl StreamingProvider for AssemblyAiStreaming {
                     match chunk {
                         Some(c) => {
                             pending.extend_from_slice(&i16_to_le_bytes(&c));
-                            if let Err(e) = flush_buffered_chunks(&mut write, &mut pending).await {
-                                return Err(e);
-                            }
+                            flush_buffered_chunks(&mut write, &mut pending).await?;
                         }
                         None => return Ok(state.final_text.trim().to_string()),
                     }

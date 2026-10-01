@@ -22,7 +22,7 @@ pub fn apply(text: &str, rules: &[WordReplacement]) -> String {
 
     let mut sorted_rules: Vec<&WordReplacement> =
         rules.iter().filter(|r| r.is_enabled).collect();
-    sorted_rules.sort_by(|a, b| b.original_text.len().cmp(&a.original_text.len()));
+    sorted_rules.sort_by_key(|r| std::cmp::Reverse(r.original_text.len()));
 
     for rule in sorted_rules {
         let mut variants: Vec<&str> = rule
@@ -31,7 +31,7 @@ pub fn apply(text: &str, rules: &[WordReplacement]) -> String {
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect();
-        variants.sort_by(|a, b| b.len().cmp(&a.len()));
+        variants.sort_by_key(|v| std::cmp::Reverse(v.len()));
 
         for original in variants {
             if original.is_empty() {
