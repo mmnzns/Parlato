@@ -144,6 +144,7 @@ mod tests {
     use super::is_parlato_folder;
     use std::path::Path;
 
+    #[cfg(unix)]
     #[test]
     fn only_parlato_folders_pass_the_guard() {
         assert!(is_parlato_folder(Path::new(
@@ -153,5 +154,19 @@ mod tests {
         assert!(!is_parlato_folder(Path::new("/com.craftconceptsdigital.parlato")));
         assert!(!is_parlato_folder(Path::new("com.craftconceptsdigital.parlato")));
         assert!(!is_parlato_folder(Path::new("/Users/a/Library/Logs/other.app")));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn only_parlato_folders_pass_the_guard() {
+        assert!(is_parlato_folder(Path::new(
+            r"C:\Users\a\AppData\Roaming\com.craftconceptsdigital.parlato"
+        )));
+        assert!(is_parlato_folder(Path::new(
+            r"C:\Users\a\AppData\Local\com.craftconceptsdigital.parlato"
+        )));
+        assert!(!is_parlato_folder(Path::new(r"C:\Users\a\AppData\Local")));
+        assert!(!is_parlato_folder(Path::new(r"C:\com.craftconceptsdigital.parlato")));
+        assert!(!is_parlato_folder(Path::new("com.craftconceptsdigital.parlato")));
     }
 }
