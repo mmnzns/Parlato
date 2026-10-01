@@ -220,7 +220,7 @@
     "removeFillers": "Supprimer les mots de remplissage",
     "fillerList": "Liste des mots de remplissage (separes par virgules)",
     "liveTranscript": "Texte en direct",
-    "liveTranscriptInfo": "Affiche vos mots pendant l'enregistrement. Fonctionne avec NVIDIA Parakeet Unified sur cet ordinateur et avec les services en ligne qui gerent le texte en direct. Le texte colle vient toujours de la passe complete a la fin.",
+    "liveTranscriptInfo": "Affiche vos mots pendant l'enregistrement. Fonctionne avec NVIDIA Parakeet Unified et Nemotron sur cet ordinateur, et avec les services en ligne qui gerent le texte en direct. Le texte colle vient toujours de la passe complete a la fin.",
     "liveTranscriptDescription": "La bulle d'enregistrement affiche le texte au fur et a mesure que vous parlez.",
     "sectionGeneral": "General",
     "sectionDictating": "Pendant la dictee",
@@ -246,7 +246,7 @@
     "resumeLabel": "Reprendre le son apres",
     "resumeHint": "Delai avant de retablir le son une fois la dictee terminee.",
     "liveLabel": "Afficher les mots pendant que vous parlez",
-    "liveHint": "Avec Parakeet Unified sur cet ordinateur, ou les modeles en ligne qui gerent le texte en direct.",
+    "liveHint": "Avec Parakeet Unified ou Nemotron sur cet ordinateur, ou les modeles en ligne qui gerent le texte en direct.",
     "recorderPosLabel": "Position de l'enregistreur",
     "recorderPosHint": "Ou apparait la petite barre d'enregistrement.",
     "formatLabel": "Mettre en forme les paragraphes",
@@ -306,7 +306,13 @@
     "installFailed": "Installation impossible",
     "logsLabel": "Journal",
     "logsHint": "Si quelque chose ne marche pas, joignez parlato.log a votre signalement. Il contient des durees et des erreurs, jamais ce que vous dictez.",
-    "logsButton": "Ouvrir le dossier"
+    "logsButton": "Ouvrir le dossier",
+    "deleteAllLabel": "Supprimer toutes les donnees de Parlato",
+    "deleteAllHint": "Supprime de cet ordinateur les modeles telecharges, l'historique et les enregistrements, les reglages, les journaux, le demarrage automatique et les cles de compte, puis quitte Parlato. A faire avant de supprimer l'app pour ne rien laisser derriere.",
+    "deleteAllButton": "Tout supprimer",
+    "deleteAllConfirm": "Supprimer toutes les donnees de Parlato ? Cela supprime chaque modele telecharge, tout l'historique avec ses enregistrements, vos reglages, prompts et modes, les journaux, le demarrage automatique et vos cles de compte. C'est definitif. Parlato se ferme ensuite.",
+    "deleteAllAfterMac": "Pour supprimer aussi l'app, glissez ensuite Parlato depuis Applications vers la Corbeille.",
+    "deleteAllAfterWindows": "Pour supprimer aussi l'app, desinstallez ensuite Parlato depuis Parametres > Applications."
   },
   "onboarding": {
     "welcome": {

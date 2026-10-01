@@ -22,6 +22,27 @@ use keyring::Entry;
 
 const SERVICE: &str = "Parlato";
 
+/// Parlato : every provider that can have a saved key (same list as
+/// keychain_user). Used by "Delete all Parlato data"; the Windows
+/// uninstaller (installer-hooks.nsh) deletes the same keys.
+pub const PROVIDERS: [&str; 15] = [
+    "groq",
+    "deepgram",
+    "cerebras",
+    "gemini",
+    "mistral",
+    "elevenlabs",
+    "soniox",
+    "speechmatics",
+    "openai",
+    "anthropic",
+    "openrouter",
+    "custom",
+    "xai",
+    "cartesia",
+    "assemblyai",
+];
+
 /// Retourne le username stocke cote keyring pour un provider donne.
 /// Case-insensitive comme VoiceInk (APIKeyManager L183).
 fn keychain_user(provider: &str) -> &'static str {
@@ -74,4 +95,16 @@ pub fn delete_api_key(provider: &str) -> Result<()> {
 
 pub fn has_api_key(provider: &str) -> bool {
     matches!(get_api_key(provider), Ok(Some(_)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{keychain_user, PROVIDERS};
+
+    #[test]
+    fn every_provider_has_a_keychain_name() {
+        for p in PROVIDERS {
+            assert_ne!(keychain_user(p), "unknownProviderAPIKey", "{p}");
+        }
+    }
 }

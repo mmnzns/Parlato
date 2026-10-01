@@ -585,6 +585,7 @@ export const api = {
     invoke<void>("set_autostart_enabled", { enabled }),
   openPrivacyMicrophone: () => invoke<void>("open_privacy_microphone"),
   openLogFolder: () => invoke<void>("open_log_folder"),
+  deleteAllData: () => invoke<void>("delete_all_data"),
   requestMicrophoneAccess: () => invoke<void>("request_microphone_access"),
   requestAccessibilityAccess: () => invoke<boolean>("request_accessibility_access"),
   openLanguageSettings: () => invoke<void>("open_language_settings"),

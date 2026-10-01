@@ -25,6 +25,7 @@ import {
   MessageSquare,
   RefreshCw,
   FolderOpen,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
@@ -39,6 +40,7 @@ import { api, type RetentionSettings, type TextProcessingSettings } from "@/lib/
 import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import { confirmDelete } from "@/lib/confirmDelete";
 import { installUpdate } from "@/lib/updater";
 
 const REPO_URL = "https://github.com/mmnzns/Parlato";
@@ -528,6 +530,21 @@ export function SettingsPanel() {
           <Button size="sm" variant="outline" onClick={() => api.openLogFolder().catch(console.error)}>
             {t("settings.logsButton")}
             <FolderOpen className="h-3.5 w-3.5" />
+          </Button>
+        </Row>
+        {/* Parlato: removes everything Parlato stored, so uninstalling leaves nothing behind. */}
+        <Row label={t("settings.deleteAllLabel")} description={t("settings.deleteAllHint")}>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={async () => {
+              const question = `${t("settings.deleteAllConfirm")}\n\n${t(isMac ? "settings.deleteAllAfterMac" : "settings.deleteAllAfterWindows")}`;
+              if (!(await confirmDelete(question, t("settings.deleteAllButton")))) return;
+              await api.deleteAllData().catch(console.error);
+            }}
+          >
+            {t("settings.deleteAllButton")}
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </Row>
         <Row label={t("settings.madeByLabel")} description={t("settings.madeByHint")}>

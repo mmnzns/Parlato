@@ -1,4 +1,5 @@
 pub mod cloud;
+pub mod delete_data;
 pub mod dictionary;
 pub mod enhancement;
 pub mod history;

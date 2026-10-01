@@ -306,6 +306,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ping,
             open_log_folder,
+            commands::delete_data::delete_all_data,
             get_gpu_info,
             list_audio_devices,
             start_recording,

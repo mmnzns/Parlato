@@ -23,13 +23,11 @@
 ;   HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Parlato
 ;     autostart registration (if user enabled it)
 ;
-; Credential Manager (API keys) is NOT cleared - keyring-rs stores each
-; provider as a separate target and there is no reliable enumeration from
-; NSIS. They remain orphaned until the user revisits Credential Manager.
-; A future enhancement could add a small PowerShell block here that loops
-; the known provider ids (anthropic, openai, gemini, groq, cerebras,
-; mistral, openrouter, deepgram, elevenlabs, soniox, speechmatics) and
-; calls `cmdkey /delete:<id>` for each.
+; Credential Manager (API keys): keyring-rs names each one
+; "<user>.<service>", service "Parlato", user from keychain_user() in
+; src/services/api_keys.rs (e.g. "openAIAPIKey.Parlato"). The "Yes" answer
+; deletes all of them with cmdkey. Keep the list below in sync with
+; keychain_user() (Parlato, 2026-09-30).
 
 !macro NSIS_HOOK_PREINSTALL
 !macroend
@@ -53,7 +51,7 @@
     ; through preserves data by accident. /SD IDNO also makes silent
     ; runs answer No, which matches the IfSilent guard above anyway.
     MessageBox MB_YESNO|MB_ICONQUESTION \
-      "Do you also want to delete all Parlato user data?$\r$\n$\r$\nThis will remove:$\r$\n    - Settings and onboarding state$\r$\n    - Custom prompts and Power Mode profiles$\r$\n    - Transcription history$\r$\n    - Downloaded models (Whisper, Parakeet, llama.cpp, VAD)$\r$\n    - Cached recordings and logs$\r$\n    - Autostart entry$\r$\n$\r$\nChoose No to keep them for a future reinstall.$\r$\n$\r$\nNote: API keys stored in Windows Credential Manager are never removed automatically. You can clear them from Control Panel > Credential Manager if desired." \
+      "Do you also want to delete all Parlato user data?$\r$\n$\r$\nThis will remove:$\r$\n    - Settings and onboarding state$\r$\n    - Custom prompts and Power Mode profiles$\r$\n    - Transcription history$\r$\n    - Downloaded models (Whisper, Parakeet, llama.cpp, VAD)$\r$\n    - Cached recordings and logs$\r$\n    - Autostart entry$\r$\n    - Account keys for online services$\r$\n$\r$\nChoose No to keep them for a future reinstall." \
       /SD IDNO IDNO parla_skip_wipe
 
     ; User stores (tauri-plugin-store JSON files)
@@ -64,6 +62,23 @@
 
     ; Autostart entry (if enabled via Settings > General)
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Parlato"
+
+    ; Account keys in Credential Manager (missing ones just fail quietly).
+    nsExec::Exec 'cmdkey /delete:groqAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:deepgramAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:cerebrasAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:geminiAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:mistralAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:elevenLabsAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:sonioxAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:speechmaticsAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:openAIAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:anthropicAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:openRouterAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:customAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:xAIAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:cartesiaAPIKey.Parlato'
+    nsExec::Exec 'cmdkey /delete:assemblyAIAPIKey.Parlato'
 
   parla_skip_wipe:
 !macroend

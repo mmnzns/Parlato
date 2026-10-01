@@ -220,7 +220,7 @@
     "removeFillers": "Remove filler words",
     "fillerList": "Filler word list (comma-separated)",
     "liveTranscript": "Live text display",
-    "liveTranscriptInfo": "Shows your words while you record. Works with NVIDIA Parakeet Unified on this computer and with online services that support live text. The pasted text still comes from the full pass at the end.",
+    "liveTranscriptInfo": "Shows your words while you record. Works with NVIDIA Parakeet Unified and Nemotron on this computer, and with online services that support live text. The pasted text still comes from the full pass at the end.",
     "liveTranscriptDescription": "The recorder pill shows the text as you speak.",
     "sectionGeneral": "General",
     "sectionDictating": "While you dictate",
@@ -246,7 +246,7 @@
     "resumeLabel": "Resume audio after",
     "resumeHint": "How long to wait before unmuting once dictation ends.",
     "liveLabel": "Show words as you speak",
-    "liveHint": "With Parakeet Unified on this computer, or online models that support live text.",
+    "liveHint": "With Parakeet Unified or Nemotron on this computer, or online models that support live text.",
     "recorderPosLabel": "Recorder position",
     "recorderPosHint": "Where the little recording bar appears.",
     "formatLabel": "Tidy up paragraphs",
@@ -306,7 +306,13 @@
     "installFailed": "Could not install",
     "logsLabel": "Log file",
     "logsHint": "If something goes wrong, attach parlato.log to your report. It records timings and errors, never what you dictate.",
-    "logsButton": "Open log folder"
+    "logsButton": "Open log folder",
+    "deleteAllLabel": "Delete all Parlato data",
+    "deleteAllHint": "Removes downloaded models, history and recordings, settings, logs, start at login and saved account keys from this computer, then quits Parlato. Do this before removing the app so nothing is left behind.",
+    "deleteAllButton": "Delete everything",
+    "deleteAllConfirm": "Delete all Parlato data? This removes every downloaded model, your whole history with its recordings, your settings, prompts and power modes, the logs, start at login and your saved account keys. It cannot be undone. Parlato quits when it's done.",
+    "deleteAllAfterMac": "To remove the app too, then drag Parlato from Applications to the Trash.",
+    "deleteAllAfterWindows": "To remove the app too, then uninstall Parlato from Settings > Apps."
   },
   "onboarding": {
     "welcome": {
