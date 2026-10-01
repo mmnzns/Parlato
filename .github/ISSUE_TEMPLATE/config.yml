@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or idea
+    url: https://github.com/mmnzns/Parlato/discussions
+    about: Ask how something works, suggest a feature or share how you use Parlato.
+  - name: Install help
+    url: https://github.com/mmnzns/Parlato/blob/main/docs/INSTALL.md
+    about: Install steps for Windows and Mac, including the first-open warnings.

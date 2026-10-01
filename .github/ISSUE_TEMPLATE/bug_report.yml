@@ -1,0 +1,78 @@
+name: Bug report
+description: Something in Parlato doesn't work the way it should.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. A few details help a lot.
+        For questions or ideas, please use [Discussions](https://github.com/mmnzns/Parlato/discussions) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+      placeholder: "I held Right Alt and spoke, but nothing was typed in Word."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: "The text should appear where my cursor is."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      description: If you can, list the steps. Leave empty if it only happened once.
+      placeholder: |
+        1. Open Settings > Speech model and pick Parakeet Unified
+        2. Hold the shortcut in Notepad and speak
+        3. ...
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Parlato version
+      description: Shown at the bottom left of the Parlato window, and in Settings > About.
+      placeholder: "0.9.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Computer
+      options:
+        - Windows
+        - Mac
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Speech model and AI cleanup (if you know)
+      description: Settings > Speech model and AI cleanup. "Not sure" is fine.
+      placeholder: "Parakeet Unified EN, AI cleanup off"
+    validations:
+      required: false
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: |
+        Settings > Log file opens the folder with `parlato.log`. Drag the file into this box.
+        It records timings and errors, never what you dictate.
+      placeholder: "Drag parlato.log here"
+    validations:
+      required: false
