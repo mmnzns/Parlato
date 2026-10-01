@@ -158,9 +158,13 @@ export function PromptEditor({ prompts, activeId, onSelect, onChange }: Props) {
             />
             {/* Actions sit on top of the row so they are not nested in its button. */}
             <div className="absolute top-1/2 right-4 flex -translate-y-1/2 gap-0.5">
-              <IconAction label={t("ai.edit")} onClick={() => startEdit(p)}>
-                <Pencil className="h-3.5 w-3.5" />
-              </IconAction>
+              {/* Built-in styles are reset to their original text at every start,
+                  so editing them would not stick: copy one to make your own. */}
+              {!p.is_predefined && (
+                <IconAction label={t("ai.edit")} onClick={() => startEdit(p)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </IconAction>
+              )}
               <IconAction
                 label={t("ai.duplicate")}
                 onClick={() =>
