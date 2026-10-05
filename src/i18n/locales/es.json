@@ -457,7 +457,7 @@
     "dialogFilter": "Modelo Whisper GGML"
   },
   "parakeet": {
-    "executionProvider": "Execution provider:",
+    "executionProvider": "Motor de ejecucion:",
     "cpuHint": "Activa la caracteristica Cargo cuda-onnx (NVIDIA) o directml-onnx (GPU Windows) para aceleracion.",
     "multilingual": "multilingue",
     "englishOnly": "ingles",
@@ -479,8 +479,8 @@
     "inferenceParams": "Parametros de inferencia",
     "nGpuLayers": "N GPU layers",
     "nGpuLayersHelp": "0 = solo procesador, 1000 = todo en la tarjeta grafica (si la aceleracion GPU esta activa)",
-    "contextSize": "Context size",
-    "maxTokens": "Max tokens output",
+    "contextSize": "Tamano del contexto",
+    "maxTokens": "Longitud maxima de la respuesta (tokens)",
     "ggufModels": "Modelos GGUF",
     "importGguf": "Importar .gguf",
     "imported": "importado",

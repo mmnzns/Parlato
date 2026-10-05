@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AI cleanup: the built-in writing styles (Default, Assistant) no longer
   show an edit button. Their text is restored at every start, so edits
   never stuck. Use the copy button to make your own version.
+- French and Spanish: three settings that were still in English (the
+  Parakeet execution engine, and the context size and maximum answer
+  length of local AI cleanup) are now translated.
 
 ### Fixed
 - Transcription no longer hangs for up to a minute when voice detection
