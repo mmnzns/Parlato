@@ -274,6 +274,7 @@ mod tests {
     /// dans parakeet-rs), sur 6 s puis tout le fichier :
     /// `PARLATO_PARAKEET_DIR=<tdt dir> PARLATO_WAV=<wav>
     /// cargo test --release --lib parakeet_threads_smoke -- --ignored --nocapture`.
+    /// Option : `PARLATO_THREADS=4,6,9`.
     #[test]
     #[ignore]
     fn parakeet_threads_smoke() {
@@ -281,7 +282,10 @@ mod tests {
         let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
         let all = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
         let short = &all[..all.len().min(6 * 16_000)];
-        for threads in [2, 4, 6, 8, 12, 16] {
+        let threads_list: Vec<usize> = std::env::var("PARLATO_THREADS")
+            .map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect())
+            .unwrap_or_else(|_| vec![2, 4, 6, 8, 12, 16]);
+        for threads in threads_list {
             let cfg = parakeet_rs::ExecutionConfig::new().with_intra_threads(threads);
             let mut m = ParakeetTDT::from_pretrained(Path::new(&dir), Some(cfg)).unwrap();
             for samples in [short, &all[..]] {

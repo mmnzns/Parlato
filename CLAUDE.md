@@ -368,6 +368,20 @@ Phase 2 status (2026-09-30):
 - README + docs/INSTALL.md wait on branch `docs/mac-install` until the first
   release with a .dmg is published; merge it then.
 
+**Mac follow-up from the Windows batch of 2026-10-05: done on the MacBook the
+same day, no Mac code change needed.** Measured on an M3 Pro (6 performance +
+6 efficiency cores, automatic = 9 threads), best runs, CPU only:
+- Whisper ggml-base, 6 s / 29 s: 6 threads 240 / 498 ms, 9 threads 239 /
+  540 ms, 12 threads 292 / 710 ms.
+- Parakeet Ultra, 6 s / 29 s: 6 threads 105 / 490 ms, 9 threads 104 / 450 ms,
+  12 threads 103 / 427 ms.
+- Voice detection, 29 s: 2 threads 50 ms, 12 threads 250 ms.
+So the shared three-quarters default stays on the Mac: it is the best
+compromise (Parakeet likes more threads, Whisper slightly fewer), and every
+count is well under a second. `parakeet_threads_smoke` now also reads
+`PARLATO_THREADS`. Key names checked: the menu bar test passes on macOS and
+the recorder merges `macOverrides.keys`. The original to-do list follows.
+
 **Mac follow-up from the Windows batch of 2026-10-05 (to do on the MacBook).**
 These changes landed in shared code from Windows. They build on macOS without
 any Mac work, but their defaults were measured on the PC only. Pull first.
