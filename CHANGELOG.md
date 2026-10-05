@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plain letters, matching the tray menu.
 
 ### Fixed
+- French and Spanish: the language list shows Français and Español
+  with their accents.
 - History: a dictation cut off by closing Parlato no longer stays on
   "Transcribing..." forever. At the next start it moves to **Failed**,
   with its recording, so **Transcribe again** can finish it.

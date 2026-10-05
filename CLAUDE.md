@@ -112,10 +112,13 @@ bundles or hosts model files; they download from the original host. Pin
 third-party repositories to a commit (`revision` in the Parakeet catalog).
 
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-1204 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
+1205 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
-are written without accents throughout (upstream convention); match it unless the
-whole set is converted at once.
+are written with their accents (converted 2026-10-05, commit 3d7925b; Spanish
+questions and exclamations take their opening marks). New strings follow suit,
+and so do the user-facing strings outside the locale files: the language names in
+`src/i18n/index.ts` and the `\u{}` escapes in `tray.rs`. Code comments stay
+unaccented ASCII.
 
 **Vite on Windows sometimes misses a change to a locale JSON file** and keeps
 serving the stale module (new keys render as raw `section.key` text). `touch` the

@@ -38,8 +38,8 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: "English",
-  fr: "Francais",
-  es: "Espanol",
+  fr: "Français",
+  es: "Español",
 };
 
 i18n
