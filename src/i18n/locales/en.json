@@ -1067,7 +1067,7 @@
     "pickMostLanguages": "The most languages, including Asian languages",
     "threadsTitle": "Processor use",
     "threadsLabel": "Processor threads",
-    "threadsDesc": "How many parts of your processor Whisper works with at once. Automatic is the fastest choice on most computers. Using all of them is often slower, not faster.",
+    "threadsDesc": "How many parts of your processor the speech model works with at once. Automatic is the fastest choice on most computers.",
     "threadsAuto": "Automatic ({{count}})",
     "threadsReset": "Use recommended settings"
   },

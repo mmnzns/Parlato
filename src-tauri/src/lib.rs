@@ -43,13 +43,13 @@ use commands::settings::{
     get_cloud_transcription_timeout, get_dictation_language, get_selected_input_device,
     get_selected_whisper_model, get_show_live_transcript, get_sound_feedback_enabled,
     get_system_mute_enabled, get_text_processing_settings, get_transcription_source,
-    get_ui_language, get_whisper_threads, reset_escape_hint, set_append_trailing_space,
+    get_speech_threads, get_ui_language, reset_escape_hint, set_append_trailing_space,
     set_audio_resumption_delay, set_close_to_tray, set_cloud_transcription_timeout,
     set_dictation_language, set_filler_words, set_remove_filler_words,
     set_restore_clipboard_after_paste, set_selected_input_device, set_selected_whisper_model,
     set_show_live_transcript, set_sound_feedback_enabled, set_system_mute_enabled,
     set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
-    set_whisper_threads,
+    set_speech_threads,
 };
 use commands::transcription::{transcribe_file, transcribe_wav, WhisperEngineState};
 use commands::cloud::{
@@ -327,8 +327,8 @@ pub fn run() {
             get_selected_whisper_model,
             get_dictation_language,
             set_dictation_language,
-            get_whisper_threads,
-            set_whisper_threads,
+            get_speech_threads,
+            set_speech_threads,
             get_text_processing_settings,
             set_text_formatting_enabled,
             set_remove_filler_words,

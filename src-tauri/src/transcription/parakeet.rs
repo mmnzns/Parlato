@@ -29,6 +29,8 @@ enum Engine {
 
 struct Loaded {
     path: PathBuf,
+    /// Parlato : threads ONNX du chargement (recharge si le reglage change).
+    threads: usize,
     engine: Engine,
 }
 
@@ -45,10 +47,22 @@ impl ParakeetEngine {
 
     /// Charge le modele (repertoire contenant config.json + *.onnx + vocab.txt)
     /// si ce n'est pas deja celui-ci qui est charge. Bloquant.
-    pub fn ensure_loaded(&self, model_dir: &Path, kind: ParakeetKind) -> Result<()> {
+    /// `threads` (Parlato) : threads ONNX, 0 = automatique (cf
+    /// `whisper::auto_threads`, mesures dans `parakeet_threads_smoke`).
+    pub fn ensure_loaded(
+        &self,
+        model_dir: &Path,
+        kind: ParakeetKind,
+        threads: usize,
+    ) -> Result<()> {
+        let threads = if threads == 0 {
+            super::whisper::auto_threads() as usize
+        } else {
+            threads
+        };
         let mut guard = self.current.lock();
         if let Some(cur) = guard.as_ref() {
-            if cur.path == model_dir {
+            if cur.path == model_dir && cur.threads == threads {
                 return Ok(());
             }
         }
@@ -65,15 +79,17 @@ impl ParakeetEngine {
         #[cfg(feature = "cuda-onnx")]
         let cfg = Some(
             parakeet_rs::ExecutionConfig::new()
-                .with_execution_provider(parakeet_rs::ExecutionProvider::Cuda),
+                .with_execution_provider(parakeet_rs::ExecutionProvider::Cuda)
+                .with_intra_threads(threads),
         );
         #[cfg(all(not(feature = "cuda-onnx"), feature = "directml-onnx"))]
         let cfg = Some(
             parakeet_rs::ExecutionConfig::new()
-                .with_execution_provider(parakeet_rs::ExecutionProvider::DirectML),
+                .with_execution_provider(parakeet_rs::ExecutionProvider::DirectML)
+                .with_intra_threads(threads),
         );
         #[cfg(all(not(feature = "cuda-onnx"), not(feature = "directml-onnx")))]
-        let cfg: Option<parakeet_rs::ExecutionConfig> = None;
+        let cfg = Some(parakeet_rs::ExecutionConfig::new().with_intra_threads(threads));
 
         let engine = match kind {
             ParakeetKind::Tdt => Engine::Tdt(
@@ -91,6 +107,7 @@ impl ParakeetEngine {
         };
         *guard = Some(Loaded {
             path: model_dir.to_path_buf(),
+            threads,
             engine,
         });
         Ok(())
@@ -237,7 +254,7 @@ mod tests {
         };
         let engine = ParakeetEngine::new();
         let t0 = std::time::Instant::now();
-        engine.ensure_loaded(Path::new(&dir), kind).unwrap();
+        engine.ensure_loaded(Path::new(&dir), kind, 0).unwrap();
         let loaded_in = t0.elapsed().as_secs_f32();
         let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
         let t1 = std::time::Instant::now();
@@ -253,6 +270,38 @@ mod tests {
         assert!(!text.trim().is_empty());
     }
 
+    /// Parlato : temps de Parakeet TDT selon `intra_threads` (4 par defaut
+    /// dans parakeet-rs), sur 6 s puis tout le fichier :
+    /// `PARLATO_PARAKEET_DIR=<tdt dir> PARLATO_WAV=<wav>
+    /// cargo test --release --lib parakeet_threads_smoke -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn parakeet_threads_smoke() {
+        let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let all = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
+        let short = &all[..all.len().min(6 * 16_000)];
+        for threads in [2, 4, 6, 8, 12, 16] {
+            let cfg = parakeet_rs::ExecutionConfig::new().with_intra_threads(threads);
+            let mut m = ParakeetTDT::from_pretrained(Path::new(&dir), Some(cfg)).unwrap();
+            for samples in [short, &all[..]] {
+                let mut best = u128::MAX;
+                for _ in 0..3 {
+                    let st = std::time::Instant::now();
+                    let r = m
+                        .transcribe_samples(samples.to_vec(), 16000, 1, None)
+                        .unwrap();
+                    best = best.min(st.elapsed().as_millis());
+                    assert!(!r.text.trim().is_empty());
+                }
+                println!(
+                    "threads={threads:>2} audio={:>4.1}s: best of 3 = {best} ms",
+                    samples.len() as f32 / 16000.0
+                );
+            }
+        }
+    }
+
     /// Parlato : apercu en direct Unified. Donne le WAV par morceaux de
     /// 200 ms comme pendant une dictee et verifie que le flux tient le temps
     /// reel : `PARLATO_PARAKEET_DIR=<unified dir> PARLATO_WAV=<wav>
@@ -264,7 +313,7 @@ mod tests {
         let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
         let engine = ParakeetEngine::new();
         engine
-            .ensure_loaded(Path::new(&dir), ParakeetKind::Unified)
+            .ensure_loaded(Path::new(&dir), ParakeetKind::Unified, 0)
             .unwrap();
         let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
         engine.stream_reset();

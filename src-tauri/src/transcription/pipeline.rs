@@ -42,7 +42,7 @@ use crate::transcription::{
 const STORE_FILE: &str = "parla.settings.json";
 const SELECTED_MODEL_KEY: &str = "selected_whisper_model";
 const LANGUAGE_KEY: &str = "whisper_language";
-const WHISPER_THREADS_KEY: &str = "whisper_threads";
+const SPEECH_THREADS_KEY: &str = "speech_threads";
 const RESTORE_CLIPBOARD_KEY: &str = "restore_clipboard_after_paste";
 const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
@@ -197,19 +197,19 @@ pub fn get_language(app: &AppHandle) -> Option<String> {
     }
 }
 
-/// Parlato : threads CPU choisis pour Whisper, 0 = automatique.
-pub fn get_whisper_threads(app: &AppHandle) -> usize {
+/// Parlato : threads CPU choisis pour Whisper et Parakeet, 0 = automatique.
+pub fn get_speech_threads(app: &AppHandle) -> usize {
     app.store(STORE_FILE)
         .ok()
-        .and_then(|s| s.get(WHISPER_THREADS_KEY))
+        .and_then(|s| s.get(SPEECH_THREADS_KEY))
         .and_then(|v| v.as_u64())
         .map(|n| n.min(whisper_core::max_threads() as u64) as usize)
         .unwrap_or(0)
 }
 
-pub fn set_whisper_threads(app: &AppHandle, threads: usize) -> Result<()> {
+pub fn set_speech_threads(app: &AppHandle, threads: usize) -> Result<()> {
     let store = app.store(STORE_FILE)?;
-    store.set(WHISPER_THREADS_KEY, serde_json::Value::from(threads));
+    store.set(SPEECH_THREADS_KEY, serde_json::Value::from(threads));
     store.save()?;
     Ok(())
 }
@@ -553,7 +553,7 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
     let language = get_language(&app);
     let params = WhisperParams {
         language: language.clone(),
-        n_threads: get_whisper_threads(&app),
+        n_threads: get_speech_threads(&app),
         ..Default::default()
     };
 
@@ -618,9 +618,10 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
         let wav_path_clone = wav_path.clone();
         let language_clone = language.clone();
         let vad = vad_for(&app);
+        let threads = get_speech_threads(&app);
         let start = std::time::Instant::now();
         let text = task::spawn_blocking(move || -> Result<String> {
-            engine_state.ensure_loaded(&model_dir, kind)?;
+            engine_state.ensure_loaded(&model_dir, kind, threads)?;
             let used_vad = vad.is_some();
             let mut samples = speech_samples(vad, &wav_path_clone)?;
             if samples.is_empty() {
@@ -967,6 +968,7 @@ mod tests {
             .ensure_loaded(
                 Path::new(&dir),
                 crate::transcription::parakeet_model_manager::ParakeetKind::Tdt,
+                0,
             )
             .unwrap();
         let text = engine.transcribe_samples(&speech, None).unwrap();

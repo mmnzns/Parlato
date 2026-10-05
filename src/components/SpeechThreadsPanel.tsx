@@ -1,7 +1,7 @@
-// Parlato : nombre de threads CPU utilises par Whisper.
+// Parlato : nombre de threads CPU utilises par Whisper et Parakeet.
 //
 // Automatique par defaut (cf `auto_threads` dans transcription/whisper.rs,
-// choisi d'apres des mesures). Le reglage manuel sert aux utilisateurs qui
+// choisi d'apres whisper_threads_smoke et parakeet_threads_smoke). Le reglage manuel sert aux utilisateurs qui
 // veulent l'ajuster a leur machine.
 
 import { useEffect, useState } from "react";
@@ -10,19 +10,19 @@ import { Row, Section, selectClass } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/tauri";
 
-export function WhisperThreadsPanel() {
+export function SpeechThreadsPanel() {
   const { t } = useTranslation();
   const [info, setInfo] = useState<{ value: number; auto: number; max: number } | null>(null);
 
   useEffect(() => {
-    api.getWhisperThreads().then(setInfo).catch(console.error);
+    api.getSpeechThreads().then(setInfo).catch(console.error);
   }, []);
 
   async function change(value: number) {
     if (!info) return;
     setInfo({ ...info, value });
     try {
-      await api.setWhisperThreads(value);
+      await api.setSpeechThreads(value);
     } catch (e) {
       console.error(e);
     }

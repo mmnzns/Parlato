@@ -258,10 +258,10 @@ pub fn set_dictation_language(app: AppHandle, code: String) -> Result<(), String
     store.save().map_err(|e| e.to_string())
 }
 
-// -- Whisper CPU threads (Parlato) ------------------------------------------
+// -- Speech model CPU threads, Whisper and Parakeet (Parlato) ---------------
 
 #[derive(serde::Serialize)]
-pub struct WhisperThreads {
+pub struct SpeechThreads {
     /// Choix enregistre, 0 = automatique.
     pub value: usize,
     /// Ce que "automatique" utilise sur cet ordinateur.
@@ -271,17 +271,17 @@ pub struct WhisperThreads {
 }
 
 #[tauri::command]
-pub fn get_whisper_threads(app: AppHandle) -> WhisperThreads {
-    WhisperThreads {
-        value: pipeline::get_whisper_threads(&app),
+pub fn get_speech_threads(app: AppHandle) -> SpeechThreads {
+    SpeechThreads {
+        value: pipeline::get_speech_threads(&app),
         auto: crate::transcription::whisper::auto_threads() as usize,
         max: crate::transcription::whisper::max_threads() as usize,
     }
 }
 
 #[tauri::command]
-pub fn set_whisper_threads(app: AppHandle, threads: usize) -> Result<(), String> {
-    pipeline::set_whisper_threads(&app, threads).map_err(|e| e.to_string())
+pub fn set_speech_threads(app: AppHandle, threads: usize) -> Result<(), String> {
+    pipeline::set_speech_threads(&app, threads).map_err(|e| e.to_string())
 }
 
 // -- System mute during recording (VoiceInk MediaController) ----------------

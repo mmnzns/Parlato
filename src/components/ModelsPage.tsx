@@ -21,7 +21,7 @@ import type * as React from "react";
 import { AudioLines, ChevronDown } from "lucide-react";
 import { CloudTimeoutPanel } from "@/components/CloudTimeoutPanel";
 import { DictationLanguagePanel } from "@/components/DictationLanguagePanel";
-import { WhisperThreadsPanel } from "@/components/WhisperThreadsPanel";
+import { SpeechThreadsPanel } from "@/components/SpeechThreadsPanel";
 import { CloudModelCard } from "@/components/models/CloudModelCard";
 import { ImportModelCard } from "@/components/models/ImportModelCard";
 import { ParakeetModelCard } from "@/components/models/ParakeetModelCard";
@@ -532,9 +532,12 @@ export function ModelsPage({
           )}
 
           {!localCompany && <CloudTimeoutPanel />}
-          {localCompany?.id === "openai" && <WhisperThreadsPanel />}
         </div>
       </div>
+
+      {/* Parlato: outside the @container column, whose style containment
+          would restart the [01] section numbering. */}
+      {localCompany && <SpeechThreadsPanel />}
     </div>
   );
 }

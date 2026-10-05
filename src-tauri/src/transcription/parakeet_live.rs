@@ -57,6 +57,7 @@ pub fn start(app: &AppHandle) -> Option<ChunkCallback> {
         .0
         .path_for_id(&model_id)?;
     let engine = app.state::<ParakeetEngineState>().0.clone();
+    let threads = crate::transcription::pipeline::get_speech_threads(app);
 
     let (tx, rx) = mpsc::channel::<Vec<i16>>();
     let stop_flag = Arc::new(AtomicBool::new(false));
@@ -65,7 +66,7 @@ pub fn start(app: &AppHandle) -> Option<ChunkCallback> {
     let spawned = std::thread::Builder::new()
         .name("parakeet-live".into())
         .spawn(move || {
-            if let Err(e) = engine.ensure_loaded(&model_dir, ParakeetKind::Unified) {
+            if let Err(e) = engine.ensure_loaded(&model_dir, ParakeetKind::Unified, threads) {
                 warn!("apercu Parakeet : chargement impossible : {e}");
                 return;
             }

@@ -1067,7 +1067,7 @@
     "pickMostLanguages": "Le plus de langues, y compris les langues asiatiques",
     "threadsTitle": "Utilisation du processeur",
     "threadsLabel": "Threads du processeur",
-    "threadsDesc": "Le nombre de parties du processeur que Whisper utilise en meme temps. Automatique est le choix le plus rapide sur la plupart des ordinateurs. Les utiliser toutes est souvent plus lent, pas plus rapide.",
+    "threadsDesc": "Le nombre de parties du processeur que le modele vocal utilise en meme temps. Automatique est le choix le plus rapide sur la plupart des ordinateurs.",
     "threadsAuto": "Automatique ({{count}})",
     "threadsReset": "Utiliser les reglages recommandes"
   },

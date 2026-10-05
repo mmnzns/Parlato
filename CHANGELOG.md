@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Speech model > Whisper: a **Processor use** setting to choose how many
-  processor threads Whisper uses. **Automatic** is the tested default; a
-  button puts it back after a change.
+- Speech model: a **Processor use** setting to choose how many processor
+  threads the speech models on this computer (Whisper and Parakeet) use.
+  **Automatic** is the tested default; a button puts it back after a
+  change.
 
 ### Changed
 - AI cleanup: the built-in writing styles (Default, Assistant) no longer
@@ -31,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   processor threads. Whisper used every thread, which made it slower, not
   faster (11.6 s instead of 2.9 s for 6 s of speech on a 16-thread PC).
   It now uses three quarters of them.
+- Parakeet models are up to 1.7 times faster: they now use three quarters
+  of the processor threads instead of a fixed four (0.86 s instead of
+  1.53 s for 49 s of speech on a 16-thread PC).
 - Power modes can no longer be wiped by a settings file Parlato fails to
   read. Parlato now keeps a backup copy and refuses changes instead of
   starting from an empty list, and the Power modes page still loads when

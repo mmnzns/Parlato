@@ -1067,7 +1067,7 @@
     "pickMostLanguages": "El mayor numero de idiomas, incluidos los asiaticos",
     "threadsTitle": "Uso del procesador",
     "threadsLabel": "Hilos del procesador",
-    "threadsDesc": "Cuantas partes del procesador usa Whisper a la vez. Automatico es la opcion mas rapida en la mayoria de los ordenadores. Usarlas todas suele ser mas lento, no mas rapido.",
+    "threadsDesc": "Cuantas partes del procesador usa el modelo de voz a la vez. Automatico es la opcion mas rapida en la mayoria de los ordenadores.",
     "threadsAuto": "Automatico ({{count}})",
     "threadsReset": "Usar los ajustes recomendados"
   },
