@@ -35,6 +35,9 @@ pub fn add_prompt(app: AppHandle, prompt: CustomPrompt) -> Result<CustomPrompt, 
     if p.id.is_empty() {
         p.id = prompts::new_uuid();
     }
+    // Parlato : un prompt ajoute (copie d'un predefini comprise) est toujours
+    // personnel, donc modifiable et supprimable.
+    p.is_predefined = false;
     p.trigger_words = prompts::normalize_trigger_words(p.trigger_words);
     all.push(p.clone());
     prompts::save_all(&app, &all).map_err(|e| e.to_string())?;

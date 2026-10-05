@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plain letters, matching the tray menu.
 
 ### Fixed
+- AI cleanup: copying a built-in writing style now makes a style you can
+  edit and delete, with its description in your language. Copies made
+  before are repaired at the next start.
 - Transcription no longer hangs for up to a minute when voice detection
   is on. Voice detection used every processor thread, which made it far
   slower than the work itself (33 s instead of 0.5 s for 49 s of audio on

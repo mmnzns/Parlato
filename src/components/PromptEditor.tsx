@@ -170,7 +170,9 @@ export function PromptEditor({ prompts, activeId, onSelect, onChange }: Props) {
                 onClick={() =>
                   startFromTemplate({
                     ...p,
-                    title: `${p.title} ${t("promptEditor.duplicateSuffix")}`,
+                    title: `${promptTitle(t, p)} ${t("promptEditor.duplicateSuffix")}`,
+                    description: promptDescription(t, p),
+                    is_predefined: false,
                   })
                 }
               >

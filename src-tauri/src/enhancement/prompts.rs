@@ -121,6 +121,15 @@ pub fn refresh_predefined(list: &mut Vec<CustomPrompt>) -> bool {
             }
         }
     }
+    // Parlato : seuls Default et Assistant sont predefinis. Une copie faite
+    // avant la correction du bouton copier gardait le drapeau, sans bouton
+    // modifier ni supprimer.
+    for p in list.iter_mut() {
+        if p.is_predefined && p.id != ID_DEFAULT && p.id != ID_ASSISTANT {
+            p.is_predefined = false;
+            changed = true;
+        }
+    }
     changed
 }
 
@@ -483,6 +492,17 @@ mod tests {
         assert_eq!(list[1].id, ID_ASSISTANT);
         // Idempotent.
         assert!(!refresh_predefined(&mut list));
+    }
+
+    #[test]
+    fn refresh_predefined_frees_copies_of_builtins() {
+        let mut list = predefined_seed();
+        let mut copy = list[1].clone();
+        copy.id = new_uuid();
+        list.push(copy);
+        assert!(refresh_predefined(&mut list));
+        assert!(!list[2].is_predefined);
+        assert!(list[0].is_predefined && list[1].is_predefined);
     }
 
     #[test]
