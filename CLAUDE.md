@@ -368,6 +368,48 @@ Phase 2 status (2026-09-30):
 - README + docs/INSTALL.md wait on branch `docs/mac-install` until the first
   release with a .dmg is published; merge it then.
 
+**Mac follow-up from the Windows batch of 2026-10-05 (to do on the MacBook).**
+These changes landed in shared code from Windows. They build on macOS without
+any Mac work, but their defaults were measured on the PC only. Pull first.
+- **Speech threads.** `auto_threads()` in `transcription/whisper.rs` (three
+  quarters of `available_parallelism()`, 12 on the 16-thread PC) is now the
+  automatic thread count for both Whisper and Parakeet
+  (`parakeet.rs::ensure_loaded`, new `threads` argument). The user setting is
+  store key `speech_threads` (0 = automatic), commands `get/set_speech_threads`,
+  UI `SpeechThreadsPanel.tsx` (Speech model page, any local model, with a
+  "Use recommended settings" reset). Windows results: Whisper ggml-base on 6 s
+  of speech, 8 threads 3.6 s, 12 threads 2.9 s, 16 threads 11.6 s; Parakeet
+  Ultra on 49 s, 4 threads 1.53 s, 12 threads 0.86 s, 16 threads 0.87 s.
+  **Mac task:** Apple Silicon has performance and efficiency cores and no
+  hyperthreading, so three quarters of all cores may not be best. Measure:
+  `PARLATO_WHISPER_MODEL=<ggml-base.bin> PARLATO_WAV=<16 kHz wav>
+  cargo test --release --lib whisper_threads_smoke -- --ignored --nocapture`
+  (`PARLATO_THREADS=4,6,8,10` and `PARLATO_SHORT_ONLY=1` narrow it) and
+  `PARLATO_PARAKEET_DIR=<parakeet-ultra dir> PARLATO_WAV=<wav>
+  cargo test --release --lib parakeet_threads_smoke -- --ignored --nocapture`
+  (that test loads Parakeet TDT, so use Ultra or v3, not Unified). Ask the
+  owner before downloading a test model (ggml-base.bin is about 148 MB). If
+  another count wins on the Mac (for example the performance-core count,
+  `sysctl hw.perflevel0.physicalcpu`), add a `#[cfg(target_os = "macos")]`
+  `auto_threads` next to the existing one and leave the Windows one alone.
+- **Voice detection threads.** `vad_threads()` in `transcription/vad.rs` is
+  now 2 (it used every thread and made Parakeet dictations hang for up to a
+  minute on Windows). Confirm on the Mac with `vad_threads_smoke` (same
+  env vars as above, plus `PARLATO_VAD_MODEL=<ggml-silero.bin>`).
+- **Translated key names.** The shortcut recorder reads key names from the
+  `keys` locale block, with Mac names in `macOverrides.keys`. The menu bar
+  label comes from `tray.rs::shortcut_label`, which has `cfg(macos)` rows.
+  Check in French and Spanish that the recorder and the menu bar show Mac
+  names (for example "Option droite", "Cmd").
+- **Nothing to do on the Mac:** the power-modes backup (`power_mode/config.rs`
+  keeps `parla.power_mode.backup.json` and refuses edits if the modes cannot
+  be read), the coffee button and the three translated labels.
+- **Not a Mac task, for the record:** Whisper's slowness on the CPU is not
+  caused by the two ggml copies (a Whisper-only build ran at the same speed).
+  The quantized large-v3-turbo model is very slow on the Windows CPU (over
+  7 minutes for 6 s of speech at 12 threads); on the Mac, Metal (Phase 3) is
+  the real fix.
+
 **Phase 3: polish.**
 - Mute other audio while recording (`audio/mute.rs`): Core Audio default
   output device.
