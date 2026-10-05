@@ -20,7 +20,7 @@ pub struct WhisperParams {
     pub language: Option<String>,
     /// Prompt initial pour guider le decodage (jargon, noms propres...).
     pub initial_prompt: Option<String>,
-    /// Nombre de threads CPU. 0 = auto (nombre de cores physiques).
+    /// Nombre de threads CPU. 0 = auto (cf `auto_threads`).
     pub n_threads: usize,
 }
 
@@ -117,7 +117,7 @@ impl WhisperEngine {
         }
 
         let n_threads = if params.n_threads == 0 {
-            num_cpus_physical()
+            auto_threads()
         } else {
             params.n_threads as i32
         };
@@ -177,8 +177,66 @@ pub fn read_wav_as_f32(path: &Path) -> Result<Vec<f32>> {
     Ok(samples)
 }
 
-fn num_cpus_physical() -> i32 {
+/// Threads logiques de l'ordinateur.
+pub fn max_threads() -> i32 {
     std::thread::available_parallelism()
         .map(|n| n.get() as i32)
         .unwrap_or(4)
+}
+
+/// Parlato : choix automatique, les trois quarts des threads. Mesure sur un
+/// Ryzen 7 9800X3D (16 threads), ggml-base, 6 s d'audio : 8 threads 3,6 s,
+/// 12 threads 2,9 s, 16 threads 11,6 s (tous les threads se disputent le
+/// processeur avec le reste du systeme). Cf `whisper_threads_smoke`.
+pub fn auto_threads() -> i32 {
+    (max_threads() * 3 / 4).max(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Parlato : temps de Whisper selon le nombre de threads, sur les 6
+    /// premieres secondes (dictee courte) puis sur tout le fichier.
+    /// `PARLATO_WHISPER_MODEL=<ggml-*.bin> PARLATO_WAV=<16 kHz wav>
+    /// cargo test --release --lib whisper_threads_smoke -- --ignored --nocapture`.
+    /// Options : `PARLATO_THREADS=8,12,16` et `PARLATO_SHORT_ONLY=1` pour les
+    /// gros modeles.
+    #[test]
+    #[ignore]
+    fn whisper_threads_smoke() {
+        let model = std::env::var("PARLATO_WHISPER_MODEL").expect("PARLATO_WHISPER_MODEL");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let all = read_wav_as_f32(Path::new(&wav)).unwrap();
+        let engine = WhisperEngine::new();
+        engine.load(Path::new(&model)).unwrap();
+        println!("system: {}", whisper_rs::print_system_info());
+        let threads_list: Vec<usize> = std::env::var("PARLATO_THREADS")
+            .map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect())
+            .unwrap_or_else(|_| vec![2, 4, 6, 8, 12, 16]);
+        let short = &all[..all.len().min(6 * 16_000)];
+        let clips: Vec<&[f32]> = if std::env::var("PARLATO_SHORT_ONLY").is_ok() {
+            vec![short]
+        } else {
+            vec![short, &all[..]]
+        };
+        for samples in clips {
+            println!("audio: {:.1} s", samples.len() as f32 / 16000.0);
+            for &threads in &threads_list {
+                let params = WhisperParams {
+                    language: Some("en".into()),
+                    n_threads: threads,
+                    ..Default::default()
+                };
+                let mut best = u128::MAX;
+                for _ in 0..2 {
+                    let st = std::time::Instant::now();
+                    let text = engine.transcribe_samples(samples, &params).unwrap();
+                    best = best.min(st.elapsed().as_millis());
+                    assert!(!text.is_empty());
+                }
+                println!("threads={threads:>2}: best of 2 = {best} ms");
+            }
+        }
+    }
 }

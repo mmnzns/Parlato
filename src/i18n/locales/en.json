@@ -1064,7 +1064,12 @@
     "showVersions_one": "Show all versions ({{count}} more)",
     "showVersions_other": "Show all versions ({{count}} more)",
     "hideVersions": "Hide other versions",
-    "pickMostLanguages": "The most languages, including Asian languages"
+    "pickMostLanguages": "The most languages, including Asian languages",
+    "threadsTitle": "Processor use",
+    "threadsLabel": "Processor threads",
+    "threadsDesc": "How many parts of your processor Whisper works with at once. Automatic is the fastest choice on most computers. Using all of them is often slower, not faster.",
+    "threadsAuto": "Automatic ({{count}})",
+    "threadsReset": "Use recommended settings"
   },
   "tf": {
     "dropTitle": "Drop an audio or video file here",

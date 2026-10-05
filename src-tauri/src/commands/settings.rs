@@ -258,6 +258,32 @@ pub fn set_dictation_language(app: AppHandle, code: String) -> Result<(), String
     store.save().map_err(|e| e.to_string())
 }
 
+// -- Whisper CPU threads (Parlato) ------------------------------------------
+
+#[derive(serde::Serialize)]
+pub struct WhisperThreads {
+    /// Choix enregistre, 0 = automatique.
+    pub value: usize,
+    /// Ce que "automatique" utilise sur cet ordinateur.
+    pub auto: usize,
+    /// Threads disponibles sur cet ordinateur.
+    pub max: usize,
+}
+
+#[tauri::command]
+pub fn get_whisper_threads(app: AppHandle) -> WhisperThreads {
+    WhisperThreads {
+        value: pipeline::get_whisper_threads(&app),
+        auto: crate::transcription::whisper::auto_threads() as usize,
+        max: crate::transcription::whisper::max_threads() as usize,
+    }
+}
+
+#[tauri::command]
+pub fn set_whisper_threads(app: AppHandle, threads: usize) -> Result<(), String> {
+    pipeline::set_whisper_threads(&app, threads).map_err(|e| e.to_string())
+}
+
 // -- System mute during recording (VoiceInk MediaController) ----------------
 
 #[tauri::command]

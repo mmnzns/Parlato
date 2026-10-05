@@ -1064,7 +1064,12 @@
     "showVersions_one": "Ver todas las versiones ({{count}} mas)",
     "showVersions_other": "Ver todas las versiones ({{count}} mas)",
     "hideVersions": "Ocultar las demas versiones",
-    "pickMostLanguages": "El mayor numero de idiomas, incluidos los asiaticos"
+    "pickMostLanguages": "El mayor numero de idiomas, incluidos los asiaticos",
+    "threadsTitle": "Uso del procesador",
+    "threadsLabel": "Hilos del procesador",
+    "threadsDesc": "Cuantas partes del procesador usa Whisper a la vez. Automatico es la opcion mas rapida en la mayoria de los ordenadores. Usarlas todas suele ser mas lento, no mas rapido.",
+    "threadsAuto": "Automatico ({{count}})",
+    "threadsReset": "Usar los ajustes recomendados"
   },
   "tf": {
     "dropTitle": "Suelta aqui un archivo de audio o video",

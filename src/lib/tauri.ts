@@ -342,6 +342,10 @@ export const api = {
   setDictationLanguage: (code: string) =>
     invoke<void>("set_dictation_language", { code }),
 
+  getWhisperThreads: () =>
+    invoke<{ value: number; auto: number; max: number }>("get_whisper_threads"),
+  setWhisperThreads: (threads: number) => invoke<void>("set_whisper_threads", { threads }),
+
   getTextProcessingSettings: () =>
     invoke<TextProcessingSettings>("get_text_processing_settings"),
   setTextFormattingEnabled: (enabled: boolean) =>

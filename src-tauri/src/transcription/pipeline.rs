@@ -42,6 +42,7 @@ use crate::transcription::{
 const STORE_FILE: &str = "parla.settings.json";
 const SELECTED_MODEL_KEY: &str = "selected_whisper_model";
 const LANGUAGE_KEY: &str = "whisper_language";
+const WHISPER_THREADS_KEY: &str = "whisper_threads";
 const RESTORE_CLIPBOARD_KEY: &str = "restore_clipboard_after_paste";
 const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
@@ -194,6 +195,23 @@ pub fn get_language(app: &AppHandle) -> Option<String> {
     } else {
         Some(raw)
     }
+}
+
+/// Parlato : threads CPU choisis pour Whisper, 0 = automatique.
+pub fn get_whisper_threads(app: &AppHandle) -> usize {
+    app.store(STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(WHISPER_THREADS_KEY))
+        .and_then(|v| v.as_u64())
+        .map(|n| n.min(whisper_core::max_threads() as u64) as usize)
+        .unwrap_or(0)
+}
+
+pub fn set_whisper_threads(app: &AppHandle, threads: usize) -> Result<()> {
+    let store = app.store(STORE_FILE)?;
+    store.set(WHISPER_THREADS_KEY, serde_json::Value::from(threads));
+    store.save()?;
+    Ok(())
 }
 
 pub fn get_restore_clipboard(app: &AppHandle) -> bool {
@@ -535,6 +553,7 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
     let language = get_language(&app);
     let params = WhisperParams {
         language: language.clone(),
+        n_threads: get_whisper_threads(&app),
         ..Default::default()
     };
 

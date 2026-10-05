@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Speech model > Whisper: a **Processor use** setting to choose how many
+  processor threads Whisper uses. **Automatic** is the tested default; a
+  button puts it back after a change.
+
 ### Changed
 - AI cleanup: the built-in writing styles (Default, Assistant) no longer
   show an edit button. Their text is restored at every start, so edits
@@ -22,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is on. Voice detection used every processor thread, which made it far
   slower than the work itself (33 s instead of 0.5 s for 49 s of audio on
   a 16-thread PC). It now uses two.
+- Whisper models are up to four times faster on computers with many
+  processor threads. Whisper used every thread, which made it slower, not
+  faster (11.6 s instead of 2.9 s for 6 s of speech on a 16-thread PC).
+  It now uses three quarters of them.
 - Power modes can no longer be wiped by a settings file Parlato fails to
   read. Parlato now keeps a backup copy and refuses changes instead of
   starting from an empty list, and the Power modes page still loads when
