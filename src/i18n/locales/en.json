@@ -1412,6 +1412,37 @@
     },
     "settings": {
       "trayHint": "Parlato stays in the menu bar near the clock. Click its icon to open it or quit."
+    },
+    "keys": {
+      "ctrl": "Control",
+      "alt": "Option",
+      "win": "Command",
+      "enter": "Return",
+      "backspace": "Delete",
+      "delete": "Forward Delete"
     }
+  },
+  "keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Shift",
+    "win": "Win",
+    "enter": "Enter",
+    "space": "Space",
+    "backspace": "Backspace",
+    "delete": "Delete",
+    "esc": "Esc",
+    "tab": "Tab",
+    "capsLock": "Caps Lock",
+    "pageUp": "Page Up",
+    "pageDown": "Page Down",
+    "home": "Home",
+    "end": "End",
+    "left": "Left",
+    "up": "Up",
+    "right": "Right",
+    "down": "Down",
+    "insert": "Insert",
+    "printScreen": "Print Screen"
   }
 }

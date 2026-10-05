@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import type { HotkeyTrigger } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import i18n from "@/i18n";
 
 // VK codes des modifiers. On inclut a la fois les codes "generiques" Windows
 // (0x10/0x11/0x12) que WebView2 renvoie via e.keyCode, et les variantes L/R
@@ -234,61 +235,42 @@ export function HotkeyRecorder({
   );
 }
 
-const VK_NAMES: Record<number, string> = {
-  0x08: "Backspace",
-  0x09: "Tab",
-  0x0d: "Enter",
-  0x10: "Shift",
-  0x11: "Ctrl",
-  0x12: "Alt",
-  0x14: "CapsLock",
-  0x1b: "Esc",
-  0x20: "Space",
-  0x21: "PageUp",
-  0x22: "PageDown",
-  0x23: "End",
-  0x24: "Home",
-  0x25: "Left",
-  0x26: "Up",
-  0x27: "Right",
-  0x28: "Down",
-  0x2c: "PrintScreen",
-  0x2d: "Insert",
-  0x2e: "Delete",
-  0x70: "F1",
-  0x71: "F2",
-  0x72: "F3",
-  0x73: "F4",
-  0x74: "F5",
-  0x75: "F6",
-  0x76: "F7",
-  0x77: "F8",
-  0x78: "F9",
-  0x79: "F10",
-  0x7a: "F11",
-  0x7b: "F12",
-  0x7c: "F13",
-  0x7d: "F14",
-  0x7e: "F15",
-  0x7f: "F16",
-  0x80: "F17",
-  0x81: "F18",
-  0x82: "F19",
-  0x83: "F20",
+// Parlato: keys whose name depends on the language (and on a Mac, see
+// `macOverrides.keys` in the locale files). Letters, digits and F-keys are
+// the same everywhere.
+const VK_KEYS: Record<number, string> = {
+  0x08: "backspace",
+  0x09: "tab",
+  0x0d: "enter",
+  0x10: "shift",
+  0x11: "ctrl",
+  0x12: "alt",
+  0x14: "capsLock",
+  0x1b: "esc",
+  0x20: "space",
+  0x21: "pageUp",
+  0x22: "pageDown",
+  0x23: "end",
+  0x24: "home",
+  0x25: "left",
+  0x26: "up",
+  0x27: "right",
+  0x28: "down",
+  0x2c: "printScreen",
+  0x2d: "insert",
+  0x2e: "delete",
 };
 
-// Parlato: what those keys are called on a Mac keyboard.
+// Parlato: Mac-only keys with no Windows equivalent.
 const MAC_VK_NAMES: Record<number, string> = {
-  0x0d: "Return",
-  0x08: "Delete",
-  0x2e: "Forward Delete",
   0x2d: "Help",
   0x0c: "Clear",
 };
 
 export function vkLabel(vk: number): string {
   if (isMac && MAC_VK_NAMES[vk]) return MAC_VK_NAMES[vk];
-  if (VK_NAMES[vk]) return VK_NAMES[vk];
+  if (VK_KEYS[vk]) return i18n.t(`keys.${VK_KEYS[vk]}`);
+  if (vk >= 0x70 && vk <= 0x87) return `F${vk - 0x6f}`; // F1..F24
   if (vk >= 0x30 && vk <= 0x39) return String.fromCharCode(vk); // 0..9
   if (vk >= 0x41 && vk <= 0x5a) return String.fromCharCode(vk); // A..Z
   return `VK_${vk.toString(16).toUpperCase().padStart(2, "0")}`;
@@ -298,10 +280,10 @@ export function formatCombo(
   combo: Extract<HotkeyTrigger, { kind: "combo" }>,
 ): string {
   const parts: string[] = [];
-  if (combo.ctrl) parts.push(isMac ? "Control" : "Ctrl");
-  if (combo.alt) parts.push(isMac ? "Option" : "Alt");
-  if (combo.shift) parts.push("Shift");
-  if (combo.win) parts.push(isMac ? "Command" : "Win");
+  if (combo.ctrl) parts.push(i18n.t("keys.ctrl"));
+  if (combo.alt) parts.push(i18n.t("keys.alt"));
+  if (combo.shift) parts.push(i18n.t("keys.shift"));
+  if (combo.win) parts.push(i18n.t("keys.win"));
   parts.push(vkLabel(combo.vk));
   return parts.join(" + ");
 }

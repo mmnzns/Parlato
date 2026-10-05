@@ -41,7 +41,7 @@ use tracing::{info, warn};
 use crate::audio;
 use crate::commands::{hotkey as hotkey_cfg, permissions, settings};
 use crate::history::last_transcription;
-use crate::hotkeys::keyboard_hook::{trigger_label, HotkeyTrigger};
+use crate::hotkeys::keyboard_hook::{trigger_label, vk_name, HotkeyOption, HotkeyTrigger};
 use crate::power_mode;
 use crate::transcription::engine;
 
@@ -106,8 +106,8 @@ pub fn refresh(app: &AppHandle) {
 }
 
 /// Appends the configured shortcut label in the accelerator column.
-fn with_accel(text: String, trigger: HotkeyTrigger) -> String {
-    match trigger_label(trigger) {
+fn with_accel(lang: &str, text: String, trigger: HotkeyTrigger) -> String {
+    match shortcut_label(lang, trigger) {
         // Parlato : a tab lines the shortcut up on the right in Windows
         // menus; macOS menus show the tab as a gap, so use parentheses.
         #[cfg(not(target_os = "macos"))]
@@ -135,7 +135,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let toggle = MenuItem::with_id(
         app,
         "toggle_record",
-        with_accel(t("toggleRecorder"), hk.primary.trigger),
+        with_accel(&lang, t("toggleRecorder"), hk.primary.trigger),
         true,
         None::<&str>,
     )?;
@@ -221,21 +221,21 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let retry = MenuItem::with_id(
         app,
         "retry_last",
-        with_accel(t("retryLast"), hk.actions.retry_last_transcription),
+        with_accel(&lang, t("retryLast"), hk.actions.retry_last_transcription),
         true,
         None::<&str>,
     )?;
     let copy_last = MenuItem::with_id(
         app,
         "copy_last",
-        with_accel(t("copyLast"), hk.actions.copy_last_transcription),
+        with_accel(&lang, t("copyLast"), hk.actions.copy_last_transcription),
         true,
         None::<&str>,
     )?;
     let history = MenuItem::with_id(
         app,
         "history",
-        with_accel(t("history"), hk.actions.open_history),
+        with_accel(&lang, t("history"), hk.actions.open_history),
         true,
         None::<&str>,
     )?;
@@ -381,6 +381,60 @@ pub fn notify_still_running(app: &AppHandle) {
     }
 }
 
+/// Parlato: the shortcut's name in the UI language. The keyboard hook's own
+/// label is English only; letters, digits and F-keys come from `vk_name`.
+fn shortcut_label(lang: &str, trigger: HotkeyTrigger) -> Option<String> {
+    if lang == "en" {
+        return trigger_label(trigger);
+    }
+    let t = |key: &str| tr(lang, key);
+    match trigger {
+        HotkeyTrigger::None => None,
+        HotkeyTrigger::Modifier { option } => Some(t(match option {
+            HotkeyOption::None => return None,
+            HotkeyOption::RightAlt => "key.rightAlt",
+            HotkeyOption::LeftAlt => "key.leftAlt",
+            HotkeyOption::RightCtrl => "key.rightCtrl",
+            HotkeyOption::LeftCtrl => "key.leftCtrl",
+            HotkeyOption::RightWin => "key.rightWin",
+            HotkeyOption::RightShift => "key.rightShift",
+            HotkeyOption::LeftShift => "key.leftShift",
+        })),
+        HotkeyTrigger::Combo {
+            vk,
+            ctrl,
+            alt,
+            shift,
+            win,
+        } => {
+            let mut parts: Vec<String> = Vec::new();
+            for (on, key) in [
+                (ctrl, "key.ctrl"),
+                (alt, "key.alt"),
+                (shift, "key.shift"),
+                (win, "key.win"),
+            ] {
+                if on {
+                    parts.push(t(key));
+                }
+            }
+            parts.push(match vk {
+                0x08 => t("key.backspace"),
+                0x0d => t("key.enter"),
+                0x1b => t("key.esc"),
+                0x20 => t("key.space"),
+                0x25 => t("key.left"),
+                0x26 => t("key.up"),
+                0x27 => t("key.right"),
+                0x28 => t("key.down"),
+                0x2e => t("key.delete"),
+                _ => vk_name(vk),
+            });
+            Some(parts.join("+"))
+        }
+    }
+}
+
 /// Native menu labels. Mirrors the `tray.*` keys of the frontend locales
 /// (en / fr / es) ; the native menu cannot use react-i18next.
 fn tr(lang: &str, key: &str) -> String {
@@ -462,7 +516,111 @@ fn tr(lang: &str, key: &str) -> String {
             "La dict\u{e9}e reste active. L'ic\u{f4}ne de Parlato est pr\u{e8}s de l'horloge : clic pour ouvrir, clic droit pour quitter.",
             "El dictado sigue activo. El icono de Parlato est\u{e1} junto al reloj: clic para abrir, clic derecho para salir.",
         ],
+        // Parlato: key names for the shortcut shown next to menu items.
+        #[cfg(not(target_os = "macos"))]
+        "key.rightAlt" => ["Right Alt", "Alt droit", "Alt derecho"],
+        #[cfg(not(target_os = "macos"))]
+        "key.leftAlt" => ["Left Alt", "Alt gauche", "Alt izquierdo"],
+        #[cfg(not(target_os = "macos"))]
+        "key.rightCtrl" => ["Right Ctrl", "Ctrl droit", "Ctrl derecho"],
+        #[cfg(not(target_os = "macos"))]
+        "key.leftCtrl" => ["Left Ctrl", "Ctrl gauche", "Ctrl izquierdo"],
+        #[cfg(not(target_os = "macos"))]
+        "key.rightWin" => ["Right Win", "Windows droit", "Windows derecho"],
+        #[cfg(not(target_os = "macos"))]
+        "key.ctrl" => ["Ctrl", "Ctrl", "Ctrl"],
+        #[cfg(not(target_os = "macos"))]
+        "key.alt" => ["Alt", "Alt", "Alt"],
+        #[cfg(not(target_os = "macos"))]
+        "key.win" => ["Win", "Win", "Win"],
+        #[cfg(not(target_os = "macos"))]
+        "key.enter" => ["Enter", "Entr\u{e9}e", "Intro"],
+        #[cfg(not(target_os = "macos"))]
+        "key.backspace" => ["Backspace", "Retour arri\u{e8}re", "Retroceso"],
+        #[cfg(not(target_os = "macos"))]
+        "key.delete" => ["Delete", "Suppr", "Supr"],
+        #[cfg(target_os = "macos")]
+        "key.rightAlt" => ["Right Option", "Option droite", "Opci\u{f3}n derecha"],
+        #[cfg(target_os = "macos")]
+        "key.leftAlt" => ["Left Option", "Option gauche", "Opci\u{f3}n izquierda"],
+        #[cfg(target_os = "macos")]
+        "key.rightCtrl" => ["Right Control", "Contr\u{f4}le droit", "Control derecho"],
+        #[cfg(target_os = "macos")]
+        "key.leftCtrl" => ["Left Control", "Contr\u{f4}le gauche", "Control izquierdo"],
+        #[cfg(target_os = "macos")]
+        "key.rightWin" => ["Right Command", "Commande droite", "Comando derecho"],
+        #[cfg(target_os = "macos")]
+        "key.ctrl" => ["Control", "Contr\u{f4}le", "Control"],
+        #[cfg(target_os = "macos")]
+        "key.alt" => ["Option", "Option", "Opci\u{f3}n"],
+        #[cfg(target_os = "macos")]
+        "key.win" => ["Command", "Commande", "Comando"],
+        #[cfg(target_os = "macos")]
+        "key.enter" => ["Return", "Retour", "Retorno"],
+        #[cfg(target_os = "macos")]
+        "key.backspace" => ["Delete", "Supprimer", "Borrar"],
+        #[cfg(target_os = "macos")]
+        "key.delete" => ["Forward Delete", "Suppr. avant", "Suprimir"],
+        "key.rightShift" => ["Right Shift", "Maj droite", "May\u{fa}s derecha"],
+        "key.leftShift" => ["Left Shift", "Maj gauche", "May\u{fa}s izquierda"],
+        "key.shift" => ["Shift", "Maj", "May\u{fa}s"],
+        "key.esc" => ["Esc", "\u{c9}chap", "Esc"],
+        "key.space" => ["Space", "Espace", "Espacio"],
+        "key.left" => ["Left", "Gauche", "Izquierda"],
+        "key.up" => ["Up", "Haut", "Arriba"],
+        "key.right" => ["Right", "Droite", "Derecha"],
+        "key.down" => ["Down", "Bas", "Abajo"],
         _ => [key, key, key],
     };
     row[col].to_string()
+}
+
+#[cfg(test)]
+mod shortcut_label_tests {
+    use super::*;
+
+    #[test]
+    fn shortcut_names_follow_the_ui_language() {
+        let combo = HotkeyTrigger::Combo {
+            vk: 0x20,
+            ctrl: true,
+            alt: false,
+            shift: true,
+            win: false,
+        };
+        let right_alt = HotkeyTrigger::Modifier {
+            option: HotkeyOption::RightAlt,
+        };
+        #[cfg(not(target_os = "macos"))]
+        {
+            assert_eq!(
+                shortcut_label("en", right_alt).as_deref(),
+                Some("Right Alt")
+            );
+            assert_eq!(
+                shortcut_label("fr", right_alt).as_deref(),
+                Some("Alt droit")
+            );
+            assert_eq!(
+                shortcut_label("fr", combo).as_deref(),
+                Some("Ctrl+Maj+Espace")
+            );
+            assert_eq!(
+                shortcut_label("es", combo).as_deref(),
+                Some("Ctrl+May\u{fa}s+Espacio")
+            );
+        }
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(
+                shortcut_label("en", right_alt).as_deref(),
+                Some("Right Option")
+            );
+            assert_eq!(
+                shortcut_label("fr", combo).as_deref(),
+                Some("Contr\u{f4}le+Maj+Espace")
+            );
+        }
+        assert_eq!(shortcut_label("en", HotkeyTrigger::None), None);
+    }
 }

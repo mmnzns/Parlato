@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - French and Spanish: three settings that were still in English (the
   Parakeet execution engine, and the context size and maximum answer
   length of local AI cleanup) are now translated.
+- French and Spanish: key names in shortcuts are translated, in the app
+  and in the tray menu (for example "Ctrl+Maj+Espace", "Alt droit").
 
 ### Fixed
 - Transcription no longer hangs for up to a minute when voice detection

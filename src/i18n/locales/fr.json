@@ -843,8 +843,8 @@
       "rightCtrl": "Ctrl droit",
       "leftCtrl": "Ctrl gauche",
       "rightWin": "Windows droit",
-      "rightShift": "Shift droit",
-      "leftShift": "Shift gauche",
+      "rightShift": "Maj droite",
+      "leftShift": "Maj gauche",
       "custom": "Combinaison personnalisee..."
     },
     "modes": {
@@ -1412,6 +1412,37 @@
     },
     "settings": {
       "trayHint": "Parlato reste dans la barre des menus pres de l'horloge. Cliquez sur son icone pour l'ouvrir ou quitter."
+    },
+    "keys": {
+      "ctrl": "Controle",
+      "alt": "Option",
+      "win": "Commande",
+      "enter": "Retour",
+      "backspace": "Supprimer",
+      "delete": "Suppr. avant"
     }
+  },
+  "keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Maj",
+    "win": "Win",
+    "enter": "Entree",
+    "space": "Espace",
+    "backspace": "Retour arriere",
+    "delete": "Suppr",
+    "esc": "Echap",
+    "tab": "Tab",
+    "capsLock": "Verr Maj",
+    "pageUp": "Page prec",
+    "pageDown": "Page suiv",
+    "home": "Debut",
+    "end": "Fin",
+    "left": "Gauche",
+    "up": "Haut",
+    "right": "Droite",
+    "down": "Bas",
+    "insert": "Inser",
+    "printScreen": "Impr ecran"
   }
 }

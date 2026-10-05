@@ -843,8 +843,8 @@
       "rightCtrl": "Ctrl derecho",
       "leftCtrl": "Ctrl izquierdo",
       "rightWin": "Windows derecho",
-      "rightShift": "Shift derecho",
-      "leftShift": "Shift izquierdo",
+      "rightShift": "Mayus derecha",
+      "leftShift": "Mayus izquierda",
       "custom": "Combinacion personalizada..."
     },
     "modes": {
@@ -1412,6 +1412,37 @@
     },
     "settings": {
       "trayHint": "Parlato se queda en la barra de menus junto al reloj. Haz clic en su icono para abrirlo o salir."
+    },
+    "keys": {
+      "ctrl": "Control",
+      "alt": "Opcion",
+      "win": "Comando",
+      "enter": "Retorno",
+      "backspace": "Borrar",
+      "delete": "Suprimir"
     }
+  },
+  "keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Mayus",
+    "win": "Win",
+    "enter": "Intro",
+    "space": "Espacio",
+    "backspace": "Retroceso",
+    "delete": "Supr",
+    "esc": "Esc",
+    "tab": "Tab",
+    "capsLock": "Bloq Mayus",
+    "pageUp": "Re Pag",
+    "pageDown": "Av Pag",
+    "home": "Inicio",
+    "end": "Fin",
+    "left": "Izquierda",
+    "up": "Arriba",
+    "right": "Derecha",
+    "down": "Abajo",
+    "insert": "Insert",
+    "printScreen": "Impr Pant"
   }
 }
