@@ -818,7 +818,8 @@
     "recordingInProgress": "A recording is in progress.",
     "fileUnsupported": "This file type can't be read. Try MP3, WAV, M4A, FLAC, OGG or MP4.",
     "fileNoAudio": "This file has no audio track, or it is silent.",
-    "fileTooLong": "This file is longer than 2 hours. Split it into shorter parts."
+    "fileTooLong": "This file is longer than 2 hours. Split it into shorter parts.",
+    "interrupted": "Parlato was closed before this dictation finished. Use Transcribe again to try once more."
   },
   "prompts": {
     "default": {

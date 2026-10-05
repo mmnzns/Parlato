@@ -818,7 +818,8 @@
     "recordingInProgress": "Un enregistrement est en cours.",
     "fileUnsupported": "Ce type de fichier ne peut pas être lu. Essayez MP3, WAV, M4A, FLAC, OGG ou MP4.",
     "fileNoAudio": "Ce fichier n'a pas de piste audio, ou il est silencieux.",
-    "fileTooLong": "Ce fichier dépasse 2 heures. Coupez-le en parties plus courtes."
+    "fileTooLong": "Ce fichier dépasse 2 heures. Coupez-le en parties plus courtes.",
+    "interrupted": "Parlato a été fermé avant la fin de cette dictée. Utilisez « Retranscrire » pour réessayer."
   },
   "prompts": {
     "default": {

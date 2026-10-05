@@ -818,7 +818,8 @@
     "recordingInProgress": "Hay una grabación en curso.",
     "fileUnsupported": "No se puede leer este tipo de archivo. Prueba MP3, WAV, M4A, FLAC, OGG o MP4.",
     "fileNoAudio": "Este archivo no tiene pista de audio o está en silencio.",
-    "fileTooLong": "Este archivo dura más de 2 horas. Divídelo en partes más cortas."
+    "fileTooLong": "Este archivo dura más de 2 horas. Divídelo en partes más cortas.",
+    "interrupted": "Parlato se cerró antes de terminar este dictado. Usa «Transcribir de nuevo» para intentarlo otra vez."
   },
   "prompts": {
     "default": {

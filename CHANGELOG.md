@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plain letters, matching the tray menu.
 
 ### Fixed
+- History: a dictation cut off by closing Parlato no longer stays on
+  "Transcribing..." forever. At the next start it moves to **Failed**,
+  with its recording, so **Transcribe again** can finish it.
 - AI cleanup: copying a built-in writing style now makes a style you can
   edit and delete, with its description in your language. Copies made
   before are repaired at the next start.

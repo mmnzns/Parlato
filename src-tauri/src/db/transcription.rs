@@ -179,6 +179,20 @@ pub fn mark_failed(conn: &Connection, id: &str, err: &str) -> Result<()> {
     Ok(())
 }
 
+/// Parlato : au demarrage, aucune dictee n'est en cours. Une ligne encore
+/// "pending" vient d'un arret de Parlato en pleine transcription : sans ca
+/// elle resterait "Transcription..." pour toujours. Passe en "failed" pour
+/// qu'elle apparaisse dans le filtre Echecs, avec "Transcrire a nouveau".
+/// Renvoie le nombre de lignes corrigees.
+pub fn fail_interrupted(conn: &Connection) -> Result<usize> {
+    Ok(conn.execute(
+        "UPDATE transcriptions
+         SET status = 'failed', text = 'Transcription Failed: PARLA_ERR:interrupted'
+         WHERE status = 'pending'",
+        [],
+    )?)
+}
+
 /// Liste la page la plus recente (timestamp DESC). `before` permet la
 /// pagination curseur : renvoie les rows dont timestamp < before.
 pub fn list_page(
@@ -448,4 +462,40 @@ pub fn all_audio_file_names(conn: &Connection) -> Result<Vec<String>> {
         .filter_map(|r| r.ok().flatten())
         .collect();
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fail_interrupted_only_touches_pending_rows() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let stuck = insert_pending(&conn, None, Some(39.0)).unwrap();
+        let done = insert_pending(&conn, None, Some(5.0)).unwrap();
+        conn.execute(
+            "UPDATE transcriptions SET status = 'completed', text = 'hello' WHERE id = ?1",
+            params![done],
+        )
+        .unwrap();
+        assert_eq!(fail_interrupted(&conn).unwrap(), 1);
+        let status_text = |id: &str| -> (String, String) {
+            conn.query_row(
+                "SELECT status, text FROM transcriptions WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            status_text(&stuck),
+            (
+                "failed".into(),
+                "Transcription Failed: PARLA_ERR:interrupted".into()
+            )
+        );
+        assert_eq!(status_text(&done), ("completed".into(), "hello".into()));
+        assert_eq!(fail_interrupted(&conn).unwrap(), 0);
+    }
 }

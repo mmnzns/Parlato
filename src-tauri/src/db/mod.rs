@@ -22,6 +22,11 @@ impl Database {
         let path = db_path(app)?;
         let conn = Connection::open(&path).with_context(|| format!("ouverture DB {}", path.display()))?;
         schema::init(&conn)?;
+        match transcription::fail_interrupted(&conn) {
+            Ok(0) => {}
+            Ok(n) => tracing::info!(count = n, "Dictees interrompues marquees en echec"),
+            Err(e) => tracing::warn!("fail_interrupted: {e}"),
+        }
         Ok(Self(Arc::new(Mutex::new(conn))))
     }
 }
