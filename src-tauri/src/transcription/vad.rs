@@ -82,7 +82,7 @@ impl VadEngine {
         }
         info!(path = %model_path.display(), "Chargement du modele VAD Silero");
         let mut params = WhisperVadContextParams::default();
-        params.set_n_threads(num_cpus_physical());
+        params.set_n_threads(vad_threads());
         params.set_use_gpu(false);
         let path_str = model_path
             .to_str()
@@ -219,6 +219,15 @@ pub fn delete_vad(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+/// Parlato : Silero traite l'audio par fenetres de 32 ms, des graphes minuscules.
+/// Avec tous les threads (16 sur un Ryzen 8 coeurs), la synchronisation coute
+/// bien plus que le calcul : 32,8 s au lieu de 0,5 s pour 49 s d'audio
+/// (`vad_threads_smoke`, 2026-10-05), et parfois 50 s quand le PC est occupe.
+/// 2 threads est le plus rapide mesure.
+fn vad_threads() -> i32 {
+    num_cpus_physical().min(2)
+}
+
 fn num_cpus_physical() -> i32 {
     std::thread::available_parallelism()
         .map(|n| n.get() as i32)
@@ -251,4 +260,38 @@ pub fn run_vad_on_wav(engine: &VadEngine, wav_path: &Path) -> Result<VadOutput> 
         warn!("VAD n'a detecte aucune parole");
     }
     Ok((samples, ranges))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Parlato : temps de la VAD selon le nombre de threads.
+    /// `PARLATO_VAD_MODEL=<ggml-silero.bin> PARLATO_WAV=<16 kHz wav>
+    /// cargo test --release --lib vad_threads_smoke -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn vad_threads_smoke() {
+        let model = std::env::var("PARLATO_VAD_MODEL").expect("PARLATO_VAD_MODEL");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
+        println!("audio: {:.1} s", samples.len() as f32 / 16000.0);
+        for threads in [1, 2, 4, num_cpus_physical()] {
+            let mut params = WhisperVadContextParams::default();
+            params.set_n_threads(threads);
+            params.set_use_gpu(false);
+            let mut ctx = WhisperVadContext::new(&model, params).unwrap();
+            let mut best = u128::MAX;
+            for _ in 0..3 {
+                let st = Instant::now();
+                let n = ctx
+                    .segments_from_samples(default_vad_params(), &samples)
+                    .unwrap()
+                    .count();
+                best = best.min(st.elapsed().as_millis());
+                assert!(n > 0);
+            }
+            println!("threads={threads:>2}: best of 3 = {best} ms");
+        }
+    }
 }

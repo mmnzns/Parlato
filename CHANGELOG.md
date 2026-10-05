@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   show an edit button. Their text is restored at every start, so edits
   never stuck. Use the copy button to make your own version.
 
+### Fixed
+- Transcription no longer hangs for up to a minute when voice detection
+  is on. Voice detection used every processor thread, which made it far
+  slower than the work itself (33 s instead of 0.5 s for 49 s of audio on
+  a 16-thread PC). It now uses two.
+
 ## [0.9.1] - 2026-09-30
 
 ### Added
