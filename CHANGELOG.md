@@ -13,44 +13,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Automatic** is the tested default; a button puts it back after a
   change.
 - Settings > About: a **Buy me a coffee** button to support Parlato.
+- On GitHub: a [FAQ](docs/FAQ.md), a bug report form for
+  [issues](https://github.com/mmnzns/Parlato/issues/new/choose) and a
+  Sponsor button.
 
 ### Changed
 - AI cleanup: the built-in writing styles (Default, Assistant) no longer
   show an edit button. Their text is restored at every start, so edits
   never stuck. Use the copy button to make your own version.
+- French and Spanish: the app now spells words with their accents
+  ("Paramètres", "dictée", "Añadir", "¿Borrar este dictado?") instead of
+  plain letters, matching the tray menu. The language list shows
+  Français and Español.
+- French and Spanish: key names in shortcuts are translated, in the app
+  and in the tray menu (for example "Ctrl+Maj+Espace", "Alt droit").
 - French and Spanish: three settings that were still in English (the
   Parakeet execution engine, and the context size and maximum answer
   length of local AI cleanup) are now translated.
-- French and Spanish: key names in shortcuts are translated, in the app
-  and in the tray menu (for example "Ctrl+Maj+Espace", "Alt droit").
-- French and Spanish: the app now spells words with their accents
-  ("Paramètres", "dictée", "Añadir", "¿Borrar este dictado?") instead of
-  plain letters, matching the tray menu.
 
 ### Fixed
-- French and Spanish: the language list shows Français and Español
-  with their accents.
+- Transcription no longer hangs for up to a minute when voice detection
+  is on. Voice detection used every processor thread, which made it far
+  slower than the work itself (33 s instead of 0.5 s for 49 s of audio on
+  a 16-thread PC). It now uses two.
+- Parakeet models are up to 1.7 times faster: they now use three quarters
+  of the processor threads instead of a fixed four (0.86 s instead of
+  1.53 s for 49 s of speech on a 16-thread PC).
+- Whisper models are up to four times faster on computers with many
+  processor threads. Whisper used every thread, which made it slower, not
+  faster (11.6 s instead of 2.9 s for 6 s of speech on a 16-thread PC).
+  It now uses three quarters of them.
+- Power modes can no longer be wiped by a settings file Parlato fails to
+  read. Parlato now keeps a backup copy and refuses changes instead of
+  starting from an empty list, and the Power modes page still loads when
+  one of its model lists fails.
 - History: a dictation cut off by closing Parlato no longer stays on
   "Transcribing..." forever. At the next start it moves to **Failed**,
   with its recording, so **Transcribe again** can finish it.
 - AI cleanup: copying a built-in writing style now makes a style you can
   edit and delete, with its description in your language. Copies made
   before are repaired at the next start.
-- Transcription no longer hangs for up to a minute when voice detection
-  is on. Voice detection used every processor thread, which made it far
-  slower than the work itself (33 s instead of 0.5 s for 49 s of audio on
-  a 16-thread PC). It now uses two.
-- Whisper models are up to four times faster on computers with many
-  processor threads. Whisper used every thread, which made it slower, not
-  faster (11.6 s instead of 2.9 s for 6 s of speech on a 16-thread PC).
-  It now uses three quarters of them.
-- Parakeet models are up to 1.7 times faster: they now use three quarters
-  of the processor threads instead of a fixed four (0.86 s instead of
-  1.53 s for 49 s of speech on a 16-thread PC).
-- Power modes can no longer be wiped by a settings file Parlato fails to
-  read. Parlato now keeps a backup copy and refuses changes instead of
-  starting from an empty list, and the Power modes page still loads when
-  one of its model lists fails.
 
 ## [0.9.1] - 2026-09-30
 
