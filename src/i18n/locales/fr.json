@@ -312,7 +312,10 @@
     "deleteAllButton": "Tout supprimer",
     "deleteAllConfirm": "Supprimer toutes les donnees de Parlato ? Cela supprime chaque modele telecharge, tout l'historique avec ses enregistrements, vos reglages, prompts et modes, les journaux, le demarrage automatique et vos cles de compte. C'est definitif. Parlato se ferme ensuite.",
     "deleteAllAfterMac": "Pour supprimer aussi l'app, glissez ensuite Parlato depuis Applications vers la Corbeille.",
-    "deleteAllAfterWindows": "Pour supprimer aussi l'app, desinstallez ensuite Parlato depuis Parametres > Applications."
+    "deleteAllAfterWindows": "Pour supprimer aussi l'app, desinstallez ensuite Parlato depuis Parametres > Applications.",
+    "supportLabel": "Soutenir Parlato",
+    "supportHint": "Un cafe aide a faire signer Parlato pour Windows et Mac, pour que plus personne n'ait a passer outre un avertissement.",
+    "supportAlt": "Offrez-moi un cafe"
   },
   "onboarding": {
     "welcome": {

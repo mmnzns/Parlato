@@ -312,7 +312,10 @@
     "deleteAllButton": "Borrar todo",
     "deleteAllConfirm": "Borrar todos los datos de Parlato? Se borran todos los modelos descargados, todo el historial con sus grabaciones, tus ajustes, prompts y modos, los registros, el inicio automatico y tus claves de cuenta. No se puede deshacer. Parlato se cierra al terminar.",
     "deleteAllAfterMac": "Para quitar tambien la app, arrastra luego Parlato desde Aplicaciones a la Papelera.",
-    "deleteAllAfterWindows": "Para quitar tambien la app, desinstala luego Parlato desde Configuracion > Aplicaciones."
+    "deleteAllAfterWindows": "Para quitar tambien la app, desinstala luego Parlato desde Configuracion > Aplicaciones.",
+    "supportLabel": "Apoyar Parlato",
+    "supportHint": "Un cafe ayuda a firmar Parlato para Windows y Mac, para que nadie tenga que saltarse un aviso de nuevo.",
+    "supportAlt": "Invitame a un cafe"
   },
   "onboarding": {
     "welcome": {

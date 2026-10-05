@@ -39,6 +39,7 @@ import {
 import { api, type RetentionSettings, type TextProcessingSettings } from "@/lib/tauri";
 import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import coffeeButton from "@/assets/coffee-button.webp";
 import { isMac } from "@/lib/platform";
 import { confirmDelete } from "@/lib/confirmDelete";
 import { installUpdate } from "@/lib/updater";
@@ -47,6 +48,8 @@ const REPO_URL = "https://github.com/mmnzns/Parlato";
 // Credit the upstream author (profile, not just the repo).
 const UPSTREAM_URL = "https://github.com/LitteRabbit-37";
 const SITE_URL = "https://craftconceptsdigital.com";
+// Parlato: donations go toward code-signing Parlato for Windows and Mac.
+const COFFEE_URL = "https://buymeacoffee.com/mnmnzns";
 
 const DAY_MIN = 24 * 60;
 const DICTATION_PRESETS = [1, 7, 30, 90]; // days
@@ -549,6 +552,16 @@ export function SettingsPanel() {
         </Row>
         <Row label={t("settings.madeByLabel")} description={t("settings.madeByHint")}>
           {link(t("settings.madeByButton"), SITE_URL)}
+        </Row>
+        <Row label={t("settings.supportLabel")} description={t("settings.supportHint")}>
+          <button
+            type="button"
+            onClick={() => openUrl(COFFEE_URL)}
+            title={t("settings.supportAlt")}
+            className="shrink-0 rounded-sm transition-transform hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <img src={coffeeButton} alt={t("settings.supportAlt")} draggable={false} className="block h-10 w-auto" />
+          </button>
         </Row>
         <Row label={t("settings.basedOnLabel")} description={t("settings.basedOnHint")}>
           {link(t("settings.basedOnButton"), UPSTREAM_URL)}

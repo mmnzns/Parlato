@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   threads the speech models on this computer (Whisper and Parakeet) use.
   **Automatic** is the tested default; a button puts it back after a
   change.
+- Settings > About: a **Buy me a coffee** button to support Parlato.
 
 ### Changed
 - AI cleanup: the built-in writing styles (Default, Assistant) no longer
