@@ -80,6 +80,30 @@ jobs:
           echo "CFLAGS=--target=aarch64-pc-windows-msvc" >> $env:GITHUB_ENV
           echo "CXXFLAGS=--target=aarch64-pc-windows-msvc /EHsc" >> $env:GITHUB_ENV
 
+      # Parlato: the release page shows this version's CHANGELOG.md section,
+      # so everyone sees what changed. A tag without its section fails here.
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' \
+            -e 's#](docs/#](https://github.com/mmnzns/Parlato/blob/main/docs/#g' > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section"
+            exit 1
+          fi
+          {
+            echo "body<<PARLATO_NOTES_EOF"
+            cat notes.md
+            echo "PARLATO_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build + sign + bundle (CPU ${{ matrix.arch }})
         id: tauri_build
         uses: tauri-apps/tauri-action@v0
@@ -91,7 +115,11 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Parlato ${{ github.ref_name }}"
           releaseBody: |
-            See the [changelog](https://github.com/mmnzns/Parlato/blob/main/CHANGELOG.md) for what's new.
+            ## What's new
+
+            ${{ steps.notes.outputs.body }}
+
+            Earlier versions: [full changelog](https://github.com/mmnzns/Parlato/blob/main/CHANGELOG.md).
 
             **Which file do I download?**
             - `Parlato_x.y.z_x64-setup.exe`: almost every Windows PC.

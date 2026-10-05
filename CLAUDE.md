@@ -173,7 +173,11 @@ private key has the same effect.
 
 **Releasing.** Bump the version in `package.json`, `package-lock.json`,
 `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, add a `CHANGELOG.md`
-entry, commit, then push a `vX.Y.Z` tag. `.github/workflows/release.yml`
+entry, commit, then push a `vX.Y.Z` tag. Every release publishes its
+changelog (owner rule, 2026-10-05): the workflow copies the
+`## [X.Y.Z] - date` section of `CHANGELOG.md` into the release page under
+"What's new", and fails if that section is missing. So rename
+`## [Unreleased]` to the version and date before tagging. `.github/workflows/release.yml`
 builds x64 and ARM64, signs them, uploads `latest.json` and creates a
 **draft** release. Publishing the draft is the owner's call. Local
 `npm run tauri build` keeps `createUpdaterArtifacts` off, so it needs no key.
