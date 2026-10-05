@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is on. Voice detection used every processor thread, which made it far
   slower than the work itself (33 s instead of 0.5 s for 49 s of audio on
   a 16-thread PC). It now uses two.
+- Power modes can no longer be wiped by a settings file Parlato fails to
+  read. Parlato now keeps a backup copy and refuses changes instead of
+  starting from an empty list, and the Power modes page still loads when
+  one of its model lists fails.
 
 ## [0.9.1] - 2026-09-30
 

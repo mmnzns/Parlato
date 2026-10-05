@@ -11,6 +11,7 @@ use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
 
 const STORE_FILE: &str = "parla.power_mode.json";
+const BACKUP_FILE: &str = "parla.power_mode.backup.json";
 const KEY_CONFIGS: &str = "configurations";
 const KEY_ACTIVE_ID: &str = "active_configuration_id";
 const KEY_AUTO_RESTORE: &str = "auto_restore_enabled";
@@ -149,8 +150,11 @@ pub fn load_all(app: &AppHandle) -> Result<Vec<PowerModeConfig>> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| anyhow!("store: {e}"))?;
-    if let Some(v) = store.get(KEY_CONFIGS) {
-        if let Ok(mut list) = serde_json::from_value::<Vec<PowerModeConfig>>(v.clone()) {
+    let Some(v) = store.get(KEY_CONFIGS) else {
+        return Ok(Vec::new());
+    };
+    match serde_json::from_value::<Vec<PowerModeConfig>>(v.clone()) {
+        Ok(mut list) => {
             if restore_legacy_slots(&v, &mut list) {
                 store.set(KEY_CONFIGS, serde_json::to_value(&list)?);
                 if let Err(e) = store.save() {
@@ -159,10 +163,32 @@ pub fn load_all(app: &AppHandle) -> Result<Vec<PowerModeConfig>> {
                     tracing::info!("power_mode: restored pre-0.8.0 Alt+digit shortcuts");
                 }
             }
-            return Ok(list);
+            Ok(list)
+        }
+        Err(e) => {
+            // Parlato : never answer "no modes" here. Every add/edit/delete
+            // saves what this returns, so an empty list would overwrite the
+            // user's modes. Keep a copy and refuse instead.
+            backup_unreadable(app, &v);
+            Err(anyhow!("power modes could not be read: {e}"))
         }
     }
-    Ok(Vec::new())
+}
+
+/// Parlato : copies modes this version cannot read into
+/// `parla.power_mode.backup.json`, once (an existing backup is kept).
+fn backup_unreadable(app: &AppHandle, raw: &serde_json::Value) {
+    let Ok(backup) = app.store(BACKUP_FILE) else {
+        return;
+    };
+    if backup.has(KEY_CONFIGS) {
+        return;
+    }
+    backup.set(KEY_CONFIGS, raw.clone());
+    match backup.save() {
+        Ok(()) => tracing::warn!("power_mode: unreadable modes copied to {BACKUP_FILE}"),
+        Err(e) => tracing::warn!("power_mode: backing up unreadable modes failed: {e}"),
+    }
 }
 
 /// Parlato : modes saved before 0.8.0 have no `shortcut_slot` field at all;

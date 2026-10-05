@@ -80,21 +80,26 @@ export function PowerModePanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Modes load on their own: a failing model or prompt list must not hide
+  // them, and the backend refuses edits while they cannot be read.
   async function refresh(pickFirst = false) {
     try {
-      const [cs, ar, prompts, providers, whisper, parakeet, cloud] = await Promise.all([
-        api.listPowerConfigs(),
-        api.getPowerAutoRestore(),
+      const [cs, ar] = await Promise.all([api.listPowerConfigs(), api.getPowerAutoRestore()]);
+      setConfigs(cs);
+      setAutoRestore(ar);
+      if (pickFirst && cs.length > 0) setSelectedId(cs[0].id);
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      const [prompts, providers, whisper, parakeet, cloud] = await Promise.all([
         api.listPrompts(),
         api.listLlmProviders(),
         api.listWhisperModels(),
         api.listParakeetModels(),
         api.listCloudModels(),
       ]);
-      setConfigs(cs);
-      setAutoRestore(ar);
       setCatalog({ prompts, providers, whisper, parakeet, cloud: cloud as CloudModel[] });
-      if (pickFirst && cs.length > 0) setSelectedId(cs[0].id);
     } catch (e) {
       console.error(e);
     }
