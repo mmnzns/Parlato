@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   length of local AI cleanup) are now translated.
 - French and Spanish: key names in shortcuts are translated, in the app
   and in the tray menu (for example "Ctrl+Maj+Espace", "Alt droit").
+- French and Spanish: the app now spells words with their accents
+  ("Paramètres", "dictée", "Añadir", "¿Borrar este dictado?") instead of
+  plain letters, matching the tray menu.
 
 ### Fixed
 - Transcription no longer hangs for up to a minute when voice detection
