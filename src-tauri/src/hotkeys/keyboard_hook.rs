@@ -85,9 +85,10 @@ impl HotkeyOption {
 /// Definition d'un trigger pour un slot (primary ou secondary). Sert a
 /// representer les trois cas user : pas de trigger, modifier-only, ou
 /// combo libre.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum HotkeyTrigger {
+    #[default]
     None,
     Modifier { option: HotkeyOption },
     Combo {
@@ -97,12 +98,6 @@ pub enum HotkeyTrigger {
         shift: bool,
         win: bool,
     },
-}
-
-impl Default for HotkeyTrigger {
-    fn default() -> Self {
-        HotkeyTrigger::None
-    }
 }
 
 impl HotkeyTrigger {

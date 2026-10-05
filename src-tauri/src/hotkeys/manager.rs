@@ -31,18 +31,13 @@ const ACTION_COOLDOWN: Duration = Duration::from_millis(500);
 /// Fenetre pour double-tap Escape (VoiceInk `escapeDoublePressThreshold`).
 const ESC_DOUBLE_TAP_WINDOW: Duration = Duration::from_millis(1500);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HotkeyMode {
     Toggle,
     PushToTalk,
+    #[default]
     Hybrid,
-}
-
-impl Default for HotkeyMode {
-    fn default() -> Self {
-        HotkeyMode::Hybrid
-    }
 }
 
 /// Action derivee par le manager et consommee par le reste de l'app.
