@@ -93,7 +93,17 @@ jobs:
             on && /^## \[/ { exit }
             on { print }
           ' CHANGELOG.md | sed -e '/./,$!d' \
-            -e 's#](docs/#](https://github.com/mmnzns/Parlato/blob/main/docs/#g' > notes.md
+            -e 's#](docs/#](https://github.com/mmnzns/Parlato/blob/main/docs/#g' > section.md
+          # Release pages show every line break, so join the changelog's
+          # wrapped lines back into one line per item.
+          awk '
+            function flush() { if (buf != "") print buf; buf = "" }
+            /^[[:space:]]*$/ { flush(); print; next }
+            /^#/ { flush(); print; next }
+            /^[[:space:]]*- / { flush(); buf = $0; next }
+            { line = $0; sub(/^[[:space:]]+/, "", line); buf = (buf == "") ? line : buf " " line }
+            END { flush() }
+          ' section.md > notes.md
           if ! grep -q '[^[:space:]]' notes.md; then
             echo "::error::CHANGELOG.md has no '## [$VERSION]' section"
             exit 1
