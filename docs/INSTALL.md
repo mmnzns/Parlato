@@ -48,13 +48,15 @@ and download one file:
 
 ### 3. First setup (about 2 minutes)
 
-1. **Microphone:** pick your microphone and speak: the bar should move.
+1. **Microphone:** pick your microphone, press **Test** and speak: the bar
+   should move.
 2. **Speech model:** pick a model and download it once. **Parakeet Unified**
    is the best choice for English; **Parakeet Ultra** for other European
    languages.
 3. **Shortcut:** the default is **Right Alt**. Hold it to talk, let go to
    stop. A short tap starts hands-free mode; tap again to stop.
-4. **Try it:** dictate into the practice box.
+4. **Try it:** dictate into the practice box. Leave **Start Parlato when my
+   computer starts** ticked so your shortcut works right after you sign in.
 
 Parlato keeps running with its icon near the clock (in the system tray, or
 under the small arrow next to it). Right-click the icon for the menu,
@@ -64,6 +66,9 @@ including **Quit Parlato**.
 
 Parlato checks for new versions and offers to install them: click
 **Update now**. Updates are signed, and Parlato refuses any update that isn't.
+Each version's changes are listed on its
+[release page](https://github.com/mmnzns/Parlato/releases), under
+**What's new**.
 
 ---
 
@@ -131,7 +136,8 @@ xattr -dr com.apple.quarantine /Applications/Parlato.app
      text. Click **Allow**, then switch **Parlato** on in System Settings >
      Privacy & Security > Accessibility. Parlato notices within a few
      seconds; no restart needed.
-2. **Microphone:** pick your microphone and speak: the bar should move.
+2. **Microphone:** pick your microphone, press **Test** and speak: the bar
+   should move.
 3. **Speech model:** pick a model and download it once. **Parakeet Unified**
    is the best choice for English; **Parakeet Ultra** for other European
    languages.
@@ -140,7 +146,8 @@ xattr -dr com.apple.quarantine /Applications/Parlato.app
    On a Mac, Option also types special characters (like é or @). Parlato
    ignores Right Option when you use it that way, but if you type accents a
    lot, **Right Command** is a good alternative.
-5. **Try it:** dictate into the practice box.
+5. **Try it:** dictate into the practice box. Leave **Start Parlato when my
+   computer starts** ticked so your shortcut works right after you log in.
 
 Parlato keeps running with its icon in the menu bar, near the clock. Click
 the icon for the menu, including **Open Parlato** and **Quit Parlato**.
@@ -149,7 +156,9 @@ Clicking Parlato in the Dock also brings the window back.
 ### Updates
 
 Parlato checks for new versions and offers to install them: click
-**Update now**.
+**Update now**. Each version's changes are listed on its
+[release page](https://github.com/mmnzns/Parlato/releases), under
+**What's new**.
 
 ### Not on Mac yet
 
@@ -185,6 +194,22 @@ cleanup are slower than they will be once graphics-chip support arrives.
 - Windows: open **Settings** > **Privacy & security** > **Microphone** and
   check that desktop apps may use the microphone.
 
+**Transcribing is slow, or Parlato seems stuck after you let go.**
+- Update Parlato: **Settings** > **Check for updates**. Version 0.10.0
+  fixed dictations that could hang for up to a minute, and made the speech
+  models on your computer faster.
+- On the **Speech model** page, **Processor use** should say
+  **Automatic**. If someone changed it, click **Use recommended
+  settings**.
+- The largest Whisper models are slow without a graphics card. For English,
+  **Parakeet Unified** is much faster; for other European languages,
+  **Parakeet Ultra**.
+
+**A dictation in History says it couldn't be transcribed.**
+If Parlato was closed while it was still turning a dictation into text, that
+dictation shows under **Failed** in **History**, with its recording kept.
+Open it and click **Transcribe again**.
+
 **The text didn't appear where I was typing.**
 - Click into the text field first, then use the shortcut.
 - The last dictation is always in **History**, and the menu near the clock
@@ -204,7 +229,7 @@ your computer. The models are the big part: each one you downloaded is
 between about 75 MB and 3 GB. Removing the app alone does not remove them,
 so follow every step below to leave nothing behind.
 
-**Easiest, on both platforms (Parlato 0.9.1 or later):** open Parlato's
+**Easiest, on both platforms:** open Parlato's
 **Settings** > **Delete all Parlato data** > **Delete everything**. It
 removes every downloaded model, your history and recordings, settings,
 logs, start at login and saved account keys (and, on a Mac, Parlato's
@@ -213,8 +238,8 @@ uninstall it on Windows (step 1 below, answer either way), or drag it to the
 Trash on a Mac (step 2 below). On a Mac, also check step 6 below (Allow
 in the Background). That's all.
 
-The steps below do the same by hand, for older versions or if Parlato won't
-open.
+The steps below do the same by hand, if Parlato won't open or you still
+have a version older than 0.9.1 (which has no such button).
 
 ### Windows
 
