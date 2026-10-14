@@ -302,8 +302,6 @@ export function SettingsPanel() {
             onChange={(v) => persist(v, setSoundFeedback, api.setSoundFeedbackEnabled)}
           />
         </Row>
-        {/* Parlato: pausing other audio is not available on Mac yet. */}
-        {!isMac && (
         <Row htmlFor="set-mute" label={t("settings.muteLabel")} description={t("settings.muteHint")}>
           <Switch
             id="set-mute"
@@ -311,8 +309,7 @@ export function SettingsPanel() {
             onChange={(v) => persist(v, setSystemMute, api.setSystemMuteEnabled)}
           />
         </Row>
-        )}
-        {!isMac && systemMute && (
+        {systemMute && (
           <Row label={t("settings.resumeLabel")} description={t("settings.resumeHint")}>
             <input
               type="number"

@@ -432,8 +432,17 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   the real fix.
 
 **Phase 3: polish.**
-- Mute other audio while recording (`audio/mute.rs`): Core Audio default
-  output device.
+- Mute other audio while recording (`audio/mute.rs`): written 2026-10-14 from
+  the PC on branch `mac/pause-other-audio` (`audio/mute_macos.rs`, system
+  `osascript` volume commands instead of Core Audio, so no new crate and no
+  permission). Compiled and unit-tested only by the macOS CI job, never run
+  on a Mac. Needs one real check on a Mac: Settings > Pause other audio on,
+  play music, dictate (music goes quiet), stop (it comes back), and music
+  already muted before dictating stays muted. When it ships, in the same
+  release commit remove "pausing other audio" from README.md "Known
+  limitations", docs/FAQ.md "What isn't on the Mac yet?" and docs/INSTALL.md
+  "Not on Mac yet" (they describe the released version, so they must not
+  change earlier).
 - Recorder pill visible above full-screen apps and on every Space.
 - Menu bar icon (template image) and a "Hide Dock icon" option (the tray
   code already mentions it as macOS-only).

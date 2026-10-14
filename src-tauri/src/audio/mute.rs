@@ -193,12 +193,27 @@ fn set_muted(muted: bool) -> Result<()> {
     windows_audio::write_mute(muted)
 }
 
-#[cfg(not(windows))]
+// Parlato : macOS calls live in mute_macos.rs.
+#[cfg(target_os = "macos")]
+#[path = "mute_macos.rs"]
+mod macos_audio;
+
+#[cfg(target_os = "macos")]
+fn is_muted() -> Result<bool> {
+    macos_audio::read_mute()
+}
+
+#[cfg(target_os = "macos")]
+fn set_muted(muted: bool) -> Result<()> {
+    macos_audio::write_mute(muted)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn is_muted() -> Result<bool> {
     Ok(false)
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 fn set_muted(_muted: bool) -> Result<()> {
     Err(anyhow!("mute not implemented on this platform"))
 }
