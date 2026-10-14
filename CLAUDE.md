@@ -450,9 +450,18 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   `llamacpp_smoke` / `parakeet_smoke` tests afterwards.
 
 **Phase 4: later, only if wanted.**
-- Power modes: frontmost app via NSWorkspace (bundle IDs, not exe names, so
-  the matcher and "Add app" picker need Mac-aware matching), installed apps
-  from `/Applications`, browser URL via AppleScript (Automation permission).
+- Power modes: frontmost app via NSWorkspace (done); installed apps list
+  (written 2026-10-14 from the PC on branch `mac/installed-apps`, stacked on
+  `mac/pause-other-audio`: `power_mode/installed_apps_macos.rs` scans the
+  Applications folders and reads each Info.plist with the `plist` crate, plus
+  the running apps from NSWorkspace; the Mac Power modes page now shows app
+  pairing, not website pairing). The plist parsing is tested on Windows and on
+  the macOS CI job; the NSWorkspace part and the whole page were never run on
+  a Mac. Needs one real check on a Mac: Power modes > a mode > Add app lists
+  your apps (open ones first, with bundle IDs), pick TextEdit, dictate in it
+  and the mode applies (the Home status or History shows its model/style),
+  dictate in another app and it does not. Browser URL via AppleScript
+  (Automation permission) is still to do.
 - Screen context: `xcap` capture (Screen Recording permission) plus Apple
   Vision OCR instead of `Media.Ocr`.
 - `window_subclass.rs` has no Mac equivalent; leave it Windows-only.

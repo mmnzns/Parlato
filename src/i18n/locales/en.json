@@ -1368,8 +1368,7 @@
     }
   },
   "mac": {
-    "screenNotYet": "Letting the AI read the window you're typing in is not available on Mac yet.",
-    "pairingNotYet": "Pairing a mode with an app or a website is not available on Mac yet. Use a shortcut, or turn on \"Use everywhere else\"."
+    "screenNotYet": "Letting the AI read the window you're typing in is not available on Mac yet."
   },
   "macOverrides": {
     "onboarding": {
@@ -1429,6 +1428,9 @@
       "enter": "Return",
       "backspace": "Delete",
       "delete": "Forward Delete"
+    },
+    "pm": {
+      "appPlaceholder": "e.g. com.apple.mail"
     }
   },
   "keys": {

@@ -1368,8 +1368,7 @@
     }
   },
   "mac": {
-    "screenNotYet": "Laisser l'IA lire la fenêtre où vous tapez n'est pas encore disponible sur Mac.",
-    "pairingNotYet": "Associer un mode à une app ou un site n'est pas encore disponible sur Mac. Utilisez un raccourci, ou activez \"Utiliser partout ailleurs\"."
+    "screenNotYet": "Laisser l'IA lire la fenêtre où vous tapez n'est pas encore disponible sur Mac."
   },
   "macOverrides": {
     "onboarding": {
@@ -1429,6 +1428,9 @@
       "enter": "Retour",
       "backspace": "Supprimer",
       "delete": "Suppr. avant"
+    },
+    "pm": {
+      "appPlaceholder": "ex. com.apple.mail"
     }
   },
   "keys": {
