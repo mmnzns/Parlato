@@ -434,13 +434,6 @@ function ModeEditor({
             })}
           </select>
         </Row>
-        {/* Parlato: pairing with apps and websites is not available on Mac yet. */}
-        {isMac ? (
-          <Block className="flex flex-col gap-0.5">
-            <span className="font-medium">{t("pm.paired")}</span>
-            <span className="text-[13px] leading-[18px] text-muted-foreground">{t("mac.pairingNotYet")}</span>
-          </Block>
-        ) : (
         <Block className="flex flex-col gap-2.5">
           <div className="flex flex-col gap-0.5">
             <span className="font-medium">{t("pm.paired")}</span>
@@ -479,13 +472,17 @@ function ModeEditor({
               label={t("pm.addApp")}
               placeholder={t("pm.appPlaceholder")}
             />
-            <ChipInput
-              draft={siteDraft}
-              setDraft={setSiteDraft}
-              onCommit={addSite}
-              label={t("pm.addSite")}
-              placeholder={t("pm.sitePlaceholder")}
-            />
+            {/* Parlato: matching a website needs the browser's address, which is
+                not read on Mac yet. */}
+            {!isMac && (
+              <ChipInput
+                draft={siteDraft}
+                setDraft={setSiteDraft}
+                onCommit={addSite}
+                label={t("pm.addSite")}
+                placeholder={t("pm.sitePlaceholder")}
+              />
+            )}
           </div>
           {picking && (
             <AppPicker
@@ -499,7 +496,6 @@ function ModeEditor({
             />
           )}
         </Block>
-        )}
         <Row label={t("pm.fallback")} description={t("pm.fallbackDesc")} htmlFor="pm-fallback">
           <Switch id="pm-fallback" checked={c.is_default} onChange={(v) => set("is_default", v)} />
         </Row>

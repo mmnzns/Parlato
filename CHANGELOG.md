@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mac: **Pause other audio** (Settings) now works on the Mac. It mutes
   music and videos while you dictate and restores them afterwards, the
   same as on Windows.
+- Mac: **Power modes** can be paired with an app. The **Add app** picker
+  lists the apps in your Applications folders and the ones that are open,
+  and the mode switches on by itself when you dictate in that app.
+  Pairing with a website is still Windows only.
 
 ## [0.10.0] - 2026-10-05
 
