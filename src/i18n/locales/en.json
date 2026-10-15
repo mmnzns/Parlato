@@ -1271,9 +1271,6 @@
     "whisper_large_v3_turbo": {
       "notes": "Whisper v3 Turbo on Groq's servers. Very fast."
     },
-    "scribe_v1": {
-      "notes": "Transcribes once you finish speaking. General purpose."
-    },
     "scribe_v2": {
       "notes": "Shows your words live as you speak."
     },
@@ -1301,11 +1298,8 @@
     "speechmatics_enhanced": {
       "notes": "Works live or after you speak."
     },
-    "gemini_2_5_pro": {
-      "notes": "Google's general-purpose AI, used here to transcribe."
-    },
-    "gemini_2_5_flash": {
-      "notes": "Faster and cheaper than Gemini 2.5 Pro."
+    "gemini_3_5_transcribe": {
+      "notes": "Google's dedicated transcription model. Transcribes once you finish speaking, and learns your custom words."
     },
     "grok_voice_transcribe_2_0": {
       "notes": "xAI's speech-to-text (Grok Voice Transcribe 2.0). Works live or after you speak, and learns your custom words."

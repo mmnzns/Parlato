@@ -7,7 +7,7 @@
 //   { message: "StartRecognition",
 //     audio_format: { type: "raw", encoding: "pcm_s16le", sample_rate: 16000 },
 //     transcription_config: { language, enable_partials: true,
-//       operating_point: "enhanced", max_delay: 2.0, max_delay_mode: "flexible"
+//       model: "enhanced", max_delay: 2.0, max_delay_mode: "flexible"
 //       [, additional_vocab: [{content:term}] ] } }
 // Handshake : attendre RecognitionStarted (10s) - Error -> LLMKitError(400).
 // Audio : frames binaires, incrementer seqNo.
@@ -70,7 +70,7 @@ impl StreamingProvider for SpeechmaticsStreaming {
         let mut tcfg = serde_json::Map::new();
         tcfg.insert("language".into(), json!(lang));
         tcfg.insert("enable_partials".into(), json!(true));
-        tcfg.insert("operating_point".into(), json!("enhanced"));
+        tcfg.insert("model".into(), json!("enhanced"));
         tcfg.insert("max_delay".into(), json!(2.0));
         tcfg.insert("max_delay_mode".into(), json!("flexible"));
         if !config.custom_vocabulary.is_empty() {

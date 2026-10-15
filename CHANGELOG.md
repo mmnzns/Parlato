@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with live words), ElevenLabs **Scribe v2 Medical**, and xAI **Grok Voice
   Transcribe 2.0**, which replaces the older Grok model. Your custom words
   now also reach ElevenLabs and xAI.
+- Online speech: **Gemini 3.5 Transcribe**, Google's dedicated
+  transcription model, replaces Gemini 2.5 Pro and Flash, which Google no
+  longer offers to new accounts. It also uses your custom words.
 - AI cleanup: **Claude Haiku 5.5**, and a box to type any model ID for
   OpenRouter.
 
@@ -20,8 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retiring: Claude Haiku 4.5, GPT-5.4 nano, GPT-4.1, Gemini 3.7 Flash
   and Gemini 3.5 Flash. If you picked one of them, it keeps working until
   the provider turns it off; choose a newer model when you can.
-- Settings that point to an online speech model that was renamed are
-  updated automatically.
+- ElevenLabs **Scribe v1** is retired by ElevenLabs; Scribe v2 takes its
+  place.
+- Settings that point to a renamed or retired online speech model move to
+  its replacement automatically.
 
 ## [0.11.1] - 2026-10-15
 

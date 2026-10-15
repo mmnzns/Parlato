@@ -89,6 +89,19 @@ pub(crate) const ASSEMBLYAI_U2_LANGS: &[&str] = &[
     "th", "bo", "tk", "ur", "uz", "cy", "yi", "yo",
 ];
 
+/// Gemini 3.5 Transcribe : locales de ai.google.dev/gemini-api/docs/transcribe
+/// (2026-10-15), ramenees au code de langue de Parla (cmn -> zh, nb -> no,
+/// jv -> jw comme Whisper, fil). Detection automatique par le modele.
+const GEMINI_TRANSCRIBE_LANGS: &[&str] = &[
+    "auto", "af", "am", "ar", "hy", "as", "az", "be", "bn", "bs", "bg", "my",
+    "yue", "ca", "zh", "km", "hr", "cs", "da", "nl", "en", "et", "fa", "fil",
+    "fi", "fr", "gl", "ka", "de", "el", "gu", "ha", "he", "hi", "hu", "is",
+    "id", "it", "ja", "jw", "kn", "kk", "ko", "ky", "lv", "ln", "lt", "mk",
+    "ms", "ml", "mt", "mr", "mn", "ne", "no", "or", "pl", "pt", "pa", "ro",
+    "ru", "sr", "sd", "sk", "sl", "es", "sw", "sv", "tg", "te", "th", "tr",
+    "uk", "uz", "vi",
+];
+
 /// Cartesia Ink 2 : anglais uniquement, PAS d'auto-detect (langue
 /// obligatoire dans la query string). Source CartesiaProvider.swift
 /// (VoiceInk 2.x, commit "Update Cartesia streaming to Ink 2 English-only").
@@ -212,18 +225,6 @@ pub const CLOUD_MODELS: &[CloudModelInfo] = &[
     // ElevenLabs
     CloudModelInfo {
         provider_id: "elevenlabs",
-        model_id: "scribe_v1",
-        display_name: "ElevenLabs Scribe v1",
-        supports_batch: true,
-        supports_streaming: false,
-        multilingual: true,
-        notes: "Batch, transcription generique.",
-        speed: 0.7,
-        accuracy: 0.98,
-        language_codes: ELEVENLABS_LANGS,
-    },
-    CloudModelInfo {
-        provider_id: "elevenlabs",
         model_id: "scribe_v2_medical",
         display_name: "ElevenLabs Scribe v2 Medical",
         supports_batch: true,
@@ -337,28 +338,15 @@ pub const CLOUD_MODELS: &[CloudModelInfo] = &[
     // Gemini
     CloudModelInfo {
         provider_id: "gemini",
-        model_id: "gemini-2.5-pro",
-        display_name: "Gemini 2.5 Pro",
+        model_id: "gemini-3.5-transcribe",
+        display_name: "Gemini 3.5 Transcribe",
         supports_batch: true,
         supports_streaming: false,
         multilingual: true,
-        notes: "Audio inline base64, prompt-driven.",
-        speed: 0.7,
+        notes: "Modele de transcription dedie (API Interactions), vocabulaire personnalise.",
+        speed: 0.85,
         accuracy: 0.97,
-        // Gemini 2.5 declare ~97 langues : on reutilise le set complet whisper.
-        language_codes: WHISPER_FULL_LANGS,
-    },
-    CloudModelInfo {
-        provider_id: "gemini",
-        model_id: "gemini-2.5-flash",
-        display_name: "Gemini 2.5 Flash",
-        supports_batch: true,
-        supports_streaming: false,
-        multilingual: true,
-        notes: "Plus rapide/moins cher.",
-        speed: 0.9,
-        accuracy: 0.95,
-        language_codes: WHISPER_FULL_LANGS,
+        language_codes: GEMINI_TRANSCRIBE_LANGS,
     },
     // xAI
     CloudModelInfo {
@@ -442,6 +430,10 @@ pub fn legacy_cloud_model_successor(provider_id: &str, model_id: &str) -> Option
         ("cartesia", "ink-whisper") => Some("ink-2"),
         // Parla < 0.6.2 (VoiceInk 2.20 : Grok Voice Transcribe 2.0).
         ("xai", "grok-stt") => Some("grok-voice-transcribe-2.0"),
+        // Parlato 2026-10 : Scribe v1 deprecie par ElevenLabs (remplace par v2).
+        ("elevenlabs", "scribe_v1") => Some("scribe_v2"),
+        // Parlato 2026-10 : Gemini 2.5 n'est plus servi aux nouveaux comptes.
+        ("gemini", "gemini-2.5-pro" | "gemini-2.5-flash") => Some("gemini-3.5-transcribe"),
         _ => None,
     }
 }
@@ -577,6 +569,8 @@ mod catalog_tests {
             ("soniox", "stt-rt-v4"),
             ("cartesia", "ink-whisper"),
             ("xai", "grok-stt"),
+            ("gemini", "gemini-2.5-flash"),
+            ("elevenlabs", "scribe_v1"),
         ] {
             let next = legacy_cloud_model_successor(p, m).expect("successeur attendu");
             assert!(
