@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-15
+
 ### Added
 - Online speech models: AssemblyAI **Universal-3.6 Pro** (32 languages,
   with live words), ElevenLabs **Scribe v2 Medical**, and xAI **Grok Voice
