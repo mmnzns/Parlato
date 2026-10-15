@@ -406,9 +406,12 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   (`parakeet.rs::ensure_loaded`, new `threads` argument). The user setting is
   store key `speech_threads` (0 = automatic), commands `get/set_speech_threads`,
   UI `SpeechThreadsPanel.tsx` (Speech model page, any local model, with a
-  "Use recommended settings" reset). Windows results: Whisper ggml-base on 6 s
-  of speech, 8 threads 3.6 s, 12 threads 2.9 s, 16 threads 11.6 s; Parakeet
-  Ultra on 49 s, 4 threads 1.53 s, 12 threads 0.86 s, 16 threads 0.87 s.
+  "Use recommended settings" reset). Windows results (re-measured 2026-10-15
+  on the -O2 build; the first numbers came from unoptimized code): Whisper ggml-base on 6 s of
+  speech, 4 threads 1.0 s, 8 threads 0.60 s, 12 threads 0.48 s, 16 threads
+  0.49 s, and on 49 s, 8 threads 2.3 s, 12 threads 1.6 s, 16 threads 5.0 s;
+  Parakeet Ultra on 49 s, 4 threads 1.53 s, 12 threads 0.86 s, 16 threads
+  0.87 s. 12 (three quarters) still wins.
   **Mac task:** Apple Silicon has performance and efficiency cores and no
   hyperthreading, so three quarters of all cores may not be best. Measure:
   `PARLATO_WHISPER_MODEL=<ggml-base.bin> PARLATO_WAV=<16 kHz wav>
@@ -423,7 +426,9 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   `auto_threads` next to the existing one and leave the Windows one alone.
 - **Voice detection threads.** `vad_threads()` in `transcription/vad.rs` is
   now 2 (it used every thread and made Parakeet dictations hang for up to a
-  minute on Windows). Confirm on the Mac with `vad_threads_smoke` (same
+  minute on Windows). Re-measured with -O2, 49 s of audio: 1 thread 0.12 s,
+  2 threads 0.22 s, 4 threads 0.38 s, 16 threads 2.4 s, so fewer is still
+  better and 2 stays. Confirm on the Mac with `vad_threads_smoke` (same
   env vars as above, plus `PARLATO_VAD_MODEL=<ggml-silero.bin>`).
 - **Translated key names.** The shortcut recorder reads key names from the
   `keys` locale block, with Mac names in `macOverrides.keys`. The menu bar
