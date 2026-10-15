@@ -200,9 +200,11 @@ cleanup are slower than they will be once graphics-chip support arrives.
 - On the **Speech model** page, **Processor use** should say
   **Automatic**. If someone changed it, click **Use recommended
   settings**.
-- The largest Whisper models are slow without a graphics card. For English,
-  **Parakeet Unified** is much faster; for other European languages,
-  **Parakeet Ultra**.
+- On Windows, versions before 0.11.1 ran the Whisper models much slower
+  than they should. Updating fixes it.
+- The largest Whisper models can still take a few seconds on the processor.
+  For English, **Parakeet Unified** is faster; for other European
+  languages, **Parakeet Ultra**.
 
 **A dictation in History says it couldn't be transcribed.**
 If Parlato was closed while it was still turning a dictation into text, that
