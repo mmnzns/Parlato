@@ -176,9 +176,9 @@ More fixes in the [troubleshooting guide](INSTALL.md#troubleshooting).
 
 ### What isn't on the Mac yet?
 
-Switching a power mode automatically for a specific app or website, letting
-AI cleanup read the window you're typing in, and pausing other audio while
-you dictate. These work on Windows and are coming to the Mac. The
+Switching a power mode automatically for a specific website (apps work), and
+letting AI cleanup read the window you're typing in. These work on Windows and
+are coming to the Mac. The
 [install guide](INSTALL.md#not-on-mac-yet) has the full list.
 
 ### How do updates work?

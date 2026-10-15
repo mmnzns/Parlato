@@ -164,10 +164,9 @@ Parlato checks for new versions and offers to install them: click
 
 These work on Windows and are coming to the Mac later:
 
-- Switching a power mode automatically for a specific app or website (the
-  number shortcuts and "Use everywhere else" do work)
+- Switching a power mode automatically for a specific website (pairing a
+  mode with an app, the number shortcuts and "Use everywhere else" do work)
 - Letting AI cleanup read the window you're typing in
-- Pausing other audio while you dictate
 - The command-line AI cleanup engine
 
 Speech and AI cleanup run on the Mac's processor for now, not its graphics

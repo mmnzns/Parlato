@@ -140,9 +140,9 @@ VoiceInk before it. The full source is in this repository.
 ## Known limitations
 
 **Mac:** a few features aren't on the Mac yet: switching a power mode
-automatically per app or website, letting AI cleanup read the window you're
-typing in, pausing other audio, and the command-line AI engine. Speech and AI
-cleanup run on the processor for now, not the graphics chip.
+automatically for a website (apps work), letting AI cleanup read the window
+you're typing in, and the command-line AI engine. Speech and AI cleanup run on
+the processor for now, not the graphics chip.
 
 **Windows, apps run as administrator:** the shortcut does nothing while an app started with **Run as administrator**
 has focus. Windows blocks a normal app from seeing key presses aimed at an
