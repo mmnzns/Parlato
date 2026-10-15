@@ -819,7 +819,8 @@
     "fileUnsupported": "This file type can't be read. Try MP3, WAV, M4A, FLAC, OGG or MP4.",
     "fileNoAudio": "This file has no audio track, or it is silent.",
     "fileTooLong": "This file is longer than 2 hours. Split it into shorter parts.",
-    "interrupted": "Parlato was closed before this dictation finished. Use Transcribe again to try once more."
+    "interrupted": "Parlato was closed before this dictation finished. Use Transcribe again to try once more.",
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro handles this language only live, with \"Show words as you speak\" on. To transcribe this recording, pick another language or model."
   },
   "prompts": {
     "default": {
@@ -1276,6 +1277,9 @@
     "scribe_v2": {
       "notes": "Shows your words live as you speak."
     },
+    "scribe_v2_medical": {
+      "notes": "Tuned for medical speech and terminology. Transcribes once you finish speaking."
+    },
     "nova_3": {
       "notes": "Deepgram's main model. Works live or after you speak, and learns your custom words."
     },
@@ -1303,11 +1307,14 @@
     "gemini_2_5_flash": {
       "notes": "Faster and cheaper than Gemini 2.5 Pro."
     },
-    "grok_stt": {
-      "notes": "xAI's speech-to-text. Works live or after you speak."
+    "grok_voice_transcribe_2_0": {
+      "notes": "xAI's speech-to-text (Grok Voice Transcribe 2.0). Works live or after you speak, and learns your custom words."
     },
     "ink_2": {
       "notes": "Live only, and Cartesia's fastest. English only, no automatic language detection."
+    },
+    "universal_3_6_pro": {
+      "notes": "AssemblyAI's newest model, 32 languages. Shows your words live; without live words it uses Universal-3.5 Pro or Universal-2 depending on the language."
     },
     "universal_3_5_pro": {
       "notes": "AssemblyAI's most accurate model. Can show your words live."

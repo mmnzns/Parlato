@@ -819,7 +819,8 @@
     "fileUnsupported": "Ce type de fichier ne peut pas être lu. Essayez MP3, WAV, M4A, FLAC, OGG ou MP4.",
     "fileNoAudio": "Ce fichier n'a pas de piste audio, ou il est silencieux.",
     "fileTooLong": "Ce fichier dépasse 2 heures. Coupez-le en parties plus courtes.",
-    "interrupted": "Parlato a été fermé avant la fin de cette dictée. Utilisez « Retranscrire » pour réessayer."
+    "interrupted": "Parlato a été fermé avant la fin de cette dictée. Utilisez « Retranscrire » pour réessayer.",
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, avec « Afficher les mots pendant que vous parlez » activé. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle."
   },
   "prompts": {
     "default": {
@@ -1276,6 +1277,9 @@
     "scribe_v2": {
       "notes": "Affiche vos mots en direct pendant que vous parlez."
     },
+    "scribe_v2_medical": {
+      "notes": "Optimisé pour le vocabulaire et la terminologie médicale. Transcrit une fois que vous avez fini de parler."
+    },
     "nova_3": {
       "notes": "Le modèle principal de Deepgram. Fonctionne en direct ou après, et apprend vos mots personnalisés."
     },
@@ -1303,11 +1307,14 @@
     "gemini_2_5_flash": {
       "notes": "Plus rapide et moins cher que Gemini 2.5 Pro."
     },
-    "grok_stt": {
-      "notes": "La transcription vocale de xAI. Fonctionne en direct ou après."
+    "grok_voice_transcribe_2_0": {
+      "notes": "La transcription vocale de xAI (Grok Voice Transcribe 2.0). Fonctionne en direct ou après, et apprend vos mots personnalisés."
     },
     "ink_2": {
       "notes": "En direct uniquement, le plus rapide de Cartesia. Anglais uniquement, sans détection automatique de la langue."
+    },
+    "universal_3_6_pro": {
+      "notes": "Le modèle le plus récent d'AssemblyAI, 32 langues. Affiche vos mots en direct ; sans le direct, il utilise Universal-3.5 Pro ou Universal-2 selon la langue."
     },
     "universal_3_5_pro": {
       "notes": "Le modèle le plus précis d'AssemblyAI. Peut afficher vos mots en direct."
