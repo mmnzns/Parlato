@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Online speech models: AssemblyAI **Universal-3.6 Pro** (32 languages,
+  with live words), ElevenLabs **Scribe v2 Medical**, and xAI **Grok Voice
+  Transcribe 2.0**, which replaces the older Grok model. Your custom words
+  now also reach ElevenLabs and xAI.
+- AI cleanup: **Claude Haiku 5.5**, and a box to type any model ID for
+  OpenRouter.
+
+### Changed
+- AI cleanup lists drop models their providers have retired or are
+  retiring: Claude Haiku 4.5, GPT-5.4 nano, GPT-4.1, Gemini 3.7 Flash
+  and Gemini 3.5 Flash. If you picked one of them, it keeps working until
+  the provider turns it off; choose a newer model when you can.
+- Settings that point to an online speech model that was renamed are
+  updated automatically.
+
 ## [0.11.1] - 2026-10-15
 
 ### Fixed
