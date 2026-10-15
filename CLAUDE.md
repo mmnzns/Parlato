@@ -75,6 +75,14 @@ The upstream `BUILDING.md` is incomplete. This machine additionally needed:
 Also note: VS Build Tools here are **2026 (v18)**, not the 2022 (v17) upstream
 specifies. The CPU build works. CUDA is a separate matter — see Guardrails.
 
+**Windows release builds of whisper.cpp need `-O2` (fixed 2026-10-15).** With
+the Visual Studio generator the `cmake` crate strips every `/O` flag from
+`CMAKE_C/CXX_FLAGS_RELEASE`, so `whisper-rs-sys` compiled at `/Od` in release.
+`src-tauri/.cargo/config.toml` `[env]` puts `-O2 -DNDEBUG` back (both sys crates
+forward `CMAKE_*` env vars to CMake). To check: `CMAKE_CXX_FLAGS_RELEASE` in
+`target/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt`. After
+changing it: `cargo clean --release -p whisper-rs-sys -p llama-cpp-sys-2`.
+
 ## Conventions (from CONTRIBUTING.md — follow these)
 
 - **No emojis** in code, commit messages, or documentation.
@@ -429,7 +437,8 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   caused by the two ggml copies (a Whisper-only build ran at the same speed).
   The quantized large-v3-turbo model is very slow on the Windows CPU (over
   7 minutes for 6 s of speech at 12 threads); on the Mac, Metal (Phase 3) is
-  the real fix.
+  the real fix. Update 2026-10-15: most of that was the missing `-O2` (see
+  "Local environment notes"): 6 s of speech went from 152 s to 8.2 s.
 
 **Phase 3: polish.**
 - Mute other audio while recording (`audio/mute.rs`): written 2026-10-14 from

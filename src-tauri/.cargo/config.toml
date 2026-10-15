@@ -12,3 +12,14 @@ rustflags = ["-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
 
 [target.aarch64-pc-windows-msvc]
 rustflags = ["-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
+
+# Parlato : sous Windows, la crate `cmake` utilise le generateur Visual Studio
+# et retire tous les `/O` de CMAKE_C/CXX_FLAGS_RELEASE, si bien que
+# whisper.cpp (whisper-rs-sys) etait compile sans optimisation (/Od) en
+# release. whisper-rs-sys transmet chaque variable d'environnement CMAKE_* a
+# CMake, donc on lui redonne -O2 ici. llama-cpp-sys-2 fixe deja ses propres
+# options (/O2 /Ob2). Mesure le 2026-10-15 : voir CHANGELOG.md.
+# Apres un changement ici : `cargo clean --release -p whisper-rs-sys`.
+[env]
+CMAKE_C_FLAGS_RELEASE = "-O2 -DNDEBUG"
+CMAKE_CXX_FLAGS_RELEASE = "-O2 -DNDEBUG"
