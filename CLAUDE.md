@@ -450,7 +450,7 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   the PC on branch `mac/pause-other-audio` (`audio/mute_macos.rs`, system
   `osascript` volume commands instead of Core Audio, so no new crate and no
   permission). Compiled and unit-tested by the macOS CI job; the owner tested it
-  on a Mac on 2026-10-15 and it works (the check was: Pause other audio on,
+  on a Mac on 2026-10-14 and it works (the check was: Pause other audio on,
   play music, dictate, music goes quiet and comes back). When it shipped, in the same
   release commit remove "pausing other audio" from README.md "Known
   limitations", docs/FAQ.md "What isn't on the Mac yet?" and docs/INSTALL.md
@@ -469,7 +469,7 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   Applications folders and reads each Info.plist with the `plist` crate, plus
   the running apps from NSWorkspace; the Mac Power modes page now shows app
   pairing, not website pairing). The plist parsing is tested on Windows and on
-  the macOS CI job; the owner tested the picker and pairing on a Mac on 2026-10-15
+  the macOS CI job; the owner tested the picker and pairing on a Mac on 2026-10-14
   and they work (Add app lists the apps, open ones first, and the mode
   applies only in the paired app). Browser URL via AppleScript
   (Automation permission) is still to do.
