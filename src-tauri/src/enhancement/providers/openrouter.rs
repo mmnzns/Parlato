@@ -20,7 +20,7 @@ const MODELS: &[&str] = &[
     "openai/gpt-oss-120b",
     "anthropic/claude-sonnet-5.5",
     "anthropic/claude-opus-5.5",
-    "anthropic/claude-haiku-4.5",
+    "anthropic/claude-haiku-5.5",
     "openai/gpt-6-sol",
     "openai/gpt-6-luna",
     "google/gemini-3.8-flash",

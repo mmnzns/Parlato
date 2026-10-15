@@ -15,7 +15,9 @@ pub struct OpenAIProvider;
 // VoiceInk 2.13 AIService.availableModels (.openAI), commit af1c1bb
 // "feat: add gpt-5.6 models".
 // Parlato : GPT-6 ajoutes, gpt-4.1-mini / -nano retires (deprecies),
-// d'apres developers.openai.com/api/docs/models (2026-09).
+// d'apres developers.openai.com/api/docs/models (2026-09). 2026-10-15 :
+// gpt-5.4-nano (arret 2027-04-01) et gpt-4.1 (deprecie) retires de la
+// liste ; un choix deja enregistre reste utilisable (champ "autre modele").
 const MODELS: &[&str] = &[
     "gpt-6-luna",
     "gpt-6-sol",
@@ -27,8 +29,6 @@ const MODELS: &[&str] = &[
     "gpt-5.5",
     "gpt-5.4",
     "gpt-5.4-mini",
-    "gpt-5.4-nano",
-    "gpt-4.1",
 ];
 
 #[async_trait]

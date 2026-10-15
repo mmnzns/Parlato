@@ -3,13 +3,15 @@
 // Reference VoiceInk : LLMkit SpeechmaticsClient.swift.
 // Sequence :
 //   1. POST /v2/jobs (multipart : config JSON + data_file)
-//      config = { type: "transcription", transcription_config: { language, operating_point: "enhanced",
+//      config = { type: "transcription", transcription_config: { language, model: "enhanced",
 //                                                                additional_vocab? } }
 //   2. GET /v2/jobs/{id} poll toutes les 1s jusqu'a job.status == "done"
 //   3. GET /v2/jobs/{id}/transcript?format=txt -> texte brut UTF-8
 //
 // Tous les appels : Authorization: Bearer <apiKey>.
 // Mapping langue : nil/empty/"auto" -> "auto", "zh" -> "cmn", sinon pass-through.
+// Parlato 2026-10-15 : `model` remplace `operating_point`, deprecie sur le
+// cloud Speechmatics (docs.speechmatics.com/speech-to-text/models).
 
 use std::path::Path;
 use std::time::Duration;
@@ -85,7 +87,7 @@ impl CloudTranscriptionProvider for SpeechmaticsProvider {
         let lang = map_language_owned(request.language.as_deref());
         let mut transcription_config = serde_json::Map::new();
         transcription_config.insert("language".into(), json!(lang));
-        transcription_config.insert("operating_point".into(), json!("enhanced"));
+        transcription_config.insert("model".into(), json!("enhanced"));
         if !request.custom_vocabulary.is_empty() {
             let vocab: Vec<_> = request
                 .custom_vocabulary

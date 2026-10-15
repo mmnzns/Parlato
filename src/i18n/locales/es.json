@@ -819,7 +819,8 @@
     "fileUnsupported": "No se puede leer este tipo de archivo. Prueba MP3, WAV, M4A, FLAC, OGG o MP4.",
     "fileNoAudio": "Este archivo no tiene pista de audio o está en silencio.",
     "fileTooLong": "Este archivo dura más de 2 horas. Divídelo en partes más cortas.",
-    "interrupted": "Parlato se cerró antes de terminar este dictado. Usa «Transcribir de nuevo» para intentarlo otra vez."
+    "interrupted": "Parlato se cerró antes de terminar este dictado. Usa «Transcribir de nuevo» para intentarlo otra vez.",
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro solo admite este idioma en vivo, con «Mostrar las palabras mientras hablas» activado. Para transcribir esta grabación, elige otro idioma u otro modelo."
   },
   "prompts": {
     "default": {
@@ -1270,11 +1271,11 @@
     "whisper_large_v3_turbo": {
       "notes": "Whisper v3 Turbo en los servidores de Groq. Muy rápido."
     },
-    "scribe_v1": {
-      "notes": "Transcribe cuando terminas de hablar. Uso general."
-    },
     "scribe_v2": {
       "notes": "Muestra tus palabras en vivo mientras hablas."
+    },
+    "scribe_v2_medical": {
+      "notes": "Optimizado para el habla y la terminología médica. Transcribe cuando terminas de hablar."
     },
     "nova_3": {
       "notes": "El modelo principal de Deepgram. Funciona en vivo o después, y aprende tus palabras personalizadas."
@@ -1297,17 +1298,17 @@
     "speechmatics_enhanced": {
       "notes": "Funciona en vivo o después de hablar."
     },
-    "gemini_2_5_pro": {
-      "notes": "La IA general de Google, usada aquí para transcribir."
+    "gemini_3_5_transcribe": {
+      "notes": "El modelo de transcripción dedicado de Google. Transcribe cuando terminas de hablar y aprende tus palabras personalizadas."
     },
-    "gemini_2_5_flash": {
-      "notes": "Más rápido y barato que Gemini 2.5 Pro."
-    },
-    "grok_stt": {
-      "notes": "La transcripción de voz de xAI. Funciona en vivo o después."
+    "grok_voice_transcribe_2_0": {
+      "notes": "La transcripción de voz de xAI (Grok Voice Transcribe 2.0). Funciona en vivo o después, y aprende tus palabras personalizadas."
     },
     "ink_2": {
       "notes": "Solo en vivo, el más rápido de Cartesia. Solo inglés, sin detección automática del idioma."
+    },
+    "universal_3_6_pro": {
+      "notes": "El modelo más reciente de AssemblyAI, 32 idiomas. Muestra tus palabras en vivo; sin el modo en vivo, usa Universal-3.5 Pro o Universal-2 según el idioma."
     },
     "universal_3_5_pro": {
       "notes": "El modelo más preciso de AssemblyAI. Puede mostrar tus palabras en vivo."

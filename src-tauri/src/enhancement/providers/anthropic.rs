@@ -29,11 +29,12 @@ pub struct AnthropicProvider;
 
 // VoiceInk 2.13 AIService.availableModels (.anthropic).
 // Parlato : liste mise a jour d'apres platform.claude.com/docs (models
-// overview, 2026-09). Du plus rapide au plus capable ; Haiku 4.5 garde
-// l'alias (retraite annoncee au plus tot le 2026-10-15).
+// overview, 2026-09). Haiku 5.5 remplace Haiku 4.5 (retraite annoncee au
+// plus tot le 2026-10-15 ; Parla 517837b fait de meme). Un identifiant
+// plus ancien reste possible via "identifiant personnalise".
 const MODELS: &[&str] = &[
     "claude-sonnet-5-5",
-    "claude-haiku-4-5",
+    "claude-haiku-5-5",
     "claude-opus-5-5",
     "claude-fable-5-1",
 ];
