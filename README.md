@@ -89,7 +89,7 @@ once and then work offline.
 |---|---|---|
 | On your computer | NVIDIA | Parakeet Unified EN 0.6B (best for English), Parakeet Ultra and Parakeet TDT 0.6B v2 and v3 (25 European languages), Nemotron 3.5 ASR 0.6B (35 languages) |
 | On your computer | OpenAI | Whisper tiny, base, small, medium, large v2, large v3, large v3 turbo (99 languages), plus your own `.bin` models |
-| Online | Your account | Groq, ElevenLabs, Deepgram, Mistral, Soniox, Speechmatics, Google Gemini, xAI, AssemblyAI |
+| Online | Your account | Groq, ElevenLabs, Deepgram, Mistral, Soniox, Speechmatics, Google Gemini, xAI, AssemblyAI, Cartesia |
 
 ## AI cleanup
 
