@@ -80,6 +80,18 @@ jobs:
           echo "CFLAGS=--target=aarch64-pc-windows-msvc" >> $env:GITHUB_ENV
           echo "CXXFLAGS=--target=aarch64-pc-windows-msvc /EHsc" >> $env:GITHUB_ENV
 
+      # Parlato: whisper.cpp defaults to GGML_NATIVE=ON, which compiles it for
+      # this runner's CPU (AVX-512 on some runners), and the installer would
+      # then crash with "illegal instruction" on most Intel PCs. Build ggml
+      # for a fixed baseline instead (scripts/cpu-baseline.ps1), and clean the
+      # -sys crates when the Rust cache holds a build made without it.
+      - name: CPU baseline for whisper.cpp and llama.cpp
+        shell: pwsh
+        run: |
+          . ./scripts/cpu-baseline.ps1
+          Set-GgmlBaseline ${{ matrix.arch }}
+          Reset-StaleGgml src-tauri/Cargo.toml ${{ matrix.arch }} release ${{ matrix.rust-target }}
+
       # Parlato: the release page shows this version's CHANGELOG.md section,
       # so everyone sees what changed. A tag without its section fails here.
       - name: Release notes from CHANGELOG.md
@@ -144,6 +156,14 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.rust-target }} ${{ matrix.cargo-args }}
+
+      # Fails the release if whisper.cpp or llama.cpp was built for this
+      # runner's CPU or with AVX-512 (the draft release stays unpublished).
+      - name: Check the CPU baseline
+        shell: pwsh
+        run: |
+          . ./scripts/cpu-baseline.ps1
+          Assert-GgmlBaseline src-tauri/Cargo.toml ${{ matrix.arch }} release ${{ matrix.rust-target }}
 
       - name: Upload ${{ matrix.arch }} artifacts
         uses: actions/upload-artifact@v4

@@ -53,6 +53,18 @@ This produces:
 - `src-tauri/target/release/parla.exe` - the standalone binary
 - `src-tauri/target/release/bundle/nsis/Parla_x.y.z_x64-setup.exe` - NSIS installer (the only bundle target we ship; it prompts for data removal on uninstall and lets the user opt out of the desktop shortcut)
 
+By default whisper.cpp is compiled for the CPU of the PC that builds it, so the installer may crash with "illegal instruction" on other PCs. If you will share the build, set the same CPU baseline as the official releases first (x86-64-v3: AVX2, no AVX-512):
+
+```powershell
+. .\scripts\cpu-baseline.ps1
+Set-GgmlBaseline x64      # arm64 for an ARM64 build
+Reset-StaleGgml src-tauri/Cargo.toml x64 release
+npm run tauri build
+Assert-GgmlBaseline src-tauri/Cargo.toml x64 release
+```
+
+For an ARM64 build pass `arm64` and add `aarch64-pc-windows-msvc` as a last argument to the three functions.
+
 ## ARM64 build
 
 To build Parla natively for Windows on ARM (Snapdragon X, etc.):

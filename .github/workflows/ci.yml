@@ -54,6 +54,23 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      # Same fixed CPU baseline for ggml as release.yml, so a change that
+      # breaks it shows up on pull requests, not at release time.
+      - name: CPU baseline for whisper.cpp and llama.cpp
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          . ./scripts/cpu-baseline.ps1
+          Set-GgmlBaseline x64
+          Reset-StaleGgml src-tauri/Cargo.toml x64 dev
+
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --lib
+
+      - name: Check the CPU baseline
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          . ./scripts/cpu-baseline.ps1
+          Assert-GgmlBaseline src-tauri/Cargo.toml x64 dev
