@@ -43,6 +43,10 @@ const STORE_FILE: &str = "parla.settings.json";
 const SELECTED_MODEL_KEY: &str = "selected_whisper_model";
 const LANGUAGE_KEY: &str = "whisper_language";
 const SPEECH_THREADS_KEY: &str = "speech_threads";
+/// Parlato : secondes pendant lesquelles les modeles restent charges apres
+/// une dictee (0 = liberes tout de suite, comme VoiceInk).
+const KEEP_ALIVE_KEY: &str = "model_keep_alive_secs";
+pub const DEFAULT_KEEP_ALIVE_SECS: u64 = 300;
 const RESTORE_CLIPBOARD_KEY: &str = "restore_clipboard_after_paste";
 const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
@@ -146,17 +150,53 @@ fn emit_state(
 /// le modele sous une dictee en cours.
 static ACTIVE_RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// Compteur de passages commences : une liberation programmee ne se fait
+/// que si aucun passage n'a commence entre-temps.
+static RUN_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 fn begin_run() {
+    RUN_EPOCH.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     ACTIVE_RUNS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 }
 
 fn end_run(app: &AppHandle) {
-    let left = ACTIVE_RUNS
-        .fetch_sub(1, std::sync::atomic::Ordering::SeqCst)
-        .saturating_sub(1);
-    if left == 0 {
-        unload_inference_models(app);
+    use std::sync::atomic::Ordering::SeqCst;
+    let left = ACTIVE_RUNS.fetch_sub(1, SeqCst).saturating_sub(1);
+    if left != 0 {
+        return;
     }
+    // Parlato : les modeles restent prets quelques minutes, la dictee
+    // suivante evite leur rechargement (plusieurs secondes pour Whisper
+    // large ou un modele de nettoyage local).
+    let keep = get_model_keep_alive(app);
+    if keep == 0 {
+        unload_inference_models(app);
+        return;
+    }
+    let epoch = RUN_EPOCH.load(SeqCst);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(keep));
+        if ACTIVE_RUNS.load(SeqCst) == 0 && RUN_EPOCH.load(SeqCst) == epoch {
+            info!(keep, "modeles liberes apres inactivite");
+            unload_inference_models(&app);
+        }
+    });
+}
+
+pub fn get_model_keep_alive(app: &AppHandle) -> u64 {
+    app.store(STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(KEEP_ALIVE_KEY))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(DEFAULT_KEEP_ALIVE_SECS)
+}
+
+pub fn set_model_keep_alive(app: &AppHandle, secs: u64) -> Result<()> {
+    let store = app.store(STORE_FILE)?;
+    store.set(KEEP_ALIVE_KEY, serde_json::Value::from(secs));
+    store.save()?;
+    Ok(())
 }
 
 /// Destination du texte final.

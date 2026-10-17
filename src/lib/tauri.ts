@@ -355,6 +355,10 @@ export const api = {
   getSpeechThreads: () =>
     invoke<{ value: number; auto: number; max: number }>("get_speech_threads"),
   setSpeechThreads: (threads: number) => invoke<void>("set_speech_threads", { threads }),
+  /** Parlato: seconds the models stay loaded after a dictation (0 = unload). */
+  getModelKeepAlive: () =>
+    invoke<{ value: number; recommended: number }>("get_model_keep_alive"),
+  setModelKeepAlive: (secs: number) => invoke<void>("set_model_keep_alive", { secs }),
 
   getTextProcessingSettings: () =>
     invoke<TextProcessingSettings>("get_text_processing_settings"),

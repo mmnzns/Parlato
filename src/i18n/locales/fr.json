@@ -1080,11 +1080,19 @@
     "showVersions_other": "Voir toutes les versions ({{count}} de plus)",
     "hideVersions": "Masquer les autres versions",
     "pickMostLanguages": "Le plus de langues, y compris les langues asiatiques",
-    "threadsTitle": "Utilisation du processeur",
+    "threadsTitle": "Vitesse et mémoire",
     "threadsLabel": "Threads du processeur",
     "threadsDesc": "Le nombre de parties du processeur que le modèle vocal utilise en même temps. Automatique est le choix le plus rapide sur la plupart des ordinateurs.",
     "threadsAuto": "Automatique ({{count}})",
-    "threadsReset": "Utiliser les réglages recommandés"
+    "threadsReset": "Utiliser les réglages recommandés",
+    "keepAliveLabel": "Garder les modèles prêts",
+    "keepAliveDesc": "Durée pendant laquelle les modèles restent en mémoire après une dictée, pour que la suivante démarre plus vite. Les libérer tout de suite rend la mémoire plus tôt.",
+    "keepAliveNever": "Libérer tout de suite",
+    "keepAliveMinutes_one": "{{count}} minute",
+    "keepAliveMinutes_other": "{{count}} minutes",
+    "keepAliveHours_one": "{{count}} heure",
+    "keepAliveHours_other": "{{count}} heures",
+    "keepAliveRecommended": "{{label}} (recommandé)"
   },
   "tf": {
     "dropTitle": "Déposez un fichier audio ou vidéo ici",

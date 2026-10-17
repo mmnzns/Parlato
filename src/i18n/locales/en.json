@@ -1080,11 +1080,19 @@
     "showVersions_other": "Show all versions ({{count}} more)",
     "hideVersions": "Hide other versions",
     "pickMostLanguages": "The most languages, including Asian languages",
-    "threadsTitle": "Processor use",
+    "threadsTitle": "Speed and memory",
     "threadsLabel": "Processor threads",
     "threadsDesc": "How many parts of your processor the speech model works with at once. Automatic is the fastest choice on most computers.",
     "threadsAuto": "Automatic ({{count}})",
-    "threadsReset": "Use recommended settings"
+    "threadsReset": "Use recommended settings",
+    "keepAliveLabel": "Keep models ready",
+    "keepAliveDesc": "How long the models stay in memory after a dictation, so the next one starts faster. Unloading right away frees memory sooner.",
+    "keepAliveNever": "Unload right away",
+    "keepAliveMinutes_one": "{{count}} minute",
+    "keepAliveMinutes_other": "{{count}} minutes",
+    "keepAliveHours_one": "{{count}} hour",
+    "keepAliveHours_other": "{{count}} hours",
+    "keepAliveRecommended": "{{label}} (recommended)"
   },
   "tf": {
     "dropTitle": "Drop an audio or video file here",

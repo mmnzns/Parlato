@@ -284,6 +284,27 @@ pub fn set_speech_threads(app: AppHandle, threads: usize) -> Result<(), String> 
     pipeline::set_speech_threads(&app, threads).map_err(|e| e.to_string())
 }
 
+/// Parlato : duree (s) pendant laquelle les modeles restent charges apres
+/// une dictee, et la valeur recommandee.
+#[derive(Debug, Serialize)]
+pub struct ModelKeepAlive {
+    pub value: u64,
+    pub recommended: u64,
+}
+
+#[tauri::command]
+pub fn get_model_keep_alive(app: AppHandle) -> ModelKeepAlive {
+    ModelKeepAlive {
+        value: pipeline::get_model_keep_alive(&app),
+        recommended: pipeline::DEFAULT_KEEP_ALIVE_SECS,
+    }
+}
+
+#[tauri::command]
+pub fn set_model_keep_alive(app: AppHandle, secs: u64) -> Result<(), String> {
+    pipeline::set_model_keep_alive(&app, secs).map_err(|e| e.to_string())
+}
+
 // -- System mute during recording (VoiceInk MediaController) ----------------
 
 #[tauri::command]
