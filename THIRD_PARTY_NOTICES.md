@@ -71,6 +71,13 @@ GGML conversions by Georgi Gerganov, https://huggingface.co/ggerganov/whisper.cp
 (MIT), downloaded at the fixed revision
 `5359861c739e955e79d9a303bcbc70fb988958b1`.
 
+### Silero VAD (voice detection)
+
+Silero VAD by the Silero Team (https://github.com/snakers4/silero-vad),
+released under the MIT License. GGML conversion by ggml-org,
+https://huggingface.co/ggml-org/whisper-vad (MIT), downloaded at the fixed
+revision `9ffd54a1e1ee413ddf265af9913beaf518d1639b`.
+
 ## AI cleanup models (on this PC)
 
 | Model | Author | License |
