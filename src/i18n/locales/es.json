@@ -239,6 +239,8 @@
     "autostartHint": "Para que tu atajo funcione siempre.",
     "trayLabel": "Seguir funcionando al cerrar la ventana",
     "trayHint": "Parlato se queda en la bandeja junto al reloj. Haz clic derecho en su icono para salir.",
+    "hideDockLabel": "Ocultar el icono del Dock",
+    "hideDockHint": "Parlato se queda solo en la barra de menús. Abre la ventana desde su icono.",
     "soundsLabel": "Reproducir sonidos",
     "soundsHint": "Un sonido corto cuando la grabación empieza, termina o se cancela.",
     "muteLabel": "Pausar otro audio",
@@ -1464,7 +1466,9 @@
       "win": "Comando",
       "enter": "Retorno",
       "backspace": "Borrar",
-      "delete": "Suprimir"
+      "delete": "Suprimir",
+      "help": "Ayuda",
+      "clear": "Limpiar"
     },
     "pm": {
       "appPlaceholder": "p. ej. com.apple.mail",

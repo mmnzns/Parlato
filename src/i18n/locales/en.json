@@ -239,6 +239,8 @@
     "autostartHint": "So your shortcut always works.",
     "trayLabel": "Keep running when I close the window",
     "trayHint": "Parlato stays in the tray next to the clock. Right-click its icon to quit.",
+    "hideDockLabel": "Hide the Dock icon",
+    "hideDockHint": "Parlato stays in the menu bar only. Open the window from the menu bar icon.",
     "soundsLabel": "Play sounds",
     "soundsHint": "A short sound when recording starts, stops or is cancelled.",
     "muteLabel": "Pause other audio",
@@ -1464,7 +1466,9 @@
       "win": "Command",
       "enter": "Return",
       "backspace": "Delete",
-      "delete": "Forward Delete"
+      "delete": "Forward Delete",
+      "help": "Help",
+      "clear": "Clear"
     },
     "pm": {
       "appPlaceholder": "e.g. com.apple.mail",

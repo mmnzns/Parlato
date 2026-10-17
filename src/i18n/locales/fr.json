@@ -239,6 +239,8 @@
     "autostartHint": "Pour que votre raccourci fonctionne toujours.",
     "trayLabel": "Continuer quand je ferme la fenêtre",
     "trayHint": "Parlato reste dans la zone de notification près de l'horloge. Clic droit sur son icône pour quitter.",
+    "hideDockLabel": "Masquer l'icône du Dock",
+    "hideDockHint": "Parlato reste uniquement dans la barre des menus. Ouvrez la fenêtre depuis son icône.",
     "soundsLabel": "Jouer des sons",
     "soundsHint": "Un son court quand l'enregistrement démarre, s'arrête ou est annulé.",
     "muteLabel": "Mettre en pause les autres sons",
@@ -1464,7 +1466,9 @@
       "win": "Commande",
       "enter": "Retour",
       "backspace": "Supprimer",
-      "delete": "Suppr. avant"
+      "delete": "Suppr. avant",
+      "help": "Aide",
+      "clear": "Effacer"
     },
     "pm": {
       "appPlaceholder": "ex. com.apple.mail",

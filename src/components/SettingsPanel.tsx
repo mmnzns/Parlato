@@ -64,6 +64,7 @@ export function SettingsPanel() {
   const [recorderStyle, setRecorderStyle] = useState<"mini" | "notch">("mini");
   const [autostart, setAutostart] = useState(false);
   const [closeToTray, setCloseToTray] = useState(true);
+  const [hideDock, setHideDock] = useState(false);
   const [systemMute, setSystemMute] = useState(false);
   const [resumeDelay, setResumeDelay] = useState(0.2);
   const [soundFeedback, setSoundFeedback] = useState(true);
@@ -91,6 +92,7 @@ export function SettingsPanel() {
       .then((p) => setAutostart(p.autostart.ok))
       .catch(console.error);
     api.getCloseToTray().then(setCloseToTray).catch(console.error);
+    if (isMac) api.getHideDockIcon().then(setHideDock).catch(console.error);
     api.getSystemMuteEnabled().then(setSystemMute).catch(console.error);
     api.getAudioResumptionDelay().then(setResumeDelay).catch(console.error);
     api.getSoundFeedbackEnabled().then(setSoundFeedback).catch(console.error);
@@ -265,6 +267,11 @@ export function SettingsPanel() {
         <Row htmlFor="set-tray" label={t("settings.trayLabel")} description={t("settings.trayHint")}>
           <Switch id="set-tray" checked={closeToTray} onChange={(v) => persist(v, setCloseToTray, api.setCloseToTray)} />
         </Row>
+        {isMac && (
+          <Row htmlFor="set-dock" label={t("settings.hideDockLabel")} description={t("settings.hideDockHint")}>
+            <Switch id="set-dock" checked={hideDock} onChange={(v) => persist(v, setHideDock, api.setHideDockIcon)} />
+          </Row>
+        )}
       </Section>
 
       <Section title={t("settings.sectionDictating")}>

@@ -41,12 +41,12 @@ use commands::recording::{
 };
 use commands::streaming::{StreamingRegistryState, StreamingSessionState};
 use commands::settings::{
-    close_to_tray_enabled, get_audio_resumption_delay, get_close_to_tray,
+    close_to_tray_enabled, get_audio_resumption_delay, get_close_to_tray, get_hide_dock_icon,
     get_cloud_transcription_timeout, get_dictation_language, get_selected_input_device,
     get_selected_whisper_model, get_show_live_transcript, get_sound_feedback_enabled,
     get_system_mute_enabled, get_text_processing_settings, get_transcription_source,
     get_model_keep_alive, get_speech_threads, get_ui_language, reset_escape_hint, set_append_trailing_space,
-    set_audio_resumption_delay, set_close_to_tray, set_cloud_transcription_timeout,
+    set_audio_resumption_delay, set_close_to_tray, set_cloud_transcription_timeout, set_hide_dock_icon,
     set_dictation_language, set_filler_words, set_model_keep_alive, set_remove_filler_words,
     set_restore_clipboard_after_paste, set_selected_input_device, set_selected_whisper_model,
     set_show_live_transcript, set_sound_feedback_enabled, set_system_mute_enabled,
@@ -203,6 +203,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(move |app| {
             let handle = app.handle().clone();
+            commands::settings::apply_dock_icon(&handle);
             app.manage(ModelManagerState::new(handle.clone()));
             app.manage(enhancement::model_manager::GgufModelManagerState::new(
                 handle.clone(),
@@ -345,6 +346,8 @@ pub fn run() {
             set_restore_clipboard_after_paste,
             get_close_to_tray,
             set_close_to_tray,
+            get_hide_dock_icon,
+            set_hide_dock_icon,
             get_system_mute_enabled,
             set_system_mute_enabled,
             get_audio_resumption_delay,

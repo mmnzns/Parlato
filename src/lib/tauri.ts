@@ -374,6 +374,9 @@ export const api = {
   getCloseToTray: () => invoke<boolean>("get_close_to_tray"),
   setCloseToTray: (enabled: boolean) =>
     invoke<void>("set_close_to_tray", { enabled }),
+  /** Parlato (macOS): menu bar only, no Dock icon. */
+  getHideDockIcon: () => invoke<boolean>("get_hide_dock_icon"),
+  setHideDockIcon: (enabled: boolean) => invoke<void>("set_hide_dock_icon", { enabled }),
   getSystemMuteEnabled: () => invoke<boolean>("get_system_mute_enabled"),
   setSystemMuteEnabled: (enabled: boolean) =>
     invoke<void>("set_system_mute_enabled", { enabled }),
