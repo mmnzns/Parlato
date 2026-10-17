@@ -261,14 +261,14 @@ const VK_KEYS: Record<number, string> = {
   0x2e: "delete",
 };
 
-// Parlato: Mac-only keys with no Windows equivalent.
-const MAC_VK_NAMES: Record<number, string> = {
-  0x2d: "Help",
-  0x0c: "Clear",
+// Parlato: Mac-only keys, translated through macOverrides.keys.
+const MAC_VK_KEYS: Record<number, string> = {
+  0x2d: "help",
+  0x0c: "clear",
 };
 
 export function vkLabel(vk: number): string {
-  if (isMac && MAC_VK_NAMES[vk]) return MAC_VK_NAMES[vk];
+  if (isMac && MAC_VK_KEYS[vk]) return i18n.t(`keys.${MAC_VK_KEYS[vk]}`);
   if (VK_KEYS[vk]) return i18n.t(`keys.${VK_KEYS[vk]}`);
   if (vk >= 0x70 && vk <= 0x87) return `F${vk - 0x6f}`; // F1..F24
   if (vk >= 0x30 && vk <= 0x39) return String.fromCharCode(vk); // 0..9

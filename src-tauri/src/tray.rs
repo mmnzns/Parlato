@@ -449,6 +449,11 @@ fn shortcut_label(lang: &str, trigger: HotkeyTrigger) -> Option<String> {
                 0x27 => t("key.right"),
                 0x28 => t("key.down"),
                 0x2e => t("key.delete"),
+                // Parlato : touches propres au clavier Mac.
+                #[cfg(target_os = "macos")]
+                0x2d => t("key.help"),
+                #[cfg(target_os = "macos")]
+                0x0c => t("key.clear"),
                 _ => vk_name(vk),
             });
             Some(parts.join("+"))
@@ -582,6 +587,10 @@ fn tr(lang: &str, key: &str) -> String {
         "key.backspace" => ["Delete", "Supprimer", "Borrar"],
         #[cfg(target_os = "macos")]
         "key.delete" => ["Forward Delete", "Suppr. avant", "Suprimir"],
+        #[cfg(target_os = "macos")]
+        "key.help" => ["Help", "Aide", "Ayuda"],
+        #[cfg(target_os = "macos")]
+        "key.clear" => ["Clear", "Effacer", "Limpiar"],
         "key.rightShift" => ["Right Shift", "Maj droite", "May\u{fa}s derecha"],
         "key.leftShift" => ["Left Shift", "Maj gauche", "May\u{fa}s izquierda"],
         "key.shift" => ["Shift", "Maj", "May\u{fa}s"],
