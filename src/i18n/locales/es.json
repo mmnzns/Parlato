@@ -310,6 +310,7 @@
     "deleteAllLabel": "Borrar todos los datos de Parlato",
     "deleteAllHint": "Borra de este ordenador los modelos descargados, el historial y las grabaciones, los ajustes, los registros, el inicio automático y las claves de cuenta guardadas, y luego cierra Parlato. Hazlo antes de quitar la app para no dejar nada.",
     "deleteAllButton": "Borrar todo",
+    "deleteAllFailed": "No se pudo terminar la eliminación: {{message}}",
     "deleteAllConfirm": "¿Borrar todos los datos de Parlato? Se borran todos los modelos descargados, todo el historial con sus grabaciones, tus ajustes, prompts y modos, los registros, el inicio automático y tus claves de cuenta. No se puede deshacer. Parlato se cierra al terminar.",
     "deleteAllAfterMac": "Para quitar también la app, arrastra luego Parlato desde Aplicaciones a la Papelera.",
     "deleteAllAfterWindows": "Para quitar también la app, desinstala luego Parlato desde Configuración > Aplicaciones.",

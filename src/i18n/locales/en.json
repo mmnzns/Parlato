@@ -310,6 +310,7 @@
     "deleteAllLabel": "Delete all Parlato data",
     "deleteAllHint": "Removes downloaded models, history and recordings, settings, logs, start at login and saved account keys from this computer, then quits Parlato. Do this before removing the app so nothing is left behind.",
     "deleteAllButton": "Delete everything",
+    "deleteAllFailed": "Could not finish deleting: {{message}}",
     "deleteAllConfirm": "Delete all Parlato data? This removes every downloaded model, your whole history with its recordings, your settings, prompts and power modes, the logs, start at login and your saved account keys. It cannot be undone. Parlato quits when it's done.",
     "deleteAllAfterMac": "To remove the app too, then drag Parlato from Applications to the Trash.",
     "deleteAllAfterWindows": "To remove the app too, then uninstall Parlato from Settings > Apps.",
