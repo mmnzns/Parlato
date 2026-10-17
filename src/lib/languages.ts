@@ -120,8 +120,23 @@ export const LANGUAGE_NAMES: Record<string, string> = {
   zu: "Zulu",
 };
 
+// Parlato : codes VoiceInk qui ne sont pas des balises BCP 47.
+const BCP47: Record<string, string> = { en_au: "en-AU", en_uk: "en-GB", en_us: "en-US" };
+
 /// Resolve un code ISO en libelle affichable. Renvoie le code en upper-case
 /// si inconnu (defensive : permet d'afficher un code exotique sans casser l'UI).
-export function languageLabel(code: string): string {
-  return LANGUAGE_NAMES[code] ?? code.toUpperCase();
+/// Parlato : avec `uiLanguage`, le nom est donne dans la langue de l'app
+/// ("anglais" dans l'app en francais) via Intl.DisplayNames, avec repli sur
+/// la table anglaise.
+export function languageLabel(code: string, uiLanguage?: string): string {
+  const english = LANGUAGE_NAMES[code] ?? code.toUpperCase();
+  if (!uiLanguage || uiLanguage.startsWith("en") || !LANGUAGE_NAMES[code]) return english;
+  try {
+    const names = new Intl.DisplayNames([uiLanguage], { type: "language", fallback: "none" });
+    const name = names.of(BCP47[code] ?? code);
+    if (!name) return english;
+    return name.charAt(0).toLocaleUpperCase(uiLanguage) + name.slice(1);
+  } catch {
+    return english;
+  }
 }

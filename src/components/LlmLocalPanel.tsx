@@ -12,15 +12,12 @@ import {
   type LlamaCppSettings,
 } from "@/lib/tauri";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { formatBytes } from "@/lib/format";
+import { fail, isFailure, statusText, type Status } from "@/lib/status";
+import { isCancelled } from "@/lib/translateError";
 
 type DownloadProgress = { id: string; downloaded: number; total: number };
 
-function formatBytes(b: number): string {
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
-  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
 
 export function LlmLocalPanel() {
   const { t } = useTranslation();
@@ -33,7 +30,7 @@ export function LlmLocalPanel() {
     max_tokens: 1024,
   });
   const [progress, setProgress] = useState<Record<string, DownloadProgress>>({});
-  const [status, setStatus] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<Record<string, Status>>({});
 
   useEffect(() => {
     refresh();
@@ -61,9 +58,9 @@ export function LlmLocalPanel() {
         });
         setStatus((s) => ({
           ...s,
-          [e.payload.id]: e.payload.message.includes("annule")
+          [e.payload.id]: isCancelled(e.payload.message)
             ? t("llmLocal.cancelled")
-            : t("llmLocal.errorPrefix", { message: e.payload.message }),
+            : fail(t("llmLocal.errorPrefix", { message: e.payload.message })),
         }));
       },
     );
@@ -107,7 +104,7 @@ export function LlmLocalPanel() {
         const { [id]: _, ...rest } = p;
         return rest;
       });
-      setStatus((s) => ({ ...s, [id]: t("llmLocal.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
     }
   }
 
@@ -122,7 +119,7 @@ export function LlmLocalPanel() {
       await api.deleteGgufModel(id);
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [id]: t("llmLocal.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
     }
   }
 
@@ -131,7 +128,9 @@ export function LlmLocalPanel() {
       await api.importGgufModel();
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, import: t("llmLocal.errorPrefix", { message: String(e) }) }));
+      // Closing the file picker is not an error.
+      if (isCancelled(e)) return;
+      setStatus((s) => ({ ...s, import: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
     }
   }
 
@@ -245,10 +244,10 @@ export function LlmLocalPanel() {
               <p
                 className={cn(
                   "px-5 pb-3 text-xs",
-                  st.startsWith(t("common.error")) ? "text-destructive" : "text-muted-foreground",
+                  isFailure(st) ? "text-destructive" : "text-muted-foreground",
                 )}
               >
-                {st}
+                {statusText(st)}
               </p>
             )}
           </div>
@@ -271,7 +270,7 @@ export function LlmLocalPanel() {
             {t("ai.import")}
           </Button>
         </div>
-        {status.import && <p className="text-xs text-destructive">{status.import}</p>}
+        {status.import && <p className="text-xs text-destructive">{statusText(status.import)}</p>}
         {tuning && (
           <div className="grid grid-cols-1 gap-3 pl-5 text-xs sm:grid-cols-3">
             <label className="grid gap-1">

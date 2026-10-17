@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import { emit, listen } from "@tauri-apps/api/event";
 import { Check, Settings as SettingsIcon } from "lucide-react";
 import { api, type PowerModeConfig, type PowerSession } from "@/lib/tauri";
-import { cn, powerShortcutLabel } from "@/lib/utils";
+import { cn, modeBadge, powerShortcutLabel } from "@/lib/utils";
 
 export function RecorderPopoverView() {
   const { t } = useTranslation();
@@ -109,7 +109,9 @@ export function RecorderPopoverView() {
                       isActive && "bg-accent",
                     )}
                   >
-                    <span className="text-lg leading-none">{c.emoji}</span>
+                    <span className="w-5 text-center text-lg font-semibold leading-none">
+                      {modeBadge(c.emoji, c.name)}
+                    </span>
                     <span className="flex-1 truncate">{c.name}</span>
                     {shortcut && (
                       <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px] font-medium text-muted-foreground">

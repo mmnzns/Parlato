@@ -12,13 +12,13 @@
 ;     parla.settings.json          store plugin - general settings + onboarding flag
 ;     parla.prompts.json           store plugin - custom prompts + active prompt
 ;     parla.power_mode.json        store plugin - Power Mode profiles
+;     parla.power_mode.backup.json store plugin - backup of the profiles
 ;   %LOCALAPPDATA%\com.craftconceptsdigital.parlato\
-;     Models\                      Whisper .bin files
+;     Models\                      Whisper .bin files + Silero VAD (ggml)
 ;     ParakeetModels\              Parakeet ONNX files
 ;     LlmModels\                   llama.cpp GGUF files
-;     VAD\                         Silero VAD ONNX
 ;     Recordings\                  WAV audio captures
-;     history.sqlite3              history DB
+;     parla.db                     history DB (SQLite)
 ;     logs\                        tracing output
 ;   HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Parlato
 ;     autostart registration (if user enabled it)

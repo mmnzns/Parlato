@@ -4,7 +4,9 @@
 // Reference VoiceInk : VoiceInk/Services/AIEnhancement/LocalCLIService.swift.
 // VoiceInk utilise /bin/zsh -lc. Sous Windows, on passe par
 // `powershell.exe -NoProfile -Command` qui est present partout (pwsh.exe
-// pourrait etre absent).
+// pourrait etre absent). Parlato : sur macOS, /bin/zsh -lc comme VoiceInk
+// (memes outils, syntaxe shell), pour qu'un Power mode cree sur Windows
+// fonctionne aussi sur le Mac.
 //
 // Templates reproduits (argument passe a -Command) :
 //   - pi     : & pi -ne -ns -p --no-tools --system-prompt $env:PARLA_SYSTEM_PROMPT $env:PARLA_USER_PROMPT
@@ -76,7 +78,37 @@ pub fn set_timeout_secs(app: &AppHandle, secs: u64) -> Result<()> {
     Ok(())
 }
 
+/// Shell qui execute les modeles : PowerShell sur Windows, zsh ailleurs.
+const ZSH: bool = cfg!(not(windows));
+
 fn template_script(template: &str, custom_cmd: Option<&str>) -> Result<String> {
+    template_script_for(template, custom_cmd, ZSH)
+}
+
+/// Parlato : memes modeles en syntaxe zsh (reference VoiceInk
+/// LocalCLIService.swift, variables PARLA_* au lieu de VOICEINK_*).
+fn zsh_template(template: &str) -> Option<&'static str> {
+    match template {
+        "pi" => Some(
+            "pi -ne -ns -p --no-tools --system-prompt \"$PARLA_SYSTEM_PROMPT\" \"$PARLA_USER_PROMPT\"",
+        ),
+        "claude" => Some("claude -p \"$PARLA_FULL_PROMPT\""),
+        "codex" => Some(concat!(
+            "t=$(mktemp); ",
+            "codex exec --skip-git-repo-check --output-last-message \"$t\" \"$PARLA_FULL_PROMPT\" >/dev/null 2>&1; ",
+            "cat \"$t\"; ",
+            "rm -f \"$t\""
+        )),
+        _ => None,
+    }
+}
+
+fn template_script_for(template: &str, custom_cmd: Option<&str>, zsh: bool) -> Result<String> {
+    if zsh {
+        if let Some(script) = zsh_template(template) {
+            return Ok(script.to_string());
+        }
+    }
     match template {
         "pi" => Ok(String::from(
             "& pi -ne -ns -p --no-tools --system-prompt $env:PARLA_SYSTEM_PROMPT $env:PARLA_USER_PROMPT",
@@ -119,7 +151,11 @@ impl LLMProvider for LocalCLIProvider {
         "pi"
     }
     fn endpoint(&self) -> &'static str {
-        "powershell.exe -NoProfile -Command"
+        if ZSH {
+            "/bin/zsh -lc"
+        } else {
+            "powershell.exe -NoProfile -Command"
+        }
     }
     fn requires_api_key(&self) -> bool {
         false
@@ -140,8 +176,17 @@ impl LLMProvider for LocalCLIProvider {
 
         // Note : on utilise powershell.exe (v5, installe partout sur Windows 10+).
         // pwsh.exe (PowerShell Core) peut etre absent.
-        let mut child = Command::new("powershell.exe")
-            .args(["-NoProfile", "-Command", &script])
+        let (program, args): (&str, [&str; 2]) = if ZSH {
+            ("/bin/zsh", ["-lc", &script])
+        } else {
+            ("powershell.exe", ["-NoProfile", "-Command"])
+        };
+        let mut cmd = Command::new(program);
+        cmd.args(args);
+        if !ZSH {
+            cmd.arg(&script);
+        }
+        let mut child = cmd
             .env("PARLA_SYSTEM_PROMPT", &req.system_prompt)
             .env("PARLA_USER_PROMPT", &req.user_message)
             .env("PARLA_FULL_PROMPT", &fp)
@@ -149,7 +194,7 @@ impl LLMProvider for LocalCLIProvider {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| anyhow!("spawn powershell.exe: {e}"))?;
+            .map_err(|e| anyhow!("spawn {program}: {e}"))?;
 
         // Ecrit le full prompt dans stdin (comme VoiceInk) puis ferme.
         if let Some(stdin) = child.stdin.as_mut() {
@@ -173,7 +218,8 @@ impl LLMProvider for LocalCLIProvider {
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        if code == 127 || stderr.to_lowercase().contains("is not recognized") {
+        let low = stderr.to_lowercase();
+        if code == 127 || low.contains("is not recognized") || low.contains("command not found") {
             return Err(anyhow!(
                 "LocalCLI: commande introuvable (template {}) : {stderr}",
                 req.model
@@ -193,5 +239,28 @@ impl LLMProvider for LocalCLIProvider {
             ));
         }
         Ok(EnhancementResponse { text: stdout })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn templates_exist_for_both_shells() {
+        for t in ["pi", "claude", "codex"] {
+            let ps = template_script_for(t, None, false).unwrap();
+            let zsh = template_script_for(t, None, true).unwrap();
+            assert!(ps.contains("$env:PARLA_"), "{t}: {ps}");
+            assert!(
+                zsh.contains("\"$PARLA_") && !zsh.contains("$env:"),
+                "{t}: {zsh}"
+            );
+        }
+        assert_eq!(
+            template_script_for("custom", Some("my-tool"), true).unwrap(),
+            "my-tool"
+        );
+        assert!(template_script_for("custom", None, true).is_err());
     }
 }

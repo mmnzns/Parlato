@@ -13,7 +13,7 @@
 //   ensure_open de la mini-recorder (UI), begin_session PowerMode,
 //   capture ecran + OCR (background).
 // - Choisir le chemin streaming cloud vs recording local selon la source.
-// - Au stop : basculer vers pipeline::finalize_streaming_session (si
+// - Au stop : basculer vers pipeline::finish_streaming (si
 //   streaming) ou pipeline::run_after_recording (WAV sur disque).
 // - Au cancel : purger la session streaming, stop audio, end_session
 //   PowerMode, fermer la mini-recorder.
@@ -120,7 +120,7 @@ fn run_utility(app: &AppHandle, action: UtilityAction) {
     };
     if let Err(e) = result {
         warn!(?action, error = %e, "utility shortcut failed");
-        let _ = app.emit("tray:notice", format!("{action:?} failed: {e}"));
+        crate::notice::send(app, crate::notice::Notice::Failed(e.to_string()));
     }
 }
 
@@ -166,14 +166,25 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
     // don't bleed into the dictation (VoiceInk MediaController). No-op
     // if the feature is disabled. Restored in stop() / cancel().
     system_mute::engage(app);
-    // Determine si on utilise le streaming cloud.
-    let started = if let Some((provider, model)) = pipeline::active_streaming_target(app) {
-        let app_bg = app.clone();
-        tauri::async_runtime::spawn(async move {
-            if let Err(e) = start_with_streaming(app_bg.clone(), provider, model).await {
-                warn!("start streaming: {e}");
+    // Determine si on utilise le streaming cloud. Parlato : la session est
+    // ouverte avant de rendre la main (elle ne fait qu'ouvrir un canal ; la
+    // connexion se fait en arriere-plan et l'audio attend dans le canal),
+    // pour que l'enregistrement ait vraiment demarre quand on relache la
+    // touche. Si elle ne peut pas s'ouvrir (cle absente), on enregistre
+    // quand meme : le fichier sera transcrit au stop, ou l'erreur affichee.
+    let streamed = match pipeline::active_streaming_target(app) {
+        Some((provider, model)) => {
+            match tauri::async_runtime::block_on(start_with_streaming(app.clone(), provider, model)) {
+                Ok(()) => true,
+                Err(e) => {
+                    warn!("start streaming: {e}, enregistrement sans direct");
+                    false
+                }
             }
-        });
+        }
+        None => false,
+    };
+    let started = if streamed {
         manager.mark_recording_state(true);
         true
     } else if let Err(e) = start_recording_core_with_chunk(
@@ -212,21 +223,22 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
     parakeet_live::stop();
     match stop_recording_core(app, state) {
         Ok(stopped) => {
-            if let Some(handle) = streaming_handle {
-                let app_bg = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(e) =
-                        pipeline::finalize_streaming_session(app_bg, handle).await
-                    {
-                        warn!("finalize streaming: {e}");
-                    }
-                });
+            let wav_path = PathBuf::from(&stopped.wav_path);
+            if let Some((handle, history_id)) = streaming_handle {
+                pipeline::finish_streaming(app.clone(), handle, history_id, wav_path);
             } else {
-                let wav_path = PathBuf::from(&stopped.wav_path);
                 pipeline::run_after_recording(app.clone(), wav_path);
             }
         }
-        Err(e) => warn!("stop_recording via hotkey: {e}"),
+        Err(e) => {
+            // Parlato : rien n'enregistrait (demarrage rate). Ferme la bulle
+            // au lieu de la laisser ouverte sans fin.
+            warn!("stop_recording via hotkey: {e}");
+            mini_recorder::close(app);
+            power_mode::session::end_session(app);
+            let _ = app.emit("power_mode:active", serde_json::Value::Null);
+            crate::tray::refresh(app);
+        }
     }
     // Fin d'enregistrement : desarme les raccourcis Alt+chiffre Power Mode
     // et le raccourci d'annulation personnalise.
@@ -239,9 +251,14 @@ fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Re
     let _ = app.emit("hotkey:action", "cancel");
     system_mute::release(app);
     // Purge eventuelle session streaming (elle retournera un final
-    // mais on l'ignore puisque le user a annule).
+    // mais on l'ignore puisque le user a annule). Parlato : sa ligne
+    // d'historique en attente est retiree, sinon elle restait "en cours"
+    // jusqu'au prochain lancement.
     let streaming = app.state::<StreamingSessionState>();
-    let _ = streaming.0.lock().take();
+    let taken = streaming.0.lock().take();
+    if let Some((_, Some(history_id))) = taken {
+        pipeline::discard_pending_row(app, &history_id);
+    }
     parakeet_live::stop();
     if let Err(e) = cancel_recording_core(app, state) {
         warn!("cancel_recording via hotkey: {e}");
@@ -275,10 +292,6 @@ async fn start_with_streaming(
     )
     .await?;
 
-    // Ligne history pending (avant le start recording pour que l'UI puisse
-    // deja la voir).
-    pipeline::insert_pending_streaming_row(&app, &provider, &model);
-
     // Capture le sender avant de deposer le handle : le callback ne touche
     // jamais le state Tauri.
     let audio_tx = handle.audio_sender();
@@ -287,11 +300,13 @@ async fn start_with_streaming(
             let _ = audio_tx.send(chunk);
         });
 
-    // Le handle vit dans le state pour stop/cancel.
-    let state = app.state::<StreamingSessionState>();
-    *state.0.lock() = Some(handle);
-
     let recorder_state = app.state::<RecorderState>();
     start_recording_core_with_chunk(&app, &recorder_state, None, Some(on_chunk))?;
+
+    // Ligne history pending, une fois l'enregistrement demarre. Le handle et
+    // l'id vivent dans le state pour stop/cancel.
+    let history_id = pipeline::insert_pending_streaming_row(&app, &provider, &model);
+    let state = app.state::<StreamingSessionState>();
+    *state.0.lock() = Some((handle, history_id));
     Ok(())
 }

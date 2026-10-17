@@ -17,3 +17,11 @@ export function powerShortcutLabel(slot: number | null | undefined): string | nu
   const mod = isMac ? "Option" : "Alt";
   return slot < 9 ? `${mod}+${slot + 1}` : `${mod}+0`;
 }
+
+/** Parlato: what stands for a Power mode in the pill and its menu. Modes
+ *  made in Parlato have no icon ("*"), so they show their first letter. */
+export function modeBadge(emoji: string | null | undefined, name: string): string {
+  const e = (emoji ?? "").trim();
+  if (e && e !== "*") return e;
+  return Array.from(name.trim())[0]?.toLocaleUpperCase() ?? "*";
+}

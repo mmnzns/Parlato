@@ -4022,7 +4022,7 @@ dependencies = [
 
 [[package]]
 name = "parla"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -4055,6 +4055,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "symphonia",
  "tauri",
  "tauri-build",

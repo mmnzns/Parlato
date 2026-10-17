@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/tauri";
+import { fail, isFailure, statusText, type Status } from "@/lib/status";
 
 export function EnhancementScreenContext() {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<Status>("");
 
   useEffect(() => {
     refresh();
@@ -40,7 +41,7 @@ export function EnhancementScreenContext() {
     try {
       await api.setScreenContextEnabled(v);
     } catch (e) {
-      setStatus(t("screenContext.errorPrefix", { message: String(e) }));
+      setStatus(fail(t("screenContext.errorPrefix", { message: String(e) })));
     }
   }
 
@@ -51,7 +52,7 @@ export function EnhancementScreenContext() {
       setPreview(text);
       setStatus(t("screenContext.okStatus"));
     } catch (e) {
-      setStatus(t("screenContext.errorPrefix", { message: String(e) }));
+      setStatus(fail(t("screenContext.errorPrefix", { message: String(e) })));
     }
   }
 
@@ -82,10 +83,10 @@ export function EnhancementScreenContext() {
             <span
               className={cn(
                 "text-xs",
-                status.startsWith(t("common.error")) ? "text-destructive" : "text-muted-foreground",
+                isFailure(status) ? "text-destructive" : "text-muted-foreground",
               )}
             >
-              {status}
+              {statusText(status)}
             </span>
           )}
           {preview && (

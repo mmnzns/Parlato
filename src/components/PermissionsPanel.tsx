@@ -29,7 +29,9 @@ import { api, type PermissionState, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 
-export function PermissionsPanel() {
+/** `hideAutostart` (Parlato): Settings shows its own autostart switch right
+ *  above, so the card is left out there. */
+export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: boolean } = {}) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<PermissionStatus | null>(null);
   const [loading, setLoading] = useState(false);
@@ -112,6 +114,7 @@ export function PermissionsPanel() {
         tip={<InfoTip>{t("permissions.ocrTip")}</InfoTip>}
       />
       )}
+      {!hideAutostart && (
       <PermissionRow
         icon={Power}
         title={t("permissions.autostartTitle")}
@@ -131,6 +134,7 @@ export function PermissionsPanel() {
           ) : null
         }
       />
+      )}
       <PermissionRow
         icon={Keyboard}
         title={t("permissions.hotkeyTitle")}

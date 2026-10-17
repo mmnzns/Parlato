@@ -219,6 +219,41 @@ pub fn set_close_to_tray(app: AppHandle, enabled: bool) -> Result<(), String> {
     store.save().map_err(|e| e.to_string())
 }
 
+const KEY_HIDE_DOCK: &str = "hide_dock_icon";
+
+/// Parlato : macOS, Parlato seulement dans la barre des menus, sans icone
+/// dans le Dock. Off par defaut. Sans effet ailleurs.
+pub fn hide_dock_enabled(app: &AppHandle) -> bool {
+    app.store(STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(KEY_HIDE_DOCK).and_then(|v| v.as_bool()))
+        .unwrap_or(false)
+}
+
+/// Applique le reglage (au demarrage et a chaque changement).
+pub fn apply_dock_icon(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    if let Err(e) = app.set_dock_visibility(!hide_dock_enabled(app)) {
+        tracing::warn!("dock visibility: {e}");
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+}
+
+#[tauri::command]
+pub fn get_hide_dock_icon(app: AppHandle) -> bool {
+    hide_dock_enabled(&app)
+}
+
+#[tauri::command]
+pub fn set_hide_dock_icon(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
+    store.set(KEY_HIDE_DOCK, serde_json::Value::Bool(enabled));
+    store.save().map_err(|e| e.to_string())?;
+    apply_dock_icon(&app);
+    Ok(())
+}
+
 const KEY_TRAY_NOTICE_SHOWN: &str = "close_to_tray_notice_shown";
 
 /// Parlato: true the first time the window is hidden to the tray, false
@@ -282,6 +317,27 @@ pub fn get_speech_threads(app: AppHandle) -> SpeechThreads {
 #[tauri::command]
 pub fn set_speech_threads(app: AppHandle, threads: usize) -> Result<(), String> {
     pipeline::set_speech_threads(&app, threads).map_err(|e| e.to_string())
+}
+
+/// Parlato : duree (s) pendant laquelle les modeles restent charges apres
+/// une dictee, et la valeur recommandee.
+#[derive(Debug, Serialize)]
+pub struct ModelKeepAlive {
+    pub value: u64,
+    pub recommended: u64,
+}
+
+#[tauri::command]
+pub fn get_model_keep_alive(app: AppHandle) -> ModelKeepAlive {
+    ModelKeepAlive {
+        value: pipeline::get_model_keep_alive(&app),
+        recommended: pipeline::DEFAULT_KEEP_ALIVE_SECS,
+    }
+}
+
+#[tauri::command]
+pub fn set_model_keep_alive(app: AppHandle, secs: u64) -> Result<(), String> {
+    pipeline::set_model_keep_alive(&app, secs).map_err(|e| e.to_string())
 }
 
 // -- System mute during recording (VoiceInk MediaController) ----------------

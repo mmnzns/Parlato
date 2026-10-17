@@ -18,11 +18,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
-use futures_util::StreamExt;
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 /// Parlato : famille de modele, chaque famille a son type parakeet-rs.
@@ -464,7 +462,7 @@ impl ParakeetModelManager {
             .cloned()
             .ok_or_else(|| anyhow!("cancel flag missing for {id}"))?;
 
-        let client = reqwest::Client::new();
+        let client = crate::download::client()?;
 
         // Deux passes : d'abord HEAD pour additionner les total bytes (pour
         // afficher une progression globale coherente), puis GET sequentiel.
@@ -492,54 +490,37 @@ impl ParakeetModelManager {
         let mut downloaded_global: u64 = 0;
         for f in missing {
             if cancel.load(std::sync::atomic::Ordering::SeqCst) {
-                return Err(anyhow!("telechargement annule"));
+                return Err(anyhow!(crate::download::CANCELLED));
             }
             let url = file_url(v.repo, v.revision, v.subdir, f);
             let target = dir.join(local_name(f));
+            // Parlato : crate::download garde le .part apres un echec
+            // (reprise au prochain essai) et le supprime sur annulation.
             let tmp = target.with_extension("part");
-            let _ = fs::remove_file(&tmp);
 
-            let resp = client
-                .get(&url)
-                .send()
-                .await
-                .with_context(|| format!("GET {url}"))?;
-            if !resp.status().is_success() {
-                anyhow::bail!("HTTP {} depuis {url}", resp.status());
+            let done_before = downloaded_global;
+            let size = crate::download::Transfer {
+                url: &url,
+                target: &target,
+                part: &tmp,
+                cancel: Some(cancel.as_ref()),
+                progress_every: std::time::Duration::from_millis(50),
+                // Les revisions sont figees ; pas d'empreinte par fichier ici.
+                sha256: None,
             }
-
-            let mut file = tokio::fs::File::create(&tmp)
-                .await
-                .with_context(|| format!("create {}", tmp.display()))?;
-            let mut stream = resp.bytes_stream();
-            let mut last_emit = std::time::Instant::now();
-            while let Some(chunk) = stream.next().await {
-                if cancel.load(std::sync::atomic::Ordering::SeqCst) {
-                    drop(file);
-                    let _ = fs::remove_file(&tmp);
-                    self.cancel_flags.lock().remove(id);
-                    return Err(anyhow!("telechargement annule"));
-                }
-                let bytes = chunk.context("chunk recv")?;
-                file.write_all(&bytes).await?;
-                downloaded_global += bytes.len() as u64;
-                if last_emit.elapsed() >= std::time::Duration::from_millis(50) {
-                    let _ = self.app.emit(
-                        "parakeet_model:download:progress",
-                        DownloadProgress {
-                            id: id.to_string(),
-                            downloaded: downloaded_global,
-                            total: total_global,
-                            current_file: f.to_string(),
-                        },
-                    );
-                    last_emit = std::time::Instant::now();
-                }
-            }
-            file.flush().await?;
-            drop(file);
-            fs::rename(&tmp, &target)
-                .with_context(|| format!("rename {} -> {}", tmp.display(), target.display()))?;
+            .run(&client, |downloaded, _| {
+                let _ = self.app.emit(
+                    "parakeet_model:download:progress",
+                    DownloadProgress {
+                        id: id.to_string(),
+                        downloaded: done_before + downloaded,
+                        total: total_global,
+                        current_file: f.to_string(),
+                    },
+                );
+            })
+            .await?;
+            downloaded_global += size;
         }
 
         let _ = self.app.emit(

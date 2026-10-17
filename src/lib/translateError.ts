@@ -20,9 +20,19 @@ type ErrorMapping = {
   args?: (groups: string[], t: TFunction) => Record<string, unknown>;
 };
 
+/** Parlato: a cancelled download or import (PARLA_ERR:cancelled) is not a
+ *  real error. The French wording is the older backend message. */
+export function isCancelled(e: unknown): boolean {
+  const s = String(e);
+  return s.includes("PARLA_ERR:cancelled") || s.includes("annule");
+}
+
 const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:noWhisper$/, { i18nKey: "errors.noWhisper" }],
   [/^PARLA_ERR:interrupted$/, { i18nKey: "errors.interrupted" }],
+  [/^PARLA_ERR:pasteFailed$/, { i18nKey: "errors.pasteFailed" }],
+  [/^PARLA_ERR:apiKeyRejected$/, { i18nKey: "errors.apiKeyRejected" }],
+  [/^PARLA_ERR:aiNotConfigured$/, { i18nKey: "errors.aiNotConfigured" }],
   [/^PARLA_ERR:fileUnsupported$/, { i18nKey: "errors.fileUnsupported" }],
   [/^PARLA_ERR:fileNoAudio$/, { i18nKey: "errors.fileNoAudio" }],
   [/^PARLA_ERR:fileTooLong$/, { i18nKey: "errors.fileTooLong" }],

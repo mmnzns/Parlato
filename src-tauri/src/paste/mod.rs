@@ -22,6 +22,8 @@ use std::time::Duration;
 use anyhow::{anyhow, Result};
 use arboard::Clipboard;
 use parking_lot::Mutex;
+
+pub use crate::power_mode::config::AutoSendKey;
 #[cfg_attr(not(windows), allow(unused_imports))] // debug: Windows paste only
 use tracing::{debug, warn};
 
@@ -66,19 +68,53 @@ pub fn remember_foreground() {
 #[cfg(not(any(windows, target_os = "macos")))]
 pub fn remember_foreground() {}
 
-fn clipboard() -> &'static Mutex<Clipboard> {
-    static CLIP: OnceLock<Mutex<Clipboard>> = OnceLock::new();
-    CLIP.get_or_init(|| Mutex::new(Clipboard::new().expect("clipboard init")))
+/// Parlato : nombre d'essais quand une autre application tient le
+/// presse-papiers (gestionnaire d'historique, bureau a distance...).
+const CLIPBOARD_ATTEMPTS: u32 = 5;
+const CLIPBOARD_RETRY_DELAY: Duration = Duration::from_millis(40);
+
+/// Execute `op` sur le presse-papiers partage. Parlato : ouvert a la
+/// premiere utilisation (et rouvert si cela avait echoue) au lieu de faire
+/// planter l'app, et reessaye quelques fois s'il est occupe.
+fn with_clipboard<T>(
+    what: &str,
+    op: impl Fn(&mut Clipboard) -> std::result::Result<T, arboard::Error>,
+) -> Result<T> {
+    static CLIP: Mutex<Option<Clipboard>> = Mutex::new(None);
+    let mut last = String::new();
+    for attempt in 0..CLIPBOARD_ATTEMPTS {
+        if attempt > 0 {
+            sleep(CLIPBOARD_RETRY_DELAY);
+        }
+        let mut guard = CLIP.lock();
+        if guard.is_none() {
+            match Clipboard::new() {
+                Ok(c) => *guard = Some(c),
+                Err(e) => {
+                    last = e.to_string();
+                    continue;
+                }
+            }
+        }
+        let Some(clip) = guard.as_mut() else {
+            continue;
+        };
+        match op(clip) {
+            Ok(v) => return Ok(v),
+            Err(arboard::Error::ClipboardOccupied) => {
+                last = arboard::Error::ClipboardOccupied.to_string();
+            }
+            Err(e) => return Err(anyhow!("{what}: {e}")),
+        }
+    }
+    Err(anyhow!("{what}: {last}"))
 }
 
 /// Copy text to the system clipboard without pasting anything. Used by the
 /// tray menu ("Copy last transcription") and any UI action that only wants
 /// to populate the clipboard.
 pub fn copy_to_clipboard(text: &str) -> Result<()> {
-    clipboard()
-        .lock()
-        .set_text(text.to_string())
-        .map_err(|e| anyhow!("set clipboard: {e}"))
+    with_clipboard("set clipboard", |c| c.set_text(text.to_string()))
 }
 
 /// Backup le contenu actuel du clipboard (tous formats sur Windows), pose
@@ -98,7 +134,9 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
             Ok(b) => Some(b),
             Err(e) => {
                 warn!("clipboard backup: {e}, fallback texte uniquement");
-                clipboard().lock().get_text().ok().map(clipboard_backup::Backup::text_only)
+                with_clipboard("get clipboard", |c| c.get_text())
+                    .ok()
+                    .map(clipboard_backup::Backup::text_only)
             }
         }
     } else {
@@ -115,15 +153,12 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
 
     #[cfg(not(any(windows, target_os = "macos")))]
     let backup = if restore {
-        clipboard().lock().get_text().ok()
+        with_clipboard("get clipboard", |c| c.get_text()).ok()
     } else {
         None
     };
 
-    clipboard()
-        .lock()
-        .set_text(text.to_string())
-        .map_err(|e| anyhow!("set clipboard: {e}"))?;
+    with_clipboard("set clipboard", |c| c.set_text(text.to_string()))?;
 
     // Laisse le temps a l'OS de propager le set avant d'envoyer Ctrl+V.
     sleep(CLIPBOARD_TO_PASTE_DELAY);
@@ -141,10 +176,10 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
     // ce qu'il avait copie a cause d'un collage rate.
     let paste_result = send_ctrl_v();
 
-    // Parlato : on macOS, if the paste could not happen (Accessibility
-    // missing), keep the dictated text on the clipboard so the user can
-    // paste it by hand instead of losing it.
-    #[cfg(target_os = "macos")]
+    // Parlato : if the paste could not happen (Accessibility missing on
+    // macOS, input blocked by an elevated window on Windows), keep the
+    // dictated text on the clipboard so the user can paste it by hand
+    // instead of losing it. The pill says it was not pasted.
     let backup = if paste_result.is_err() { None } else { backup };
 
     if let Some(prev) = backup {
@@ -164,13 +199,99 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
         }
         #[cfg(not(any(windows, target_os = "macos")))]
         {
-            if let Err(e) = clipboard().lock().set_text(prev) {
+            if let Err(e) = with_clipboard("restore clipboard", |c| c.set_text(prev.clone())) {
                 warn!("restore clipboard: {e}");
             }
         }
     }
 
     paste_result
+}
+
+/// Delai entre le collage et la touche d'envoi (VoiceInk
+/// TranscriptionDelivery : 150 ms).
+const SEND_KEY_DELAY: Duration = Duration::from_millis(150);
+
+/// Parlato : touche d'envoi pressee apres un collage reussi (Power mode
+/// "Envoyer apres collage"). Reference VoiceInk CursorPaster.performSendKey.
+pub fn send_after_paste(key: AutoSendKey) -> Result<()> {
+    if key == AutoSendKey::None {
+        return Ok(());
+    }
+    sleep(SEND_KEY_DELAY);
+    #[cfg(any(windows, target_os = "macos"))]
+    restore_target();
+    send_key(key)
+}
+
+#[cfg(windows)]
+fn restore_target() {
+    restore_foreground();
+}
+
+#[cfg(target_os = "macos")]
+fn restore_target() {
+    macos::restore_frontmost();
+}
+
+#[cfg(windows)]
+fn send_key(key: AutoSendKey) -> Result<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+        KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC, VIRTUAL_KEY, VK_CONTROL, VK_RETURN,
+        VK_SHIFT,
+    };
+
+    fn sc(vk: VIRTUAL_KEY) -> u16 {
+        unsafe { MapVirtualKeyW(vk.0 as u32, MAPVK_VK_TO_VSC) as u16 }
+    }
+    fn ki(scan: u16, flags: KEYBD_EVENT_FLAGS) -> INPUT {
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0),
+                    wScan: scan,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        }
+    }
+
+    let modifier = match key {
+        AutoSendKey::None => return Ok(()),
+        AutoSendKey::Enter => None,
+        AutoSendKey::ShiftEnter => Some(sc(VK_SHIFT)),
+        AutoSendKey::CtrlEnter => Some(sc(VK_CONTROL)),
+    };
+    let enter = sc(VK_RETURN);
+    let mut inputs = Vec::with_capacity(4);
+    if let Some(m) = modifier {
+        inputs.push(ki(m, KEYEVENTF_SCANCODE));
+    }
+    inputs.push(ki(enter, KEYEVENTF_SCANCODE));
+    inputs.push(ki(enter, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP));
+    if let Some(m) = modifier {
+        inputs.push(ki(m, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP));
+    }
+    let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+    if sent as usize != inputs.len() {
+        return Err(anyhow!("SendInput a envoye {sent}/{} events", inputs.len()));
+    }
+    debug!(?key, "touche d'envoi envoyee");
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn send_key(key: AutoSendKey) -> Result<()> {
+    macos::send_return(key)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn send_key(_key: AutoSendKey) -> Result<()> {
+    Err(anyhow!("envoi non implemente sur cette plateforme"))
 }
 
 #[cfg(windows)]

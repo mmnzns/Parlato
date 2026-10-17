@@ -38,12 +38,41 @@ pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Client reqwest pre-configure pour les providers batch cloud.
 /// A utiliser partout a la place de `reqwest::Client::new()`.
+/// Parlato : le meme client est reutilise tant que le timeout ne change
+/// pas, pour garder les connexions ouvertes (pas de nouvelle poignee de
+/// main TLS a chaque dictee).
 pub fn batch_client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(batch_timeout())
+    static CACHE: parking_lot::Mutex<Option<(Duration, reqwest::Client)>> =
+        parking_lot::Mutex::new(None);
+    let timeout = batch_timeout();
+    let mut cache = CACHE.lock();
+    if let Some((t, client)) = cache.as_ref() {
+        if *t == timeout {
+            return Ok(client.clone());
+        }
+    }
+    let client = reqwest::Client::builder()
+        .timeout(timeout)
         .connect_timeout(CONNECT_TIMEOUT)
         .build()
-        .map_err(|e| anyhow!("http client: {e}"))
+        .map_err(|e| anyhow!("http client: {e}"))?;
+    *cache = Some((timeout, client.clone()));
+    Ok(client)
+}
+
+/// Parlato : client partage sans timeout global, pour les appels qui
+/// fixent le leur par requete (`RequestBuilder::timeout`), comme le
+/// nettoyage IA. Garde les connexions ouvertes entre deux dictees.
+pub fn shared_client() -> reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .connect_timeout(CONNECT_TIMEOUT)
+                .build()
+                .unwrap_or_default()
+        })
+        .clone()
 }
 
 /// Mappe une erreur reqwest en anyhow avec un prefixe discriminant.

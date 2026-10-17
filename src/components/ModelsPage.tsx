@@ -51,12 +51,13 @@ import {
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { modelName } from "@/lib/modelText";
+import { fail, type Status } from "@/lib/status";
+import { isCancelled } from "@/lib/translateError";
 
-/// Parlato: the backend reports a cancelled download as the French error
-/// "telechargement annule" (model managers); it is not a real error.
-function isCancel(e: unknown): boolean {
-  return String(e).includes("annule");
-}
+/// Parlato: a cancelled download is reported as PARLA_ERR:cancelled; it is
+/// not a real error.
+const isCancel = isCancelled;
 
 export function ModelsPage({
   selectedModelId,
@@ -88,7 +89,7 @@ export function ModelsPage({
   const [whisperErrors, setWhisperErrors] = useState<Record<string, string>>(
     {},
   );
-  const [parakeetStatus, setParakeetStatus] = useState<Record<string, string>>(
+  const [parakeetStatus, setParakeetStatus] = useState<Record<string, Status>>(
     {},
   );
 
@@ -190,7 +191,7 @@ export function ModelsPage({
             ...s,
             [e.payload.id]: isCancel(e.payload.message)
               ? t("parakeet.cancelled")
-              : t("parakeet.errorPrefix", { message: e.payload.message }),
+              : fail(t("parakeet.errorPrefix", { message: e.payload.message })),
           }));
         },
       ),
@@ -229,6 +230,10 @@ export function ModelsPage({
   }
 
   async function deleteWhisper(id: string) {
+    // Parlato: confirm like Parakeet and local AI models; a Whisper model is
+    // a 75 MB to 3 GB download.
+    const name = modelName(t, id, whisper.find((m) => m.id === id)?.display_name ?? id);
+    if (!(await confirmDelete(t("speech.confirmDeleteModel", { name })))) return;
     try {
       await api.deleteWhisperModel(id);
       if (selectedRef.current === id) onSelectModel(null);
@@ -270,7 +275,7 @@ export function ModelsPage({
       // raw backend message.
       setParakeetStatus((s) => ({
         ...s,
-        [id]: isCancel(e) ? t("parakeet.cancelled") : t("parakeet.errorPrefix", { message: String(e) }),
+        [id]: isCancel(e) ? t("parakeet.cancelled") : fail(t("parakeet.errorPrefix", { message: String(e) })),
       }));
     }
   }
@@ -283,7 +288,7 @@ export function ModelsPage({
     } catch (e) {
       setParakeetStatus((s) => ({
         ...s,
-        [id]: t("parakeet.errorPrefix", { message: String(e) }),
+        [id]: fail(t("parakeet.errorPrefix", { message: String(e) })),
       }));
     }
   }

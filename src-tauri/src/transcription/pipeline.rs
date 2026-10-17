@@ -43,6 +43,10 @@ const STORE_FILE: &str = "parla.settings.json";
 const SELECTED_MODEL_KEY: &str = "selected_whisper_model";
 const LANGUAGE_KEY: &str = "whisper_language";
 const SPEECH_THREADS_KEY: &str = "speech_threads";
+/// Parlato : secondes pendant lesquelles les modeles restent charges apres
+/// une dictee (0 = liberes tout de suite, comme VoiceInk).
+const KEEP_ALIVE_KEY: &str = "model_keep_alive_secs";
+pub const DEFAULT_KEEP_ALIVE_SECS: u64 = 300;
 const RESTORE_CLIPBOARD_KEY: &str = "restore_clipboard_after_paste";
 const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
@@ -63,6 +67,136 @@ pub struct PipelineEvent {
     pub message: Option<String>,
     pub text: Option<String>,
     pub duration_ms: Option<u64>,
+    /// Parlato : quel travail emet l'evenement. La bulle n'ecoute que
+    /// `dictation`, la page "Transcrire un fichier" que `file`, pour qu'une
+    /// dictee pendant un long fichier ne melange pas les deux.
+    pub job: Job,
+}
+
+/// Parlato : origine d'un passage dans le pipeline.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Job {
+    /// Dictee au raccourci : colle au curseur.
+    Dictation,
+    /// "Transcrire un fichier" : presse-papiers uniquement.
+    File,
+    /// "Reessayer la derniere transcription" : presse-papiers uniquement.
+    Retry,
+}
+
+/// Parlato : un passage dans le pipeline et sa ligne d'historique. L'id est
+/// porte ici plutot que dans un etat global, sinon deux passages
+/// simultanes (une dictee pendant un fichier) s'ecrasent l'id.
+#[derive(Debug, Clone)]
+pub struct Run {
+    pub job: Job,
+    pub history_id: Option<String>,
+    /// Generation de la bulle d'une dictee (0 hors dictee), pour le bouton
+    /// Annuler de la bulle.
+    pub pill: u64,
+}
+
+/// Parlato : generation de la bulle dont la dictee a ete annulee pendant
+/// la transcription (bouton Annuler). Son texte n'est ni nettoye ni colle.
+static CANCELLED_PILL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Annule la dictee en cours de traitement : rien ne sera colle. La
+/// transcription deja faite reste dans l'historique.
+pub fn cancel_processing(app: &AppHandle) {
+    let pill = mini_recorder::generation();
+    CANCELLED_PILL.store(pill, std::sync::atomic::Ordering::SeqCst);
+    info!(pill, "dictee annulee pendant le traitement");
+    feedback::play(app, Cue::Cancel);
+    mini_recorder::close_if_current(app, pill);
+}
+
+impl Run {
+    fn cancelled(&self) -> bool {
+        self.pill != 0 && CANCELLED_PILL.load(std::sync::atomic::Ordering::SeqCst) == self.pill
+    }
+
+    fn delivery(&self) -> Delivery {
+        if self.job == Job::Dictation {
+            Delivery::Paste
+        } else {
+            Delivery::CopyOnly
+        }
+    }
+}
+
+fn emit_state(
+    app: &AppHandle,
+    job: Job,
+    state: PipelineState,
+    message: Option<String>,
+    text: Option<String>,
+    duration_ms: Option<u64>,
+) {
+    let _ = app.emit(
+        "pipeline:state",
+        PipelineEvent {
+            state,
+            message,
+            text,
+            duration_ms,
+            job,
+        },
+    );
+}
+
+/// Parlato : nombre de passages en cours. Les modeles ne sont liberes
+/// qu'une fois le dernier termine, sinon la fin d'un fichier dechargerait
+/// le modele sous une dictee en cours.
+static ACTIVE_RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Compteur de passages commences : une liberation programmee ne se fait
+/// que si aucun passage n'a commence entre-temps.
+static RUN_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn begin_run() {
+    RUN_EPOCH.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    ACTIVE_RUNS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn end_run(app: &AppHandle) {
+    use std::sync::atomic::Ordering::SeqCst;
+    let left = ACTIVE_RUNS.fetch_sub(1, SeqCst).saturating_sub(1);
+    if left != 0 {
+        return;
+    }
+    // Parlato : les modeles restent prets quelques minutes, la dictee
+    // suivante evite leur rechargement (plusieurs secondes pour Whisper
+    // large ou un modele de nettoyage local).
+    let keep = get_model_keep_alive(app);
+    if keep == 0 {
+        unload_inference_models(app);
+        return;
+    }
+    let epoch = RUN_EPOCH.load(SeqCst);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(keep));
+        if ACTIVE_RUNS.load(SeqCst) == 0 && RUN_EPOCH.load(SeqCst) == epoch {
+            info!(keep, "modeles liberes apres inactivite");
+            unload_inference_models(&app);
+        }
+    });
+}
+
+pub fn get_model_keep_alive(app: &AppHandle) -> u64 {
+    app.store(STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(KEEP_ALIVE_KEY))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(DEFAULT_KEEP_ALIVE_SECS)
+}
+
+pub fn set_model_keep_alive(app: &AppHandle, secs: u64) -> Result<()> {
+    let store = app.store(STORE_FILE)?;
+    store.set(KEEP_ALIVE_KEY, serde_json::Value::from(secs));
+    store.save()?;
+    Ok(())
 }
 
 /// Destination du texte final.
@@ -76,23 +210,6 @@ pub enum Delivery {
     CopyOnly,
 }
 
-/// State qui tient l'id de la ligne history en cours pour la session
-/// active (non-streaming ou streaming). Set au record start, lu a
-/// chaque etape du pipeline.
-#[derive(Default)]
-pub struct HistorySessionState(pub parking_lot::Mutex<Option<String>>);
-
-fn current_history_id(app: &AppHandle) -> Option<String> {
-    app.try_state::<HistorySessionState>()
-        .and_then(|s| s.0.lock().clone())
-}
-
-fn clear_history_id(app: &AppHandle) {
-    if let Some(s) = app.try_state::<HistorySessionState>() {
-        *s.0.lock() = None;
-    }
-}
-
 /// Lit la duree du WAV pour le stocker dans la ligne history.
 fn wav_duration_secs(wav_path: &Path) -> Option<f64> {
     use hound::WavReader;
@@ -102,17 +219,16 @@ fn wav_duration_secs(wav_path: &Path) -> Option<f64> {
     Some(samples / spec.sample_rate as f64)
 }
 
-pub fn insert_pending_streaming_row(app: &AppHandle, provider: &str, model: &str) {
-    let Some(db) = app.try_state::<Database>() else {
-        return;
-    };
+pub fn insert_pending_streaming_row(
+    app: &AppHandle,
+    provider: &str,
+    model: &str,
+) -> Option<String> {
+    let db = app.try_state::<Database>()?;
     let conn = db.0.lock();
     match history_repo::insert_pending(&conn, None, None) {
         Ok(id) => {
             drop(conn);
-            if let Some(state) = app.try_state::<HistorySessionState>() {
-                *state.0.lock() = Some(id.clone());
-            }
             // Pre-remplit transcription_model_name pour la ligne streaming
             // (sera ecrasee par mark_transcribed au finalize).
             let conn = db.0.lock();
@@ -123,15 +239,29 @@ pub fn insert_pending_streaming_row(app: &AppHandle, provider: &str, model: &str
             );
             drop(conn);
             let _ = app.emit("history:created", &id);
+            Some(id)
         }
-        Err(e) => warn!("history insert_pending streaming: {e}"),
+        Err(e) => {
+            warn!("history insert_pending streaming: {e}");
+            None
+        }
     }
 }
 
-fn insert_pending_row(app: &AppHandle, wav_path: Option<&Path>) {
+/// Parlato : retire une ligne d'historique restee en attente (dictee
+/// streaming annulee).
+pub fn discard_pending_row(app: &AppHandle, id: &str) {
     let Some(db) = app.try_state::<Database>() else {
         return;
     };
+    if let Err(e) = history_repo::delete(&db.0.lock(), id) {
+        warn!("history delete pending: {e}");
+    }
+    let _ = app.emit("history:updated", id);
+}
+
+fn insert_pending_row(app: &AppHandle, wav_path: Option<&Path>) -> Option<String> {
+    let db = app.try_state::<Database>()?;
     let audio_name = wav_path
         .and_then(|p| p.file_name())
         .and_then(|s| s.to_str())
@@ -141,21 +271,22 @@ fn insert_pending_row(app: &AppHandle, wav_path: Option<&Path>) {
     match history_repo::insert_pending(&conn, audio_name.as_deref(), duration_sec) {
         Ok(id) => {
             drop(conn);
-            if let Some(state) = app.try_state::<HistorySessionState>() {
-                *state.0.lock() = Some(id.clone());
-            }
             let _ = app.emit("history:created", &id);
+            Some(id)
         }
-        Err(e) => warn!("history insert_pending: {e}"),
+        Err(e) => {
+            warn!("history insert_pending: {e}");
+            None
+        }
     }
 }
 
-fn mark_failed(app: &AppHandle, err: &str) {
-    let Some(id) = current_history_id(app) else {
+fn mark_failed(app: &AppHandle, run: &Run, err: &str) {
+    let Some(id) = run.history_id.as_deref() else {
         return;
     };
     if let Some(db) = app.try_state::<Database>() {
-        if let Err(e) = history_repo::mark_failed(&db.0.lock(), &id, err) {
+        if let Err(e) = history_repo::mark_failed(&db.0.lock(), id, err) {
             warn!("history mark_failed: {e}");
         }
     }
@@ -324,73 +455,142 @@ pub async fn start_streaming_session(
 }
 
 /// Finalise une session streaming et applique le post-traitement + paste.
-pub async fn finalize_streaming_session(
+/// Parlato : si la session echoue (cle refusee, hors ligne, erreur du
+/// fournisseur), l'enregistrement WAV fait en parallele est transcrit en
+/// mode fichier par le meme fournisseur, dans la meme ligne d'historique,
+/// et la dictee se termine toujours par `finish_dictation`.
+pub fn finish_streaming(
     app: AppHandle,
     handle: StreamingHandle,
-) -> Result<()> {
-    let start = std::time::Instant::now();
-    let text = handle.finalize().await?;
-    let duration_ms = start.elapsed().as_millis() as u64;
-    info!(chars = text.len(), duration_ms, "Streaming cloud finalise");
-    mark_transcribed_in_history(
-        &app,
-        &text,
-        duration_ms,
-        "streaming",
-        get_language(&app).as_deref(),
-    );
-    let result = finalize_text(&app, text, duration_ms, Delivery::Paste).await;
-    // Fin de la session Power Mode (idem branche batch).
-    crate::power_mode::session::end_session(&app);
-    let _ = app.emit("power_mode:active", serde_json::Value::Null);
-    crate::tray::refresh(&app);
-    clear_history_id(&app);
-    result
+    history_id: Option<String>,
+    wav_path: PathBuf,
+) {
+    let pill = mini_recorder::generation();
+    let released = std::time::Instant::now();
+    begin_run();
+    tauri::async_runtime::spawn(async move {
+        let run = Run {
+            job: Job::Dictation,
+            history_id,
+            pill,
+        };
+        let start = std::time::Instant::now();
+        let result = match handle.finalize().await {
+            Ok(text) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                info!(chars = text.len(), duration_ms, "Streaming cloud finalise");
+                mark_transcribed_in_history(
+                    &app,
+                    &run,
+                    &text,
+                    duration_ms,
+                    "streaming",
+                    get_language(&app).as_deref(),
+                );
+                finalize_text(&app, &run, text, duration_ms).await
+            }
+            Err(e) => {
+                warn!("Streaming echoue, transcription du fichier enregistre: {e}");
+                run_pipeline(app.clone(), &run, wav_path).await
+            }
+        };
+        finish_dictation(&app, &run, result, pill, released).await;
+    });
 }
 
 /// Declenche le pipeline complet apres la fin d'un enregistrement : transcribe
 /// puis paste. Emet des evenements pipeline:state vers le frontend.
 pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
-    insert_pending_row(&app, Some(&wav_path));
-    let app_bg = app.clone();
+    let pill = mini_recorder::generation();
+    let released = std::time::Instant::now();
+    let run = Run {
+        job: Job::Dictation,
+        history_id: insert_pending_row(&app, Some(&wav_path)),
+        pill,
+    };
+    begin_run();
     // tauri::async_runtime::spawn fonctionne depuis n'importe quel thread
     // (le hotkey-dispatch est un std::thread sans runtime Tokio attache).
     tauri::async_runtime::spawn(async move {
-        let result = run_pipeline(app_bg.clone(), wav_path, Delivery::Paste).await;
-        if let Err(e) = result {
-            warn!("Pipeline echec: {e}");
-            mark_failed(&app_bg, &e.to_string());
-            let _ = app_bg.emit(
-                "pipeline:state",
-                PipelineEvent {
-                    state: PipelineState::Failed,
-                    message: Some(e.to_string()),
-                    text: None,
-                    duration_ms: None,
-                },
-            );
-        }
-        // Libere les modeles d'inference maintenant que le pipeline est
-        // termine, succes ou echec. Evite de garder en permanence whisper
-        // (~150 Mo a 3 Go), parakeet (~600 Mo), VAD (~20 Mo) et le runtime
-        // llama.cpp (taille du GGUF selectionne). Reference VoiceInk
-        // VoiceInkEngine.cleanupResources -> WhisperModelManager
-        // .releaseResources -> whisper_free. La prochaine dictee
-        // rechargera a la volee.
-        unload_inference_models(&app_bg);
-        // VoiceInk dismiss la fenetre immediatement apres le paste done
-        // (RecorderUIManager.dismissMiniRecorder, pas de delay visuel).
-        // On garde 200 ms de buffer pour absorber les derniers events.
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-        mini_recorder::close(&app_bg);
-        // Fin de la session Power Mode : restauration de la baseline
-        // si auto_restore est active (reference VoiceInk
-        // PowerModeSessionManager.endSession).
-        crate::power_mode::session::end_session(&app_bg);
-        let _ = app_bg.emit("power_mode:active", serde_json::Value::Null);
-        crate::tray::refresh(&app_bg);
-        clear_history_id(&app_bg);
+        let result = run_pipeline(app.clone(), &run, wav_path).await;
+        finish_dictation(&app, &run, result, pill, released).await;
     });
+}
+
+/// Fin commune d'une dictee (batch ou streaming), succes ou echec.
+/// Parlato : un echec est montre dans la bulle (message traduit) avec le
+/// son d'annulation, au lieu de la fermer sans rien dire ; elle reste
+/// ouverte un peu plus longtemps pour qu'on ait le temps de le lire.
+async fn finish_dictation(
+    app: &AppHandle,
+    run: &Run,
+    result: Result<Outcome>,
+    pill: u64,
+    released: std::time::Instant,
+) {
+    // Parlato : une ligne par dictee, du relachement de la touche a la fin
+    // (collage compris), pour reperer une lenteur dans parlato.log.
+    info!(
+        total_ms = released.elapsed().as_millis() as u64,
+        outcome = ?result.as_ref().map_err(|_| "failed"),
+        "Dictee terminee"
+    );
+    let failed = matches!(result, Err(_) | Ok(Outcome::NotPasted));
+    let result_kind = result.as_ref().ok().copied();
+    let empty = matches!(result, Ok(Outcome::Empty));
+    if let Err(e) = result {
+        warn!("Pipeline echec: {e}");
+        mark_failed(app, run, &e.to_string());
+        emit_state(
+            app,
+            Job::Dictation,
+            PipelineState::Failed,
+            Some(e.to_string()),
+            None,
+            None,
+        );
+        feedback::play(app, Cue::Cancel);
+    }
+    // Libere les modeles d'inference une fois le dernier passage termine.
+    // Reference VoiceInk VoiceInkEngine.cleanupResources.
+    end_run(app);
+    // Fin de la session Power Mode : restauration de la baseline si
+    // auto_restore est active (reference VoiceInk
+    // PowerModeSessionManager.endSession). Faite tout de suite, avant
+    // l'attente, pour ne pas toucher la session d'une dictee suivante.
+    crate::power_mode::session::end_session(app);
+    let _ = app.emit("power_mode:active", serde_json::Value::Null);
+    crate::tray::refresh(app);
+    // VoiceInk ferme la bulle juste apres le paste ; 200 ms de marge pour
+    // les derniers evenements, plus le temps de lire un echec.
+    let delay = if matches!(result_kind, Some(Outcome::Cancelled)) {
+        0
+    } else if failed {
+        FAILED_PILL_MS
+    } else if empty {
+        EMPTY_PILL_MS
+    } else {
+        200
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+    mini_recorder::close_if_current(app, pill);
+}
+
+/// Duree d'affichage d'un echec dans la bulle.
+const FAILED_PILL_MS: u64 = 3500;
+/// Duree d'affichage de "Rien entendu" (dictee sans parole).
+const EMPTY_PILL_MS: u64 = 1500;
+
+/// Parlato : issue d'un passage reussi. `Empty` = aucune parole, rien n'a
+/// ete colle ; la bulle le dit au lieu de disparaitre sans rien.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    Delivered,
+    Empty,
+    /// Texte transcrit mais pas colle : il est dans le presse-papiers.
+    NotPasted,
+    /// Annule depuis la bulle pendant le traitement : rien n'est colle.
+    Cancelled,
 }
 
 /// Retranscrit un fichier audio existant (dernier enregistrement) avec la
@@ -399,7 +599,7 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
 /// AudioTranscriptionService.retranscribeAudio. Pas de mini-recorder, pas
 /// de session Power Mode : c'est une action utilitaire hors dictee.
 pub fn run_retry(app: AppHandle, wav_path: PathBuf) {
-    spawn_copy_only(app, wav_path, true);
+    spawn_copy_only(app, wav_path, Job::Retry);
 }
 
 /// Parlato : transcrit un fichier importe ("Transcribe a file"), deja
@@ -407,39 +607,41 @@ pub fn run_retry(app: AppHandle, wav_path: PathBuf) {
 /// run_retry (source courante, enhancement, historique, presse-papiers)
 /// mais sans notice tray : la page suit l'avancement via pipeline:state.
 pub fn run_file(app: AppHandle, wav_path: PathBuf) {
-    spawn_copy_only(app, wav_path, false);
+    spawn_copy_only(app, wav_path, Job::File);
 }
 
-fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, tray_notice: bool) {
-    insert_pending_row(&app, Some(&wav_path));
-    let app_bg = app.clone();
+fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
+    let run = Run {
+        job,
+        history_id: insert_pending_row(&app, Some(&wav_path)),
+        pill: 0,
+    };
+    begin_run();
     tauri::async_runtime::spawn(async move {
-        let result = run_pipeline(app_bg.clone(), wav_path, Delivery::CopyOnly).await;
+        let result = run_pipeline(app.clone(), &run, wav_path).await;
         match result {
-            Ok(()) => {
-                if tray_notice {
-                    let _ = app_bg.emit("tray:notice", "Retry done, copied to clipboard");
+            Ok(_) => {
+                if job == Job::Retry {
+                    crate::notice::send(&app, crate::notice::Notice::RetryDone);
                 }
             }
             Err(e) => {
                 warn!("Retry pipeline echec: {e}");
-                mark_failed(&app_bg, &e.to_string());
-                if tray_notice {
-                    let _ = app_bg.emit("tray:notice", format!("Retry failed: {e}"));
+                mark_failed(&app, &run, &e.to_string());
+                if job == Job::Retry {
+                    crate::notice::send(&app, crate::notice::Notice::Failed(e.to_string()));
                 }
-                let _ = app_bg.emit(
-                    "pipeline:state",
-                    PipelineEvent {
-                        state: PipelineState::Failed,
-                        message: Some(e.to_string()),
-                        text: None,
-                        duration_ms: None,
-                    },
+                emit_state(
+                    &app,
+                    job,
+                    PipelineState::Failed,
+                    Some(e.to_string()),
+                    None,
+                    None,
                 );
             }
         }
-        unload_inference_models(&app_bg);
-        clear_history_id(&app_bg);
+        end_run(&app);
     });
 }
 
@@ -548,7 +750,7 @@ async fn transcribe_cloud(
     Ok((text, start.elapsed().as_millis() as u64))
 }
 
-async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> Result<()> {
+async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Outcome> {
     let source = resolve_source(&app);
     let language = get_language(&app);
     let params = WhisperParams {
@@ -562,14 +764,13 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
         Source::Cloud { provider, model } => format!("{provider} / {model}"),
         Source::Parakeet { model_id } => format!("parakeet / {model_id}"),
     };
-    let _ = app.emit(
-        "pipeline:state",
-        PipelineEvent {
-            state: PipelineState::Transcribing,
-            message: Some(format!("Transcription {source_label}")),
-            text: None,
-            duration_ms: None,
-        },
+    emit_state(
+        &app,
+        run.job,
+        PipelineState::Transcribing,
+        Some(format!("Transcription {source_label}")),
+        None,
+        None,
     );
 
     // Branche cloud : pas de VAD, pas de WhisperEngine. Upload direct au provider.
@@ -588,12 +789,13 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
         info!(chars = text.len(), duration_ms, provider, model, "Transcription cloud terminee");
         mark_transcribed_in_history(
             &app,
+            run,
             &text,
             duration_ms,
             &format!("{provider} / {model}"),
             language.as_deref(),
         );
-        return finalize_text(&app, text, duration_ms, delivery).await;
+        return finalize_text(&app, run, text, duration_ms).await;
     }
 
     // Branche Parakeet (local via parakeet-rs).
@@ -644,12 +846,13 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
         );
         mark_transcribed_in_history(
             &app,
+            run,
             &text,
             duration_ms,
             &format!("parakeet / {model_id}"),
             language.as_deref(),
         );
-        return finalize_text(&app, text, duration_ms, delivery).await;
+        return finalize_text(&app, run, text, duration_ms).await;
     }
 
     // Branche locale Whisper (comme avant).
@@ -693,12 +896,13 @@ async fn run_pipeline(app: AppHandle, wav_path: PathBuf, delivery: Delivery) -> 
     info!(chars = text.len(), duration_ms, "Transcription locale terminee");
     mark_transcribed_in_history(
         &app,
+        run,
         &text,
         duration_ms,
         &format!("local / {model_id}"),
         language.as_deref(),
     );
-    finalize_text(&app, text, duration_ms, delivery).await
+    finalize_text(&app, run, text, duration_ms).await
 }
 
 /// VAD Silero si elle est activee et que son modele est telecharge.
@@ -735,12 +939,13 @@ fn speech_samples(vad: Option<(Arc<vad::VadEngine>, PathBuf)>, wav: &Path) -> Re
 
 fn mark_transcribed_in_history(
     app: &AppHandle,
+    run: &Run,
     text: &str,
     duration_ms: u64,
     model_label: &str,
     language: Option<&str>,
 ) {
-    let Some(id) = current_history_id(app) else {
+    let Some(id) = run.history_id.as_deref() else {
         return;
     };
     let Some(db) = app.try_state::<Database>() else {
@@ -755,18 +960,14 @@ fn mark_transcribed_in_history(
         power_mode_name: session.as_ref().map(|s| s.config_name.as_str()),
         power_mode_emoji: session.as_ref().map(|s| s.emoji.as_str()),
     };
-    if let Err(e) = history_repo::mark_transcribed(&db.0.lock(), &id, &fields) {
+    if let Err(e) = history_repo::mark_transcribed(&db.0.lock(), id, &fields) {
         warn!("history mark_transcribed: {e}");
     }
     let _ = app.emit("history:updated", &id);
 }
 
-fn mark_enhanced_in_history(
-    app: &AppHandle,
-    enhanced: &str,
-    enhance_ms: u64,
-) {
-    let Some(id) = current_history_id(app) else {
+fn mark_enhanced_in_history(app: &AppHandle, run: &Run, enhanced: &str, enhance_ms: u64) {
+    let Some(id) = run.history_id.as_deref() else {
         return;
     };
     let Some(db) = app.try_state::<Database>() else {
@@ -790,7 +991,7 @@ fn mark_enhanced_in_history(
         ai_request_system_message: None,
         ai_request_user_message: None,
     };
-    if let Err(e) = history_repo::mark_enhanced(&db.0.lock(), &id, &fields) {
+    if let Err(e) = history_repo::mark_enhanced(&db.0.lock(), id, &fields) {
         warn!("history mark_enhanced: {e}");
     }
     let _ = app.emit("history:updated", &id);
@@ -799,12 +1000,11 @@ fn mark_enhanced_in_history(
 /// Post-traitement + paste commun aux branches locale et cloud.
 /// Ordre VoiceInk TranscriptionPipeline.swift L67-100 :
 ///   filter -> trim -> formatter (si active) -> word_replacement -> paste.
-async fn finalize_text(
-    app: &AppHandle,
-    text: String,
-    duration_ms: u64,
-    delivery: Delivery,
-) -> Result<()> {
+async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u64) -> Result<Outcome> {
+    let delivery = run.delivery();
+    if run.cancelled() {
+        return Ok(Outcome::Cancelled);
+    }
     let fillers = if filler_words::is_enabled(app) {
         filler_words::current_list(app)
     } else {
@@ -828,16 +1028,15 @@ async fn finalize_text(
 
     if text.trim().is_empty() {
         warn!("Transcription vide, on saute le paste");
-        let _ = app.emit(
-            "pipeline:state",
-            PipelineEvent {
-                state: PipelineState::Done,
-                message: Some("Aucun texte detecte".into()),
-                text: Some(String::new()),
-                duration_ms: Some(duration_ms),
-            },
+        emit_state(
+            app,
+            run.job,
+            PipelineState::Done,
+            Some("Aucun texte detecte".into()),
+            Some(String::new()),
+            Some(duration_ms),
         );
-        return Ok(());
+        return Ok(Outcome::Empty);
     }
 
     // prompt-detect : cherche un trigger_word dans le texte qui activerait
@@ -877,19 +1076,18 @@ async fn finalize_text(
     };
 
     if should_enhance {
-        let _ = app.emit(
-            "pipeline:state",
-            PipelineEvent {
-                state: PipelineState::Enhancing,
-                message: Some("Enhancement LLM".into()),
-                text: Some(text.clone()),
-                duration_ms: Some(duration_ms),
-            },
+        emit_state(
+            app,
+            run.job,
+            PipelineState::Enhancing,
+            Some("Enhancement LLM".into()),
+            Some(text.clone()),
+            Some(duration_ms),
         );
         match llm_service::enhance_with_override(app.clone(), text.clone(), prompt_override).await {
             Ok(Some((enhanced, enhance_ms))) => {
                 if !enhanced.trim().is_empty() {
-                    mark_enhanced_in_history(app, &enhanced, enhance_ms);
+                    mark_enhanced_in_history(app, run, &enhanced, enhance_ms);
                     text = enhanced;
                 }
             }
@@ -898,14 +1096,18 @@ async fn finalize_text(
         }
     }
 
-    let _ = app.emit(
-        "pipeline:state",
-        PipelineEvent {
-            state: PipelineState::Pasting,
-            message: None,
-            text: Some(text.clone()),
-            duration_ms: Some(duration_ms),
-        },
+    // Annule pendant le nettoyage IA.
+    if run.cancelled() {
+        return Ok(Outcome::Cancelled);
+    }
+
+    emit_state(
+        app,
+        run.job,
+        PipelineState::Pasting,
+        None,
+        Some(text.clone()),
+        Some(duration_ms),
     );
 
     if delivery == Delivery::CopyOnly {
@@ -924,9 +1126,36 @@ async fn finalize_text(
         };
 
         let final_text_clone = final_text.clone();
-        task::spawn_blocking(move || paste_at_cursor(&final_text_clone, restore, None))
-            .await
-            .map_err(|e| anyhow!("task join: {e}"))??;
+        let pasted =
+            task::spawn_blocking(move || paste_at_cursor(&final_text_clone, restore, None))
+                .await
+                .map_err(|e| anyhow!("task join: {e}"))?;
+        // Parlato : la transcription a reussi, seul le collage a echoue
+        // (fenetre administrateur, Accessibilite absente). L'historique garde
+        // le texte, qui reste aussi dans le presse-papiers ; la bulle le dit.
+        if let Err(e) = pasted {
+            warn!("paste: {e}");
+            emit_state(
+                app,
+                run.job,
+                PipelineState::Failed,
+                Some("PARLA_ERR:pasteFailed".into()),
+                Some(text),
+                Some(duration_ms),
+            );
+            feedback::play(app, Cue::Cancel);
+            return Ok(Outcome::NotPasted);
+        }
+
+        // Parlato : touche d'envoi du Power mode actif (Entree...).
+        let send = crate::power_mode::session::auto_send_key(app);
+        if send != crate::paste::AutoSendKey::None {
+            match task::spawn_blocking(move || crate::paste::send_after_paste(send)).await {
+                Ok(Err(e)) => warn!("auto-send: {e}"),
+                Err(e) => warn!("auto-send join: {e}"),
+                Ok(Ok(())) => {}
+            }
+        }
 
         // Stop cue, played once the text is actually inserted at the cursor
         // (VoiceInk SoundManager.playStopSound at TranscriptionPipeline.swift:209).
@@ -935,16 +1164,15 @@ async fn finalize_text(
         feedback::play(app, Cue::Stop);
     }
 
-    let _ = app.emit(
-        "pipeline:state",
-        PipelineEvent {
-            state: PipelineState::Done,
-            message: None,
-            text: Some(text),
-            duration_ms: Some(duration_ms),
-        },
+    emit_state(
+        app,
+        run.job,
+        PipelineState::Done,
+        None,
+        Some(text),
+        Some(duration_ms),
     );
-    Ok(())
+    Ok(Outcome::Delivered)
 }
 
 #[cfg(test)]

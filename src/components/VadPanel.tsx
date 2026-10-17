@@ -1,29 +1,23 @@
+// Detection de voix (Silero VAD) : telechargement du petit modele et
+// interrupteur. Reference VoiceInk : reglage "Voice Activity Detection".
+// Parlato : mis au format Section / Row des autres reglages, tailles via
+// lib/format.
+
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Activity, Check, Download, Loader2, Trash2 } from "lucide-react";
+import { Download, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Row, Section, Switch } from "@/components/ui/section";
+import { formatBytes } from "@/lib/format";
 import { api } from "@/lib/tauri";
+import { translateError } from "@/lib/translateError";
 
 type VadState = {
   downloaded: boolean;
   path: string | null;
   on_disk_bytes: number | null;
 };
-
-function formatBytes(n: number | null | undefined): string {
-  if (n == null) return "-";
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} Mo`;
-  if (n >= 1_000) return `${Math.round(n / 1_000)} Ko`;
-  return `${n} o`;
-}
 
 export function VadPanel() {
   const { t } = useTranslation();
@@ -58,12 +52,12 @@ export function VadPanel() {
     }
   }
 
-  async function toggle() {
+  async function toggle(next: boolean) {
+    setEnabled(next);
     try {
-      const next = !enabled;
       await api.vadSetEnabled(next);
-      setEnabled(next);
     } catch (e) {
+      setEnabled(!next);
       setError(String(e));
     }
   }
@@ -88,85 +82,47 @@ export function VadPanel() {
   }
 
   if (!state) return null;
-  const pct = progress
-    ? Math.round((progress.downloaded / Math.max(1, progress.total)) * 100)
-    : null;
+  const pct = progress ? Math.round((progress.downloaded / Math.max(1, progress.total)) * 100) : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-base">{t("vad.title")}</CardTitle>
-        </div>
-        <CardDescription>{t("vad.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            role="switch"
-            checked={enabled}
-            onChange={toggle}
-            className="mt-1 h-4 w-4 cursor-pointer"
-            disabled={!state.downloaded}
-          />
-          <div>
-            <p className="text-sm font-medium leading-tight">{t("vad.enableTitle")}</p>
-            <p className="text-xs text-muted-foreground">
-              {state.downloaded
-                ? t("vad.installed")
-                : t("vad.downloadFirst")}
-            </p>
-          </div>
-        </label>
-
+    <Section title={t("vad.title")} description={t("vad.description")}>
+      <Row
+        htmlFor="vad-enabled"
+        label={t("vad.enableTitle")}
+        description={state.downloaded ? t("vad.enableDesc") : t("vad.downloadFirst")}
+        disabled={!state.downloaded}
+      >
+        <Switch id="vad-enabled" checked={enabled} onChange={toggle} disabled={!state.downloaded} />
+      </Row>
+      <Row
+        label={t("vad.modelTitle")}
+        description={
+          state.downloaded
+            ? t("vad.size", { size: formatBytes(state.on_disk_bytes) })
+            : progress
+              ? t("vad.downloadingLabel", { pct })
+              : t("vad.notDownloaded")
+        }
+      >
         {state.downloaded ? (
-          <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-            <div>
-              <p className="flex items-center gap-2 text-sm font-medium">
-                <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                {t("vad.modelInstalled")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t("vad.size", { size: formatBytes(state.on_disk_bytes) })}
-              </p>
-              {state.path && (
-                <code className="mt-1 block break-all text-[11px] text-muted-foreground">
-                  {state.path}
-                </code>
-              )}
-            </div>
-            <Button size="sm" variant="ghost" onClick={remove}>
-              <Trash2 className="h-3.5 w-3.5" />
-              {t("vad.delete")}
-            </Button>
-          </div>
+          <Button size="sm" variant="ghost" onClick={remove}>
+            <Trash2 className="h-3.5 w-3.5" />
+            {t("vad.delete")}
+          </Button>
         ) : progress ? (
-          <div className="rounded-md border p-3">
-            <div className="mb-2 flex items-center gap-2 text-sm">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {t("vad.downloadingLabel", { pct })}
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{ width: `${pct ?? 0}%` }}
-              />
-            </div>
-          </div>
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />
         ) : (
-          <Button onClick={download} variant="outline">
-            <Download /> {t("vad.downloadButton")}
+          <Button size="sm" variant="outline" onClick={download}>
+            <Download className="h-3.5 w-3.5" />
+            {t("vad.downloadButton")}
           </Button>
         )}
-
-        {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {t("vad.errorPrefix", { message: error })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </Row>
+      {error && (
+        <p role="alert" className="px-5 py-3 text-[13px] text-destructive">
+          {t("vad.errorPrefix", { message: translateError(t, error) })}
+        </p>
+      )}
+    </Section>
   );
 }

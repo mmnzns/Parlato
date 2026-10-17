@@ -11,12 +11,11 @@
 // to the Microphone & shortcut page; text post-processing and history
 // retention moved here from their own panels.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { check, type Update } from "@tauri-apps/plugin-updater";
 import {
   ArrowUpRight,
   CircleCheck,
@@ -42,7 +41,12 @@ import { cn } from "@/lib/utils";
 import coffeeButton from "@/assets/coffee-button.webp";
 import { isMac } from "@/lib/platform";
 import { confirmDelete } from "@/lib/confirmDelete";
-import { installUpdate } from "@/lib/updater";
+import {
+  checkForUpdate,
+  getUpdaterState,
+  installPendingUpdate,
+  subscribeUpdater,
+} from "@/lib/updater";
 
 const REPO_URL = "https://github.com/mmnzns/Parlato";
 // Credit the upstream author (profile, not just the repo).
@@ -55,20 +59,12 @@ const DAY_MIN = 24 * 60;
 const DICTATION_PRESETS = [1, 7, 30, 90]; // days
 const AUDIO_PRESETS = [1, 7, 30, 90]; // days
 
-type UpdateState =
-  | "idle"
-  | "checking"
-  | "current"
-  | "available"
-  | "downloading"
-  | "failed"
-  | "installFailed";
-
 export function SettingsPanel() {
   const { t, i18n } = useTranslation();
   const [recorderStyle, setRecorderStyle] = useState<"mini" | "notch">("mini");
   const [autostart, setAutostart] = useState(false);
   const [closeToTray, setCloseToTray] = useState(true);
+  const [hideDock, setHideDock] = useState(false);
   const [systemMute, setSystemMute] = useState(false);
   const [resumeDelay, setResumeDelay] = useState(0.2);
   const [soundFeedback, setSoundFeedback] = useState(true);
@@ -79,10 +75,12 @@ export function SettingsPanel() {
   const [showFillers, setShowFillers] = useState(false);
   const [retention, setRetention] = useState<RetentionSettings | null>(null);
   const [version, setVersion] = useState("");
-  const [update, setUpdate] = useState<UpdateState>("idle");
-  const [updateVersion, setUpdateVersion] = useState("");
-  const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
-  const [updatePct, setUpdatePct] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const updater = useSyncExternalStore(subscribeUpdater, getUpdaterState);
+  // "installed" means the app is restarting; show it as downloading.
+  const update = updater.status === "installed" ? "downloading" : updater.status;
+  const updateVersion = updater.update?.version ?? "";
+  const updatePct = updater.percent;
 
   useEffect(() => {
     api
@@ -94,6 +92,7 @@ export function SettingsPanel() {
       .then((p) => setAutostart(p.autostart.ok))
       .catch(console.error);
     api.getCloseToTray().then(setCloseToTray).catch(console.error);
+    if (isMac) api.getHideDockIcon().then(setHideDock).catch(console.error);
     api.getSystemMuteEnabled().then(setSystemMute).catch(console.error);
     api.getAudioResumptionDelay().then(setResumeDelay).catch(console.error);
     api.getSoundFeedbackEnabled().then(setSoundFeedback).catch(console.error);
@@ -186,34 +185,10 @@ export function SettingsPanel() {
     }
   }
 
-  async function checkForUpdates() {
-    setUpdate("checking");
-    try {
-      const u = await check();
-      if (u) {
-        setUpdateVersion(u.version);
-        setPendingUpdate(u);
-        setUpdate("available");
-      } else {
-        setUpdate("current");
-      }
-    } catch (e) {
-      console.warn("updater check:", e);
-      setUpdate("failed");
-    }
-  }
-
-  // Parlato : "Mettre a jour" telecharge, installe et redemarre, comme le bandeau.
-  async function installNow() {
-    if (!pendingUpdate) return;
-    setUpdate("downloading");
-    try {
-      await installUpdate(pendingUpdate, setUpdatePct);
-    } catch (e) {
-      console.error("updater install:", e);
-      setUpdate("installFailed");
-    }
-  }
+  // Parlato : meme etat que le bandeau (lib/updater.ts) : une seule
+  // verification et un seul telechargement a la fois.
+  const checkForUpdates = () => checkForUpdate();
+  const installNow = installPendingUpdate;
 
   function changeTheme(pref: ThemePref) {
     setThemePrefState(pref);
@@ -292,6 +267,28 @@ export function SettingsPanel() {
         <Row htmlFor="set-tray" label={t("settings.trayLabel")} description={t("settings.trayHint")}>
           <Switch id="set-tray" checked={closeToTray} onChange={(v) => persist(v, setCloseToTray, api.setCloseToTray)} />
         </Row>
+        {/* Parlato: Skip and Start both mark setup done; this brings it back. */}
+        <Row label={t("settings.setupAgainLabel")} description={t("settings.setupAgainHint")}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await api.setOnboardingCompleted(false);
+                window.location.reload();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            {t("settings.setupAgainButton")}
+          </Button>
+        </Row>
+        {isMac && (
+          <Row htmlFor="set-dock" label={t("settings.hideDockLabel")} description={t("settings.hideDockHint")}>
+            <Switch id="set-dock" checked={hideDock} onChange={(v) => persist(v, setHideDock, api.setHideDockIcon)} />
+          </Row>
+        )}
       </Section>
 
       <Section title={t("settings.sectionDictating")}>
@@ -481,7 +478,7 @@ export function SettingsPanel() {
         )}
       </Section>
 
-      <PermissionsPanel />
+      <PermissionsPanel hideAutostart />
 
       <Section title={t("settings.sectionAbout")}>
         <Row label={t("settings.versionLabel")} description={t("settings.versionHint", { version })}>
@@ -540,13 +537,24 @@ export function SettingsPanel() {
             onClick={async () => {
               const question = `${t("settings.deleteAllConfirm")}\n\n${t(isMac ? "settings.deleteAllAfterMac" : "settings.deleteAllAfterWindows")}`;
               if (!(await confirmDelete(question, t("settings.deleteAllButton")))) return;
-              await api.deleteAllData().catch(console.error);
+              // On success Parlato quits (the question says so); only a
+              // failure needs a message.
+              setDeleteError(null);
+              await api.deleteAllData().catch((e) => {
+                console.error(e);
+                setDeleteError(String(e));
+              });
             }}
           >
             {t("settings.deleteAllButton")}
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </Row>
+        {deleteError && (
+          <p role="alert" className="text-[13px] text-destructive">
+            {t("settings.deleteAllFailed", { message: deleteError })}
+          </p>
+        )}
         <Row label={t("settings.madeByLabel")} description={t("settings.madeByHint")}>
           {link(t("settings.madeByButton"), SITE_URL)}
         </Row>

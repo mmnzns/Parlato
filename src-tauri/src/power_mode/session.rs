@@ -287,6 +287,19 @@ pub fn end_session(app: &AppHandle) {
     }
 }
 
+/// Parlato : touche d'envoi du mode actif, pressee apres le collage.
+pub fn auto_send_key(app: &AppHandle) -> config::AutoSendKey {
+    let Some(id) = current(app).map(|s| s.config_id) else {
+        return config::AutoSendKey::None;
+    };
+    config::load_all(app)
+        .unwrap_or_default()
+        .into_iter()
+        .find(|c| c.id == id)
+        .map(|c| c.auto_send_key)
+        .unwrap_or_default()
+}
+
 /// Renvoie la session courante sans l'alterer (pour l'UI).
 pub fn current(app: &AppHandle) -> Option<PowerSession> {
     app.try_state::<PowerSessionState>()?.0.lock().clone()

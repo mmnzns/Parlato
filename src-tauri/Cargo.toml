@@ -1,6 +1,6 @@
 [package]
 name = "parla"
-version = "0.12.0"
+version = "0.13.0"
 description = "Parla - dictee vocale locale et cloud pour Windows"
 authors = ["Parla contributors"]
 edition = "2021"
@@ -63,6 +63,9 @@ chrono = { version = "0.4", default-features = false, features = ["serde", "cloc
 whisper-rs = { version = "0.16", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "multipart", "json"] }
 futures-util = "0.3"
+# Parlato : empreinte SHA-256 des modeles telecharges (deja dans l'arbre via
+# les dependances de Tauri, aucune nouvelle crate).
+sha2 = "0.10"
 
 # LLM enhancement embarque (llama.cpp).
 # Build CPU par defaut ; CUDA optionnelle via la feature parla "cuda-llama".

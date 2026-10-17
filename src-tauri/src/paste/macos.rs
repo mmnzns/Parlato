@@ -60,6 +60,40 @@ pub fn restore_frontmost() -> bool {
     ok
 }
 
+/// Parlato : Return, Shift+Return or Cmd+Return after a paste (Power mode
+/// auto-send). Reference VoiceInk CursorPaster.performSendKey (virtual key
+/// 0x24; its "Command+Return" is our CtrlEnter on Windows).
+pub fn send_return(key: super::AutoSendKey) -> Result<()> {
+    use super::AutoSendKey;
+    const KVK_RETURN: u16 = 0x24;
+    if !crate::hotkeys::keyboard_hook::accessibility_trusted() {
+        return Err(anyhow!("Accessibility permission missing, cannot send"));
+    }
+    let flags = match key {
+        AutoSendKey::None => return Ok(()),
+        AutoSendKey::Enter => CGEventFlags::CGEventFlagNull,
+        AutoSendKey::ShiftEnter => CGEventFlags::CGEventFlagShift,
+        AutoSendKey::CtrlEnter => CGEventFlags::CGEventFlagCommand,
+    };
+    let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
+        .map_err(|_| anyhow!("CGEventSource"))?;
+    let down = CGEvent::new_keyboard_event(source.clone(), KVK_RETURN, true)
+        .map_err(|_| anyhow!("CGEvent key down"))?;
+    let up = CGEvent::new_keyboard_event(source, KVK_RETURN, false)
+        .map_err(|_| anyhow!("CGEvent key up"))?;
+    for ev in [&down, &up] {
+        ev.set_flags(flags);
+        ev.set_integer_value_field(
+            core_graphics::event::EventField::EVENT_SOURCE_USER_DATA,
+            crate::hotkeys::keyboard_hook::PARLATO_EVENT_TAG,
+        );
+    }
+    down.post(CGEventTapLocation::HID);
+    up.post(CGEventTapLocation::HID);
+    debug!(?key, "Return posted via CGEvent");
+    Ok(())
+}
+
 pub fn send_cmd_v() -> Result<()> {
     if !crate::hotkeys::keyboard_hook::accessibility_trusted() {
         return Err(anyhow!("Accessibility permission missing, cannot paste"));

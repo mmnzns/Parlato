@@ -1,6 +1,7 @@
 /* Parlato — Workbench direction (1a). Drop-in replacement for src/index.css.
    Fonts ship offline: npm i @fontsource-variable/bricolage-grotesque @fontsource/ibm-plex-mono
-   then import them in src/main.tsx (see bottom). Dark mode = add .dark on <html> when Windows is dark. */
+   then import them in src/main.tsx (see bottom). Dark mode = .dark on <html>, set by lib/theme.ts
+   (follows the computer's light/dark setting unless the user picks one). */
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));

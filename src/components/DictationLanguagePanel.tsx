@@ -18,7 +18,8 @@ export function DictationLanguagePanel({
   bare = false,
   onLanguage,
 }: { bare?: boolean; onLanguage?: (code: string) => void } = {}) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const ui = i18n.resolvedLanguage;
   const [supportedCodes, setSupportedCodes] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("auto");
   const [activeLabel, setActiveLabel] = useState<string>("");
@@ -78,7 +79,7 @@ export function DictationLanguagePanel({
   const sorted = [...supportedCodes].sort((a, b) => {
     if (a === "auto") return -1;
     if (b === "auto") return 1;
-    return languageLabel(a).localeCompare(languageLabel(b));
+    return languageLabel(a, ui).localeCompare(languageLabel(b, ui), ui);
   });
 
   // Parlato: compact labelled select for the Speech model "in use" bar.
@@ -91,7 +92,7 @@ export function DictationLanguagePanel({
     >
       {sorted.map((code) => (
         <option key={code} value={code}>
-          {code === "auto" ? t("dictationLanguage.auto") : languageLabel(code)}
+          {code === "auto" ? t("dictationLanguage.auto") : languageLabel(code, ui)}
         </option>
       ))}
     </select>
