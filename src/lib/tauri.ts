@@ -124,6 +124,14 @@ export type CustomPrompt = {
   use_system_instructions: boolean;
 };
 
+/** Parlato: message shown in the recorder pill for actions done outside
+ *  the main window (copy / paste / retry the last transcription). */
+export type RecorderNotice =
+  | { kind: "copied" }
+  | { kind: "retryStarted" }
+  | { kind: "retryDone" }
+  | { kind: "failed"; detail: string };
+
 export type LLMProviderInfo = {
   id: string;
   label: string;
@@ -317,6 +325,8 @@ export const api = {
   stopRecording: (runPipeline = false) =>
     invoke<RecordingStopped>("stop_recording", { runPipeline }),
   cancelRecording: () => invoke<void>("cancel_recording"),
+  /** Parlato: stop a dictation being transcribed, nothing gets pasted. */
+  cancelProcessing: () => invoke<void>("cancel_processing"),
   getAudioMeter: () => invoke<AudioMeter>("get_audio_meter"),
   isRecording: () => invoke<boolean>("is_recording"),
 
@@ -345,6 +355,10 @@ export const api = {
   getSpeechThreads: () =>
     invoke<{ value: number; auto: number; max: number }>("get_speech_threads"),
   setSpeechThreads: (threads: number) => invoke<void>("set_speech_threads", { threads }),
+  /** Parlato: seconds the models stay loaded after a dictation (0 = unload). */
+  getModelKeepAlive: () =>
+    invoke<{ value: number; recommended: number }>("get_model_keep_alive"),
+  setModelKeepAlive: (secs: number) => invoke<void>("set_model_keep_alive", { secs }),
 
   getTextProcessingSettings: () =>
     invoke<TextProcessingSettings>("get_text_processing_settings"),
@@ -360,6 +374,9 @@ export const api = {
   getCloseToTray: () => invoke<boolean>("get_close_to_tray"),
   setCloseToTray: (enabled: boolean) =>
     invoke<void>("set_close_to_tray", { enabled }),
+  /** Parlato (macOS): menu bar only, no Dock icon. */
+  getHideDockIcon: () => invoke<boolean>("get_hide_dock_icon"),
+  setHideDockIcon: (enabled: boolean) => invoke<void>("set_hide_dock_icon", { enabled }),
   getSystemMuteEnabled: () => invoke<boolean>("get_system_mute_enabled"),
   setSystemMuteEnabled: (enabled: boolean) =>
     invoke<void>("set_system_mute_enabled", { enabled }),
@@ -378,6 +395,8 @@ export const api = {
   closeRecorderPopover: () => invoke<void>("close_recorder_popover"),
   // Bouton d'enregistrement de la bulle : meme cycle que le raccourci.
   toggleRecordingFromUi: () => invoke<void>("toggle_recording_from_ui"),
+  /** Parlato: short message waiting for the recorder pill (see notice.rs). */
+  takeRecorderNotice: () => invoke<RecorderNotice | null>("take_recorder_notice"),
 
   listCloudProviders: () =>
     invoke<
@@ -410,6 +429,11 @@ export const api = {
   hasApiKey: (provider: string) => invoke<boolean>("has_api_key", { provider }),
   verifyApiKey: (provider: string, key: string) =>
     invoke<void>("verify_api_key", { provider, key }),
+  /** Parlato: AI cleanup key check, rejects only a key the provider refuses. */
+  verifyLlmApiKey: (provider: string, key: string) =>
+    invoke<void>("verify_llm_api_key", { provider, key }),
+  /** Parlato: run AI cleanup on typed text with the current model and style. */
+  tryEnhancement: (text: string) => invoke<string>("try_enhancement", { text }),
   cloudTranscribeWav: (args: {
     wav_path: string;
     provider: string;
@@ -558,11 +582,14 @@ export const api = {
     limit?: number;
     before?: string | null;
     search?: string | null;
+    /** Parlato: "ai" or "failed", applied in the query. */
+    filter?: "all" | "ai" | "failed";
   }) =>
     invoke<TranscriptionRecord[]>("list_history", {
       limit: args?.limit ?? null,
       before: args?.before ?? null,
       search: args?.search ?? null,
+      filter: args?.filter ?? null,
     }),
   getHistoryItem: (id: string) =>
     invoke<TranscriptionRecord | null>("get_history_item", { id }),
@@ -574,6 +601,11 @@ export const api = {
   retranscribeHistoryItem: (id: string) =>
     invoke<void>("retranscribe_history_item", { id }),
   countHistory: () => invoke<number>("count_history"),
+  /** Parlato: Home totals over every completed dictation. */
+  getUsageStats: () =>
+    invoke<{ sessions: number; words: number; chars: number; duration_sec: number }>(
+      "get_usage_stats",
+    ),
   exportHistoryCsv: (ids: string[]) =>
     invoke<string | null>("export_history_csv", { ids }),
   getModelPerformanceMetrics: (period: MetricsPeriod) =>

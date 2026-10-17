@@ -11,12 +11,7 @@ import { ModelTile, TileProgress } from "@/components/models/ModelTile";
 import { modelName, modelNotes } from "@/lib/modelText";
 import type { DownloadProgress, WhisperModelState } from "@/lib/tauri";
 
-function formatBytes(bytes: number | null | undefined): string {
-  if (bytes == null) return "-";
-  if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(0)} MB`;
-  return `${Math.round(bytes / 1024)} KB`;
-}
+import { formatBytes } from "@/lib/format";
 
 type Props = {
   /** Parlato: plain title from companies.ts ("Best for English"). */

@@ -100,6 +100,7 @@ export function HotkeyRecorder({
   const [captured, setCaptured] = useState<Captured | null>(null);
   const [error, setError] = useState<string | null>(null);
   const finishedRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Reset l'etat a chaque ouverture.
   useEffect(() => {
@@ -181,6 +182,12 @@ export function HotkeyRecorder({
     };
   }, [open, onCancel, onCapture, t]);
 
+  // Parlato: focus the dialog so screen readers announce it; every key
+  // goes to the recorder anyway (captured on the document).
+  useEffect(() => {
+    if (open) dialogRef.current?.focus();
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -189,7 +196,13 @@ export function HotkeyRecorder({
       onClick={onCancel}
     >
       <div
-        className="relative w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hotkey-record-title"
+        aria-describedby="hotkey-record-hint"
+        tabIndex={-1}
+        className="relative w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -201,10 +214,10 @@ export function HotkeyRecorder({
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="text-base font-semibold">
+        <h2 id="hotkey-record-title" className="text-base font-semibold">
           {t("hotkey.record.title")}
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p id="hotkey-record-hint" className="mt-1 text-xs text-muted-foreground">
           {t("hotkey.record.hint")}
         </p>
 
@@ -261,14 +274,14 @@ const VK_KEYS: Record<number, string> = {
   0x2e: "delete",
 };
 
-// Parlato: Mac-only keys with no Windows equivalent.
-const MAC_VK_NAMES: Record<number, string> = {
-  0x2d: "Help",
-  0x0c: "Clear",
+// Parlato: Mac-only keys, translated through macOverrides.keys.
+const MAC_VK_KEYS: Record<number, string> = {
+  0x2d: "help",
+  0x0c: "clear",
 };
 
 export function vkLabel(vk: number): string {
-  if (isMac && MAC_VK_NAMES[vk]) return MAC_VK_NAMES[vk];
+  if (isMac && MAC_VK_KEYS[vk]) return i18n.t(`keys.${MAC_VK_KEYS[vk]}`);
   if (VK_KEYS[vk]) return i18n.t(`keys.${VK_KEYS[vk]}`);
   if (vk >= 0x70 && vk <= 0x87) return `F${vk - 0x6f}`; // F1..F24
   if (vk >= 0x30 && vk <= 0x39) return String.fromCharCode(vk); // 0..9

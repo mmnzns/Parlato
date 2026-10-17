@@ -90,6 +90,14 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
   const [expanded, setExpanded] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  // Parlato: where the last export went (shown under the toolbar).
+  const [exported, setExported] = useState<string | null>(null);
+  // Parlato: the history events below are registered once; refs give them
+  // the current search and filter instead of the first render's.
+  const searchRef = useRef(search);
+  const filterRef = useRef(filter);
+  searchRef.current = search;
+  filterRef.current = filter;
 
   useEffect(() => {
     refresh();
@@ -109,13 +117,17 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
     const t = window.setTimeout(() => refresh(), 200);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, filter]);
 
   async function refresh() {
     setLoading(true);
     try {
       const [rows, total] = await Promise.all([
-        api.listHistory({ limit: PAGE_SIZE, search: search || null }),
+        api.listHistory({
+          limit: PAGE_SIZE,
+          search: searchRef.current || null,
+          filter: filterRef.current,
+        }),
         api.countHistory(),
       ]);
       setItems(rows);
@@ -136,7 +148,8 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
       const rows = await api.listHistory({
         limit: PAGE_SIZE,
         before: last.timestamp,
-        search: search || null,
+        search: searchRef.current || null,
+        filter: filterRef.current,
       });
       setItems((prev) => [...prev, ...rows]);
       setHasMore(rows.length === PAGE_SIZE);
@@ -158,6 +171,7 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
 
   function toggleSelectMode() {
     setSelectMode((on) => !on);
+    setExported(null);
     setSelected(new Set());
   }
 
@@ -178,22 +192,16 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
   async function exportSelected() {
     const ids = selected.size > 0 ? [...selected] : visible.map((i) => i.id);
     try {
-      await api.exportHistoryCsv(ids);
+      const path = await api.exportHistoryCsv(ids);
+      if (path) setExported(path);
     } catch (e) {
       console.error(e);
     }
   }
 
-  const visible = useMemo(
-    () =>
-      items.filter(
-        (i) =>
-          filter === "all" ||
-          (filter === "ai" && !!i.enhanced_text) ||
-          (filter === "failed" && i.status === "failed"),
-      ),
-    [items, filter],
-  );
+  // Parlato: the filter is applied by the query (all dictations, not only
+  // the loaded page).
+  const visible = items;
 
   const groups = useMemo(() => {
     const out: { key: string; label: string; items: TranscriptionRecord[] }[] = [];
@@ -254,7 +262,9 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
             className="flex h-[30px] items-center gap-1.5 rounded-sm px-3 text-[13px] font-semibold hover:bg-background/15"
           >
             <Download className="h-3.5 w-3.5" />
-            {t("hist.export")}
+            {selectedCount > 0
+              ? t("hist.exportSelected", { count: selectedCount })
+              : t("hist.exportShown", { count: visible.length })}
           </button>
           <button
             type="button"
@@ -269,6 +279,11 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
           </button>
         </div>
       )}
+      {exported && (
+        <p role="status" className="truncate text-[13px] text-muted-foreground" title={exported}>
+          {t("hist.exportedTo", { path: exported })}
+        </p>
+      )}
 
       {loading && items.length === 0 && (
         <div className="flex justify-center py-8">
@@ -279,8 +294,8 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
       {!loading && items.length === 0 && (
         <div className="flex flex-col items-center gap-1 rounded-lg border-[1.5px] border-dashed border-input bg-card px-6 py-10 text-center">
           <Mic className="mb-1 h-5 w-5 text-muted-foreground" />
-          <span className="font-display font-bold">{search ? t("hist.noMatch") : t("hist.emptyTitle")}</span>
-          {!search && <span className="text-[13px] text-muted-foreground">{t("hist.emptyDesc")}</span>}
+          <span className="font-display font-bold">{search || filter !== "all" ? t("hist.noMatch") : t("hist.emptyTitle")}</span>
+          {!search && filter === "all" && <span className="text-[13px] text-muted-foreground">{t("hist.emptyDesc")}</span>}
         </div>
       )}
 

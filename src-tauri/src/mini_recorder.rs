@@ -24,6 +24,8 @@
 // popover etait rendu DANS la fenetre de la bulle, qu'il fallait agrandir
 // puis retrecir a chaque ouverture : c'etait la source des sauts visuels.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_store::StoreExt;
 use tracing::{debug, warn};
@@ -91,9 +93,34 @@ pub fn set_style(app: &AppHandle, style: RecorderStyle) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("store save: {e}"))
 }
 
+/// Parlato : numero de la bulle courante, incremente a chaque ouverture.
+/// Une fermeture differee (fin de dictee, message) ne ferme la bulle que si
+/// personne ne l'a rouverte entre-temps, sinon elle fermerait la bulle de
+/// la dictee suivante.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+
+pub fn generation() -> u64 {
+    GENERATION.load(Ordering::SeqCst)
+}
+
+/// Ferme la bulle si elle n'a pas ete rouverte depuis `generation`.
+pub fn close_if_current(app: &AppHandle, generation: u64) {
+    if GENERATION.load(Ordering::SeqCst) == generation {
+        close(app);
+    }
+}
+
+/// Parlato : ouvre la bulle pour un court message (`notice`), et retourne
+/// son numero pour la fermeture differee.
+pub fn show_for_notice(app: &AppHandle) -> u64 {
+    ensure_open(app);
+    generation()
+}
+
 /// Cree la fenetre recorder si elle n'existe pas, sinon la ramene au premier plan.
 /// Pre-cree aussi la fenetre popover (cachee).
 pub fn ensure_open(app: &AppHandle) {
+    GENERATION.fetch_add(1, Ordering::SeqCst);
     let style = get_style(app);
     if let Some(existing) = app.get_webview_window(LABEL) {
         reposition(&existing, style);

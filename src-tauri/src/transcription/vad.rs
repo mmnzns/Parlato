@@ -16,20 +16,25 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::{anyhow, Context, Result};
-use futures_util::StreamExt;
+use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::io::AsyncWriteExt;
 use tracing::{debug, info, warn};
 use whisper_rs::{WhisperVadContext, WhisperVadContextParams, WhisperVadParams, WhisperVadSegment};
 
 /// Modele VAD Silero converti en GGML (whisper.cpp). Le repo a migre de
 /// ggerganov/whisper.cpp vers ggml-org/whisper-vad fin 2025. La 6.2.0 est
 /// la version recente recommandee par le script download-vad-model.sh.
+/// Parlato : figee sur le commit 9ffd54a (2025-11-17, dernier commit au
+/// 2026-10-16) au lieu de "main".
 pub const VAD_MODEL_URL: &str =
-    "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin";
+    "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v6.2.0.bin";
+
+/// Parlato : SHA-256 du fichier (oid LFS Hugging Face), verifie apres le
+/// telechargement.
+pub const VAD_MODEL_SHA256: &str =
+    "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987";
 
 pub const VAD_MODEL_FILENAME: &str = "ggml-silero-v6.2.0.bin";
 pub const VAD_MODEL_SIZE_BYTES: u64 = 906_752; // ~885 Ko (annonce sur HF)
@@ -117,16 +122,18 @@ impl VadEngine {
     }
 }
 
-/// Parametres par defaut repliquant exactement VoiceInk LibWhisper.swift L78-85.
-/// Si whisper-rs 0.16 n'expose pas un setter pour un parametre, on laisse
-/// la valeur par defaut du crate (documentee en commentaire).
+/// Parametres repliquant exactement VoiceInk LibWhisper.swift L78-85.
+/// Parlato : verifie le 2026-10-16, ce sont aussi les valeurs par defaut de
+/// whisper.cpp ; on les pose quand meme pour qu'une mise a jour du binding
+/// ne les change pas sans qu'on le voie.
 fn default_vad_params() -> WhisperVadParams {
-    let params = WhisperVadParams::new();
-    // TODO : whisper-rs 0.16 expose un Default mais les setters precis
-    // (threshold, min_speech_duration_ms, etc.) ne sont pas encore publics
-    // dans cette version. Les valeurs par defaut du crate sont raisonnables
-    // (threshold 0.5 dans whisper.cpp), on adaptera si une version ulterieure
-    // du binding expose les builders.
+    let mut params = WhisperVadParams::new();
+    params.set_threshold(0.5);
+    params.set_min_speech_duration(250);
+    params.set_min_silence_duration(100);
+    params.set_max_speech_duration(f32::MAX);
+    params.set_speech_pad(30);
+    params.set_samples_overlap(0.1);
     params
 }
 
@@ -166,42 +173,28 @@ pub async fn download_vad(app: &AppHandle) -> Result<PathBuf> {
     if target.exists() {
         return Ok(target);
     }
+    // Parlato : crate::download garde le .part apres un echec (reprise au
+    // prochain essai). Pas d'annulation pour la VAD (moins de 1 Mo).
     let tmp = target.with_extension("bin.part");
-    let _ = fs::remove_file(&tmp);
-
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(VAD_MODEL_URL)
-        .send()
-        .await
-        .with_context(|| format!("GET {VAD_MODEL_URL}"))?;
-    if !resp.status().is_success() {
-        anyhow::bail!("HTTP {} depuis {}", resp.status(), VAD_MODEL_URL);
+    let client = crate::download::client()?;
+    crate::download::Transfer {
+        url: VAD_MODEL_URL,
+        target: &target,
+        part: &tmp,
+        cancel: None,
+        progress_every: std::time::Duration::from_millis(100),
+        sha256: Some(VAD_MODEL_SHA256),
     }
-    let total = resp.content_length().unwrap_or(VAD_MODEL_SIZE_BYTES);
-
-    let mut file = tokio::fs::File::create(&tmp)
-        .await
-        .with_context(|| format!("create {}", tmp.display()))?;
-    let mut stream = resp.bytes_stream();
-    let mut downloaded: u64 = 0;
-    let mut last_emit = std::time::Instant::now();
-
-    while let Some(chunk) = stream.next().await {
-        let bytes = chunk.context("chunk")?;
-        file.write_all(&bytes).await?;
-        downloaded += bytes.len() as u64;
-        if last_emit.elapsed() >= std::time::Duration::from_millis(100) {
-            let _ = app.emit(
-                "vad:download:progress",
-                VadDownloadProgress { downloaded, total },
-            );
-            last_emit = std::time::Instant::now();
-        }
-    }
-    file.flush().await?;
-    drop(file);
-    fs::rename(&tmp, &target)?;
+    .run(&client, |downloaded, total| {
+        let _ = app.emit(
+            "vad:download:progress",
+            VadDownloadProgress {
+                downloaded,
+                total: total.unwrap_or(VAD_MODEL_SIZE_BYTES),
+            },
+        );
+    })
+    .await?;
 
     let _ = app.emit(
         "vad:download:complete",
@@ -265,6 +258,12 @@ pub fn run_vad_on_wav(engine: &VadEngine, wav_path: &Path) -> Result<VadOutput> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_url_is_pinned_with_checksum() {
+        crate::download::assert_pinned(VAD_MODEL_URL, VAD_MODEL_SHA256);
+        assert!(VAD_MODEL_URL.ends_with(VAD_MODEL_FILENAME));
+    }
 
     /// Parlato : temps de la VAD selon le nombre de threads.
     /// `PARLATO_VAD_MODEL=<ggml-silero.bin> PARLATO_WAV=<16 kHz wav>

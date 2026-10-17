@@ -5,12 +5,14 @@
 mod audio;
 mod commands;
 mod db;
+mod download;
 mod enhancement;
 mod gpu;
 mod history;
 mod logging;
 mod hotkeys;
 mod mini_recorder;
+mod notice;
 mod paste;
 mod power_mode;
 mod screen_context;
@@ -34,18 +36,18 @@ use commands::models::{
     import_whisper_model, list_whisper_models, ModelManagerState,
 };
 use commands::recording::{
-    cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
+    cancel_processing, cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
     stop_recording, toggle_recording_from_ui, RecorderState,
 };
 use commands::streaming::{StreamingRegistryState, StreamingSessionState};
 use commands::settings::{
-    close_to_tray_enabled, get_audio_resumption_delay, get_close_to_tray,
+    close_to_tray_enabled, get_audio_resumption_delay, get_close_to_tray, get_hide_dock_icon,
     get_cloud_transcription_timeout, get_dictation_language, get_selected_input_device,
     get_selected_whisper_model, get_show_live_transcript, get_sound_feedback_enabled,
     get_system_mute_enabled, get_text_processing_settings, get_transcription_source,
-    get_speech_threads, get_ui_language, reset_escape_hint, set_append_trailing_space,
-    set_audio_resumption_delay, set_close_to_tray, set_cloud_transcription_timeout,
-    set_dictation_language, set_filler_words, set_remove_filler_words,
+    get_model_keep_alive, get_speech_threads, get_ui_language, reset_escape_hint, set_append_trailing_space,
+    set_audio_resumption_delay, set_close_to_tray, set_cloud_transcription_timeout, set_hide_dock_icon,
+    set_dictation_language, set_filler_words, set_model_keep_alive, set_remove_filler_words,
     set_restore_clipboard_after_paste, set_selected_input_device, set_selected_whisper_model,
     set_show_live_transcript, set_sound_feedback_enabled, set_system_mute_enabled,
     set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
@@ -62,6 +64,7 @@ use commands::enhancement::{
     list_extra_templates, list_llm_providers, list_ollama_models, list_prompts,
     set_active_prompt_id, set_custom_base_url, set_enhancement_enabled, set_llm_selection,
     set_localcli_custom_cmd, set_localcli_timeout_secs, set_ollama_base_url, update_prompt,
+    try_enhancement, verify_llm_api_key,
 };
 use commands::llm_models::{
     cancel_download_gguf_model, delete_gguf_model, download_gguf_model, get_llamacpp_settings,
@@ -83,7 +86,7 @@ use commands::power_mode::{
     select_power_config, set_power_auto_restore, update_power_config,
 };
 use commands::history::{
-    count_history, delete_history_item, export_history_csv, get_history_item,
+    count_history, delete_history_item, export_history_csv, get_history_item, get_usage_stats,
     get_retention_settings, list_history, read_history_audio, retranscribe_history_item,
     run_history_cleanup, set_retention_settings,
 };
@@ -179,7 +182,6 @@ pub fn run() {
         .manage(transcription::parakeet::ParakeetEngineState::default())
         .manage(power_mode::session::PowerSessionState::default())
         .manage(screen_context::service::ScreenContextState::default())
-        .manage(transcription::pipeline::HistorySessionState::default())
         // GgufModelManagerState + ParakeetModelManagerState sont enregistres
         // dans le setup() ci-dessous car ils ont besoin de l'AppHandle pour
         // resoudre AppLocalData.
@@ -201,6 +203,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(move |app| {
             let handle = app.handle().clone();
+            commands::settings::apply_dock_icon(&handle);
             app.manage(ModelManagerState::new(handle.clone()));
             app.manage(enhancement::model_manager::GgufModelManagerState::new(
                 handle.clone(),
@@ -318,6 +321,7 @@ pub fn run() {
             cancel_recording,
             get_audio_meter,
             is_recording,
+            cancel_processing,
             toggle_recording_from_ui,
             list_whisper_models,
             download_whisper_model,
@@ -331,6 +335,8 @@ pub fn run() {
             get_dictation_language,
             set_dictation_language,
             get_speech_threads,
+            get_model_keep_alive,
+            set_model_keep_alive,
             set_speech_threads,
             get_text_processing_settings,
             set_text_formatting_enabled,
@@ -340,6 +346,8 @@ pub fn run() {
             set_restore_clipboard_after_paste,
             get_close_to_tray,
             set_close_to_tray,
+            get_hide_dock_icon,
+            set_hide_dock_icon,
             get_system_mute_enabled,
             set_system_mute_enabled,
             get_audio_resumption_delay,
@@ -349,6 +357,7 @@ pub fn run() {
             mini_recorder::open_recorder_popover,
             mini_recorder::close_recorder_popover,
             mini_recorder::show_main_window,
+            notice::take_recorder_notice,
             list_word_replacements,
             add_word_replacement,
             update_word_replacement,
@@ -379,6 +388,8 @@ pub fn run() {
             set_active_prompt_id,
             list_extra_templates,
             list_llm_providers,
+            verify_llm_api_key,
+            try_enhancement,
             get_llm_selection,
             set_llm_selection,
             get_ollama_base_url,
@@ -427,6 +438,7 @@ pub fn run() {
             read_history_audio,
             retranscribe_history_item,
             count_history,
+            get_usage_stats,
             export_history_csv,
             get_retention_settings,
             set_retention_settings,

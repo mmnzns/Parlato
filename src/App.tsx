@@ -46,17 +46,11 @@ function App() {
       .then(setOnboarded)
       .catch(() => setOnboarded(true));
 
-    // Tray menu triggers (navigate to a panel, copy notification, update check).
+    // Tray menu triggers (navigate to a panel, update check). Copy / retry
+    // results show in the recorder pill (notice.rs).
     const unNav = listen<string>("tray:navigate", (e) => {
       const target = e.payload as View;
       if (target) setView(target);
-    });
-    const unNotice = listen<string>("tray:notice", (e) => {
-      if (!e.payload) return;
-      // Minimal UX : browser alert is fine for now, keeps us dependency-free.
-      // The transcript stays in the clipboard regardless of whether this
-      // notice is dismissed or not.
-      console.info("[tray]", e.payload);
     });
     // Le menu tray natif est traduit cote Rust : on lui reflete la langue
     // i18next courante et chaque changement.
@@ -68,7 +62,6 @@ function App() {
 
     return () => {
       unNav.then((fn) => fn());
-      unNotice.then((fn) => fn());
       i18n.off("languageChanged", syncLanguage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

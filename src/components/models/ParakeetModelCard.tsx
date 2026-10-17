@@ -13,12 +13,8 @@ import { cn } from "@/lib/utils";
 import type { ParakeetModelState } from "@/lib/tauri";
 import type { ParakeetDownloadProgress } from "./types";
 
-function formatBytes(b: number): string {
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
-  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
+import { formatBytes } from "@/lib/format";
+import { isFailure, statusText, type Status } from "@/lib/status";
 
 type Props = {
   /** Parlato: plain title from companies.ts ("Best for English"). */
@@ -26,7 +22,7 @@ type Props = {
   model: ParakeetModelState;
   isCurrent: boolean;
   progress: ParakeetDownloadProgress | null;
-  status: string | null;
+  status: Status | null;
   onDownload: () => void;
   onCancelDownload: () => void;
   onDelete: () => void;
@@ -110,10 +106,10 @@ export function ParakeetModelCard({
         <p
           className={cn(
             "text-xs",
-            st.startsWith(t("common.error")) ? "text-destructive" : "text-muted-foreground",
+            isFailure(st) ? "text-destructive" : "text-muted-foreground",
           )}
         >
-          {st}
+          {statusText(st)}
         </p>
       )}
     </ModelTile>

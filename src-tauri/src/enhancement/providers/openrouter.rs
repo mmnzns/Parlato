@@ -50,6 +50,17 @@ impl LLMProvider for OpenRouterProvider {
         "https://openrouter.ai/api/v1/chat/completions"
     }
 
+    /// Parlato : la liste des modeles d'OpenRouter est publique ; /key
+    /// demande une cle valide.
+    async fn verify_api_key(&self, api_key: &str) -> Result<()> {
+        let auth = format!("Bearer {api_key}");
+        openai_compat::check_key(
+            "https://openrouter.ai/api/v1/key",
+            &[("Authorization", auth.as_str())],
+        )
+        .await
+    }
+
     async fn chat_completion(
         &self,
         api_key: &str,

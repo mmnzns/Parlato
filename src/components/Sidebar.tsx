@@ -124,7 +124,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-3.5 overflow-auto px-2.5 py-0.5">
+      <nav aria-label={t("sidebar.navLabel")} className="flex flex-1 flex-col gap-3.5 overflow-auto px-2.5 py-0.5">
         {GROUPS.map((g, gi) => (
           <div key={g.labelKey ?? gi} className="flex flex-col gap-0.5">
             {g.labelKey && (

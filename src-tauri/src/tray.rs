@@ -105,6 +105,27 @@ pub fn refresh(app: &AppHandle) {
     }
 }
 
+/// Parlato : input device names, listed at most every 30 s. The menu is
+/// rebuilt at every recording start and end, and listing the devices can
+/// take a few hundred ms on Windows.
+fn input_device_names() -> Vec<String> {
+    const MAX_AGE: std::time::Duration = std::time::Duration::from_secs(30);
+    static CACHE: parking_lot::Mutex<Option<(std::time::Instant, Vec<String>)>> =
+        parking_lot::Mutex::new(None);
+    let mut cache = CACHE.lock();
+    if let Some((at, names)) = cache.as_ref() {
+        if at.elapsed() < MAX_AGE {
+            return names.clone();
+        }
+    }
+    let names: Vec<String> = audio::list_input_devices()
+        .into_iter()
+        .map(|d| d.name)
+        .collect();
+    *cache = Some((std::time::Instant::now(), names.clone()));
+    names
+}
+
 /// Appends the configured shortcut label in the accelerator column.
 fn with_accel(lang: &str, text: String, trigger: HotkeyTrigger) -> String {
     match shortcut_label(lang, trigger) {
@@ -205,12 +226,12 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         selected_device.is_none(),
         None::<&str>,
     )?)?;
-    for d in audio::list_input_devices() {
-        let checked = selected_device.as_deref() == Some(d.name.as_str());
+    for name in input_device_names() {
+        let checked = selected_device.as_deref() == Some(name.as_str());
         audio_menu.append(&CheckMenuItem::with_id(
             app,
-            format!("device:{}", d.name),
-            &d.name,
+            format!("device:{name}"),
+            &name,
             true,
             checked,
             None::<&str>,
@@ -312,7 +333,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
 fn report(app: &AppHandle, what: &str, result: anyhow::Result<()>) {
     if let Err(e) = result {
         warn!(action = what, error = %e, "tray action failed");
-        let _ = app.emit("tray:notice", format!("{what} failed: {e}"));
+        crate::notice::send(app, crate::notice::Notice::Failed(e.to_string()));
     }
 }
 
@@ -428,6 +449,11 @@ fn shortcut_label(lang: &str, trigger: HotkeyTrigger) -> Option<String> {
                 0x27 => t("key.right"),
                 0x28 => t("key.down"),
                 0x2e => t("key.delete"),
+                // Parlato : touches propres au clavier Mac.
+                #[cfg(target_os = "macos")]
+                0x2d => t("key.help"),
+                #[cfg(target_os = "macos")]
+                0x0c => t("key.clear"),
                 _ => vk_name(vk),
             });
             Some(parts.join("+"))
@@ -561,6 +587,10 @@ fn tr(lang: &str, key: &str) -> String {
         "key.backspace" => ["Delete", "Supprimer", "Borrar"],
         #[cfg(target_os = "macos")]
         "key.delete" => ["Forward Delete", "Suppr. avant", "Suprimir"],
+        #[cfg(target_os = "macos")]
+        "key.help" => ["Help", "Aide", "Ayuda"],
+        #[cfg(target_os = "macos")]
+        "key.clear" => ["Clear", "Effacer", "Limpiar"],
         "key.rightShift" => ["Right Shift", "Maj droite", "May\u{fa}s derecha"],
         "key.leftShift" => ["Left Shift", "Maj gauche", "May\u{fa}s izquierda"],
         "key.shift" => ["Shift", "Maj", "May\u{fa}s"],

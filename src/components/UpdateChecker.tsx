@@ -9,64 +9,44 @@
 // - Progress du download stream via le callback contentLength / downloaded.
 // - Une fois downloaded : relaunch() pour redemarrer sur la nouvelle version.
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, X } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import { check, type Update } from "@tauri-apps/plugin-updater";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatReleaseDate, installUpdate } from "@/lib/updater";
-
-type Status = "idle" | "checking" | "available" | "downloading" | "installed";
+import {
+  checkForUpdate,
+  formatReleaseDate,
+  getUpdaterState,
+  installPendingUpdate,
+  subscribeUpdater,
+} from "@/lib/updater";
 
 export function UpdateChecker() {
   const { t, i18n } = useTranslation();
-  const [update, setUpdate] = useState<Update | null>(null);
-  const [status, setStatus] = useState<Status>("idle");
-  const [pct, setPct] = useState<number | null>(null);
+  // Parlato: state shared with the Settings button (lib/updater.ts).
+  const { status: shared, update, percent: pct, error } = useSyncExternalStore(
+    subscribeUpdater,
+    getUpdaterState,
+  );
   const [dismissed, setDismissed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const runCheck = useCallback(async () => {
-    try {
-      setStatus("checking");
-      setDismissed(false);
-      const u = await check();
-      if (u) {
-        setUpdate(u);
-        setStatus("available");
-      } else {
-        setStatus("idle");
-      }
-    } catch (e) {
-      console.warn("updater check:", e);
-      setStatus("idle");
-    }
-  }, []);
+  const status = shared === "installFailed" ? "available" : shared;
 
   useEffect(() => {
-    runCheck();
-    const un = listen<void>("tray:check-update", () => runCheck());
+    checkForUpdate(true);
+    const un = listen<void>("tray:check-update", () => {
+      setDismissed(false);
+      checkForUpdate();
+    });
     return () => {
       un.then((fn) => fn());
     };
-  }, [runCheck]);
+  }, []);
 
-  async function install() {
-    if (!update) return;
-    try {
-      setStatus("downloading");
-      setError(null);
-      await installUpdate(update, setPct, () => setStatus("installed"));
-    } catch (e) {
-      console.error("updater install:", e);
-      setError(String(e));
-      setStatus("available");
-    }
-  }
+  const install = installPendingUpdate;
 
-  if (dismissed || status === "idle" || status === "checking") return null;
+  if (dismissed || !["available", "downloading", "installed"].includes(status)) return null;
 
   const releaseDate = formatReleaseDate(update?.date, i18n.resolvedLanguage ?? "en");
 

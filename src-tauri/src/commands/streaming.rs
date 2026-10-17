@@ -13,7 +13,8 @@ impl Default for StreamingRegistryState {
     }
 }
 
-/// Session streaming active pendant un enregistrement. None si pas de
-/// streaming en cours (mode local / batch).
+/// Session streaming active pendant un enregistrement, avec l'id de sa
+/// ligne d'historique. None si pas de streaming en cours (mode local /
+/// batch).
 #[derive(Default)]
-pub struct StreamingSessionState(pub Mutex<Option<StreamingHandle>>);
+pub struct StreamingSessionState(pub Mutex<Option<(StreamingHandle, Option<String>)>>);

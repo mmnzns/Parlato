@@ -15,8 +15,12 @@ import { CompactHero } from "@/components/CompactHero";
 import { EnhancementScreenContext } from "@/components/EnhancementScreenContext";
 import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { PromptEditor } from "@/components/PromptEditor";
+import { EnhancementTryBox } from "@/components/EnhancementTryBox";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import { translateError } from "@/lib/translateError";
+import { persist } from "@/lib/persist";
+import { fail, isFailure, statusText, type Status } from "@/lib/status";
 import {
   api,
   type CustomPrompt,
@@ -50,7 +54,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   const [activePromptId, setActivePromptId] = useState<string | null>(null);
   const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
   const [verifying, setVerifying] = useState<Record<string, boolean>>({});
-  const [status, setStatus] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<Record<string, Status>>({});
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ollamaStatus, setOllamaStatus] = useState("");
@@ -127,19 +131,19 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
       await api.setCustomBaseUrl(customBaseUrl.trim());
       setStatus((s) => ({ ...s, custom: t("enhancement.urlSaved") }));
     } catch (e) {
-      setStatus((s) => ({ ...s, custom: t("enhancement.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({ ...s, custom: fail(t("enhancement.errorPrefix", { message: String(e) })) }));
     }
   }
 
   async function selectCustomModel(model: string) {
-    setCustomModel(model);
-    await api.setLlmSelection("custom", model);
-    setSelection({ provider_id: "custom", model });
+    const prev = customModel;
+    if (await persist(model, prev, setCustomModel, (m) => api.setLlmSelection("custom", m))) {
+      setSelection({ provider_id: "custom", model });
+    }
   }
 
   async function toggleEnabled(v: boolean) {
-    setEnabled(v);
-    await api.setEnhancementEnabled(v);
+    await persist(v, enabled, setEnabled, api.setEnhancementEnabled);
   }
 
   async function selectProvider(providerId: string) {
@@ -161,20 +165,21 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
       return;
     }
     setTypedModel(null);
-    setSelection({ ...selection, model });
-    await api.setLlmSelection(selection.provider_id, model);
+    await persist({ ...selection, model }, selection, setSelection, (s) =>
+      api.setLlmSelection(s.provider_id, s.model),
+    );
   }
 
   async function saveTypedModel() {
     const model = (typedModel ?? "").trim();
     if (!selection || !model) return;
-    setSelection({ ...selection, model });
-    await api.setLlmSelection(selection.provider_id, model);
+    await persist({ ...selection, model }, selection, setSelection, (s) =>
+      api.setLlmSelection(s.provider_id, s.model),
+    );
   }
 
   async function selectPrompt(id: string) {
-    setActivePromptId(id);
-    await api.setActivePromptId(id);
+    await persist<string | null>(id, activePromptId, setActivePromptId, () => api.setActivePromptId(id));
   }
 
   async function saveApiKey(providerId: string) {
@@ -183,12 +188,16 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
     setVerifying((v) => ({ ...v, [providerId]: true }));
     setStatus((s) => ({ ...s, [providerId]: t("enhancement.saveKeyInProgress") }));
     try {
+      await api.verifyLlmApiKey(providerId, k);
       await api.setApiKey(providerId, k);
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keySavedOk") }));
       setApiKeyInputs((i) => ({ ...i, [providerId]: "" }));
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [providerId]: t("enhancement.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({
+        ...s,
+        [providerId]: fail(t("enhancement.errorPrefix", { message: translateError(t, String(e)) })),
+      }));
     } finally {
       setVerifying((v) => ({ ...v, [providerId]: false }));
     }
@@ -200,7 +209,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keyDeleted") }));
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [providerId]: t("enhancement.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({ ...s, [providerId]: fail(t("enhancement.errorPrefix", { message: String(e) })) }));
     }
   }
 
@@ -266,7 +275,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   ];
 
   const keyStatus = currentProvider ? status[currentProvider.id] : undefined;
-  const keyIsError = !!keyStatus && keyStatus.startsWith(t("common.error"));
+  const keyIsError = isFailure(keyStatus);
 
   return (
     <>
@@ -282,13 +291,14 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
         }
       />
 
-      <div
-        className={cn(
-          "flex flex-col gap-[22px] transition-opacity",
-          !enabled && "pointer-events-none opacity-45",
-        )}
-        aria-disabled={!enabled}
-      >
+      {/* Parlato: the page stays usable while cleanup is off, so a model and
+          a key can be set up first. */}
+      {!enabled && (
+        <p role="status" className="mb-[22px] rounded-sm border-[1.5px] border-edge bg-muted px-4 py-3 text-[13px] text-muted-foreground">
+          {t("ai.offNotice")}
+        </p>
+      )}
+      <div className="flex flex-col gap-[22px]">
         <section className="flex flex-col gap-2.5">
           <SectionHeading title={t("ai.whereTitle")} />
           <div role="radiogroup" aria-label={t("ai.whereTitle")} className="grid gap-3 sm:grid-cols-2">
@@ -415,7 +425,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
                       <textarea
                         value={localcliCustomCmd}
                         onChange={(e) => setLocalcliCustomCmd(e.target.value)}
-                        placeholder="& mon-cli -p $env:PARLA_FULL_PROMPT"
+                        placeholder="& my-cli -p $env:PARLA_FULL_PROMPT"
                         className="min-h-[80px] rounded-sm border-[1.5px] border-input bg-background px-3 py-2 font-mono text-sm"
                       />
                       <Button size="sm" className="self-start" onClick={saveLocalcliCustomCmd}>
@@ -507,7 +517,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
 
             {isCustom && (
               <>
-                <Row label={t("enhancement.customBaseUrlLabel")} description={status.custom || undefined}>
+                <Row label={t("enhancement.customBaseUrlLabel")} description={status.custom ? statusText(status.custom) : undefined}>
                   <input
                     type="text"
                     value={customBaseUrl}
@@ -581,7 +591,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
                     role={keyIsError ? "alert" : undefined}
                     className={cn("text-xs", keyIsError ? "text-destructive" : "text-muted-foreground")}
                   >
-                    {keyStatus}
+                    {statusText(keyStatus)}
                   </span>
                 )}
                 <span className="text-xs text-muted-foreground">{t("ai.keyNote")}</span>
@@ -616,6 +626,8 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
           onSelect={selectPrompt}
           onChange={refresh}
         />
+
+        <EnhancementTryBox />
 
         {/* Parlato: reading the screen (OCR) is not available on Mac yet. */}
         {isMac ? (
