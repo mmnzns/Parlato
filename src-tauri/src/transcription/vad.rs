@@ -16,12 +16,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::{anyhow, Context, Result};
-use futures_util::StreamExt;
+use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::io::AsyncWriteExt;
 use tracing::{debug, info, warn};
 use whisper_rs::{WhisperVadContext, WhisperVadContextParams, WhisperVadParams, WhisperVadSegment};
 
@@ -166,42 +164,27 @@ pub async fn download_vad(app: &AppHandle) -> Result<PathBuf> {
     if target.exists() {
         return Ok(target);
     }
+    // Parlato : crate::download garde le .part apres un echec (reprise au
+    // prochain essai). Pas d'annulation pour la VAD (moins de 1 Mo).
     let tmp = target.with_extension("bin.part");
-    let _ = fs::remove_file(&tmp);
-
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(VAD_MODEL_URL)
-        .send()
-        .await
-        .with_context(|| format!("GET {VAD_MODEL_URL}"))?;
-    if !resp.status().is_success() {
-        anyhow::bail!("HTTP {} depuis {}", resp.status(), VAD_MODEL_URL);
+    let client = crate::download::client()?;
+    crate::download::Transfer {
+        url: VAD_MODEL_URL,
+        target: &target,
+        part: &tmp,
+        cancel: None,
+        progress_every: std::time::Duration::from_millis(100),
     }
-    let total = resp.content_length().unwrap_or(VAD_MODEL_SIZE_BYTES);
-
-    let mut file = tokio::fs::File::create(&tmp)
-        .await
-        .with_context(|| format!("create {}", tmp.display()))?;
-    let mut stream = resp.bytes_stream();
-    let mut downloaded: u64 = 0;
-    let mut last_emit = std::time::Instant::now();
-
-    while let Some(chunk) = stream.next().await {
-        let bytes = chunk.context("chunk")?;
-        file.write_all(&bytes).await?;
-        downloaded += bytes.len() as u64;
-        if last_emit.elapsed() >= std::time::Duration::from_millis(100) {
-            let _ = app.emit(
-                "vad:download:progress",
-                VadDownloadProgress { downloaded, total },
-            );
-            last_emit = std::time::Instant::now();
-        }
-    }
-    file.flush().await?;
-    drop(file);
-    fs::rename(&tmp, &target)?;
+    .run(&client, |downloaded, total| {
+        let _ = app.emit(
+            "vad:download:progress",
+            VadDownloadProgress {
+                downloaded,
+                total: total.unwrap_or(VAD_MODEL_SIZE_BYTES),
+            },
+        );
+    })
+    .await?;
 
     let _ = app.emit(
         "vad:download:complete",

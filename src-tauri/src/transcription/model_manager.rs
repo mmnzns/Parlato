@@ -11,11 +11,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
-use futures_util::StreamExt;
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::io::AsyncWriteExt;
 use tracing::{info, warn};
 
 use super::model::{find_model, WhisperModelInfo, WHISPER_FULL_LANGS, WHISPER_MODELS};
@@ -242,68 +240,29 @@ impl ModelManager {
             .cloned()
             .ok_or_else(|| anyhow!("cancel flag missing for {id}"))?;
 
+        // Parlato : crate::download garde le .part apres un echec (reprise au
+        // prochain essai) et le supprime sur annulation.
         let tmp = target.with_extension("bin.part");
-        // Efface un eventuel tmp precedent.
-        let _ = fs::remove_file(&tmp);
-
-        let client = reqwest::Client::new();
-        let resp = client
-            .get(model.url)
-            .send()
-            .await
-            .with_context(|| format!("GET {}", model.url))?;
-        if !resp.status().is_success() {
-            anyhow::bail!("HTTP {} depuis {}", resp.status(), model.url);
-        }
-        let total = resp.content_length().unwrap_or(model.size_bytes);
-
-        let mut file = tokio::fs::File::create(&tmp)
-            .await
-            .with_context(|| format!("create {}", tmp.display()))?;
-        let mut stream = resp.bytes_stream();
-        let mut downloaded: u64 = 0;
-        let mut last_emit = std::time::Instant::now();
-
-        while let Some(chunk) = stream.next().await {
-            if cancel.load(std::sync::atomic::Ordering::SeqCst) {
-                // Cleanup du fichier partiel. Cancel flag is removed by
-                // the outer download() wrapper on return.
-                drop(file);
-                let _ = fs::remove_file(&tmp);
-                return Err(anyhow!("telechargement annule"));
-            }
-            let bytes = chunk.context("chunk recv")?;
-            file.write_all(&bytes).await?;
-            downloaded += bytes.len() as u64;
-
+        let client = crate::download::client()?;
+        crate::download::Transfer {
+            url: model.url,
+            target: &target,
+            part: &tmp,
+            cancel: Some(cancel.as_ref()),
             // Throttle les emits a ~20 Hz pour eviter de saturer le bridge IPC.
-            if last_emit.elapsed() >= std::time::Duration::from_millis(50) {
-                let _ = self.app.emit(
-                    "model:download:progress",
-                    DownloadProgress {
-                        id: id.to_string(),
-                        downloaded,
-                        total,
-                    },
-                );
-                last_emit = std::time::Instant::now();
-            }
+            progress_every: std::time::Duration::from_millis(50),
         }
-        file.flush().await?;
-        drop(file);
-
-        // Dernier emit a 100 %.
-        let _ = self.app.emit(
-            "model:download:progress",
-            DownloadProgress {
-                id: id.to_string(),
-                downloaded,
-                total,
-            },
-        );
-
-        fs::rename(&tmp, &target)
-            .with_context(|| format!("rename {} -> {}", tmp.display(), target.display()))?;
+        .run(&client, |downloaded, total| {
+            let _ = self.app.emit(
+                "model:download:progress",
+                DownloadProgress {
+                    id: id.to_string(),
+                    downloaded,
+                    total: total.unwrap_or(model.size_bytes),
+                },
+            );
+        })
+        .await?;
 
         info!(id, path = %target.display(), "Modele telecharge");
 

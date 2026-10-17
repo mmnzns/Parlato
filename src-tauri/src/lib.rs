@@ -5,6 +5,7 @@
 mod audio;
 mod commands;
 mod db;
+mod download;
 mod enhancement;
 mod gpu;
 mod history;
