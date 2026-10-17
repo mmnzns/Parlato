@@ -590,11 +590,15 @@ function ModeEditor({
                 className={cn(selectClass, "max-w-[240px]")}
               >
                 <option value="">{t("pm.keep")}</option>
-                {catalog.providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
+                {/* Parlato: the command-line engine is hidden on Mac, as on
+                    the AI cleanup page (kept if a mode already uses it). */}
+                {catalog.providers
+                  .filter((p) => !isMac || p.id !== "localcli" || c.selected_llm_provider === "localcli")
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
               </select>
             </Row>
             {provider && (
@@ -635,6 +639,8 @@ function ModeEditor({
                 ))}
               </select>
             </Row>
+            {/* Parlato: reading the screen is not available on Mac yet. */}
+            {!isMac && (
             <Row label={t("pm.screen")}>
               <select
                 aria-label={t("pm.screen")}
@@ -649,6 +655,7 @@ function ModeEditor({
                 <option value="off">{t("pm.screenOff")}</option>
               </select>
             </Row>
+            )}
           </>
         )}
       </Section>

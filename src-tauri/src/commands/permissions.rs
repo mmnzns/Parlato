@@ -251,8 +251,13 @@ pub fn request_accessibility_access(app: AppHandle) -> bool {
 #[command]
 pub fn open_language_settings(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
+    // Parlato : sur Mac, le reglage Langue et region de macOS.
+    #[cfg(target_os = "macos")]
+    let url = "x-apple.systempreferences:com.apple.Localization-Settings.extension";
+    #[cfg(not(target_os = "macos"))]
+    let url = "ms-settings:regionlanguage";
     app.opener()
-        .open_url("ms-settings:regionlanguage", None::<&str>)
+        .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
 }
 
