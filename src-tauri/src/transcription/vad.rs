@@ -117,16 +117,18 @@ impl VadEngine {
     }
 }
 
-/// Parametres par defaut repliquant exactement VoiceInk LibWhisper.swift L78-85.
-/// Si whisper-rs 0.16 n'expose pas un setter pour un parametre, on laisse
-/// la valeur par defaut du crate (documentee en commentaire).
+/// Parametres repliquant exactement VoiceInk LibWhisper.swift L78-85.
+/// Parlato : verifie le 2026-10-16, ce sont aussi les valeurs par defaut de
+/// whisper.cpp ; on les pose quand meme pour qu'une mise a jour du binding
+/// ne les change pas sans qu'on le voie.
 fn default_vad_params() -> WhisperVadParams {
-    let params = WhisperVadParams::new();
-    // TODO : whisper-rs 0.16 expose un Default mais les setters precis
-    // (threshold, min_speech_duration_ms, etc.) ne sont pas encore publics
-    // dans cette version. Les valeurs par defaut du crate sont raisonnables
-    // (threshold 0.5 dans whisper.cpp), on adaptera si une version ulterieure
-    // du binding expose les builders.
+    let mut params = WhisperVadParams::new();
+    params.set_threshold(0.5);
+    params.set_min_speech_duration(250);
+    params.set_min_silence_duration(100);
+    params.set_max_speech_duration(f32::MAX);
+    params.set_speech_pad(30);
+    params.set_samples_overlap(0.1);
     params
 }
 
