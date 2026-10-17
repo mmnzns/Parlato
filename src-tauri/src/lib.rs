@@ -35,7 +35,7 @@ use commands::models::{
     import_whisper_model, list_whisper_models, ModelManagerState,
 };
 use commands::recording::{
-    cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
+    cancel_processing, cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
     stop_recording, toggle_recording_from_ui, RecorderState,
 };
 use commands::streaming::{StreamingRegistryState, StreamingSessionState};
@@ -319,6 +319,7 @@ pub fn run() {
             cancel_recording,
             get_audio_meter,
             is_recording,
+            cancel_processing,
             toggle_recording_from_ui,
             list_whisper_models,
             download_whisper_model,

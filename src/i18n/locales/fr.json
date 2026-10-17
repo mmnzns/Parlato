@@ -796,6 +796,7 @@
     "cleaning": "Nettoyage",
     "notPasted": "Rien n'a été collé",
     "nothingHeard": "Rien entendu",
+    "cancelProcessing": "Annuler, ne pas coller",
     "notice": {
       "copied": "Copié dans le presse-papiers",
       "retryStarted": "Nouvelle transcription...",

@@ -22,6 +22,12 @@ use crate::audio::{
 #[derive(Default)]
 pub struct RecorderState(pub Mutex<Option<RecorderHandle>>);
 
+/// Parlato : bouton Annuler de la bulle pendant la transcription.
+#[tauri::command]
+pub fn cancel_processing(app: AppHandle) {
+    crate::transcription::pipeline::cancel_processing(&app);
+}
+
 /// Parlato : un enregistrement est-il en cours ?
 pub fn recording_active(app: &AppHandle) -> bool {
     app.try_state::<RecorderState>()

@@ -28,7 +28,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { emit, listen } from "@tauri-apps/api/event";
-import { LayoutGrid, Sparkles } from "lucide-react";
+import { LayoutGrid, Sparkles, X } from "lucide-react";
 import {
   api,
   type AudioMeter,
@@ -332,6 +332,18 @@ export function MiniRecorderView() {
             )}
           </div>
 
+          {(stage === "transcribing" || stage === "enhancing") && (
+            // Parlato: stop this dictation, nothing gets pasted.
+            <button
+              type="button"
+              onClick={() => api.cancelProcessing().catch(console.error)}
+              title={t("miniRecorder.cancelProcessing")}
+              aria-label={t("miniRecorder.cancelProcessing")}
+              className="mr-1 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             ref={modeButtonRef}
             type="button"

@@ -796,6 +796,7 @@
     "cleaning": "Cleaning up",
     "notPasted": "Not pasted",
     "nothingHeard": "Nothing heard",
+    "cancelProcessing": "Cancel, don't paste",
     "notice": {
       "copied": "Copied to clipboard",
       "retryStarted": "Transcribing again...",

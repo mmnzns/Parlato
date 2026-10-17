@@ -325,6 +325,8 @@ export const api = {
   stopRecording: (runPipeline = false) =>
     invoke<RecordingStopped>("stop_recording", { runPipeline }),
   cancelRecording: () => invoke<void>("cancel_recording"),
+  /** Parlato: stop a dictation being transcribed, nothing gets pasted. */
+  cancelProcessing: () => invoke<void>("cancel_processing"),
   getAudioMeter: () => invoke<AudioMeter>("get_audio_meter"),
   isRecording: () => invoke<boolean>("is_recording"),
 

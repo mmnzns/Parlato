@@ -88,9 +88,30 @@ pub enum Job {
 pub struct Run {
     pub job: Job,
     pub history_id: Option<String>,
+    /// Generation de la bulle d'une dictee (0 hors dictee), pour le bouton
+    /// Annuler de la bulle.
+    pub pill: u64,
+}
+
+/// Parlato : generation de la bulle dont la dictee a ete annulee pendant
+/// la transcription (bouton Annuler). Son texte n'est ni nettoye ni colle.
+static CANCELLED_PILL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Annule la dictee en cours de traitement : rien ne sera colle. La
+/// transcription deja faite reste dans l'historique.
+pub fn cancel_processing(app: &AppHandle) {
+    let pill = mini_recorder::generation();
+    CANCELLED_PILL.store(pill, std::sync::atomic::Ordering::SeqCst);
+    info!(pill, "dictee annulee pendant le traitement");
+    feedback::play(app, Cue::Cancel);
+    mini_recorder::close_if_current(app, pill);
 }
 
 impl Run {
+    fn cancelled(&self) -> bool {
+        self.pill != 0 && CANCELLED_PILL.load(std::sync::atomic::Ordering::SeqCst) == self.pill
+    }
+
     fn delivery(&self) -> Delivery {
         if self.job == Job::Dictation {
             Delivery::Paste
@@ -410,6 +431,7 @@ pub fn finish_streaming(
         let run = Run {
             job: Job::Dictation,
             history_id,
+            pill,
         };
         let start = std::time::Instant::now();
         let result = match handle.finalize().await {
@@ -442,6 +464,7 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
     let run = Run {
         job: Job::Dictation,
         history_id: insert_pending_row(&app, Some(&wav_path)),
+        pill,
     };
     begin_run();
     // tauri::async_runtime::spawn fonctionne depuis n'importe quel thread
@@ -458,6 +481,7 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
 /// ouverte un peu plus longtemps pour qu'on ait le temps de le lire.
 async fn finish_dictation(app: &AppHandle, run: &Run, result: Result<Outcome>, pill: u64) {
     let failed = matches!(result, Err(_) | Ok(Outcome::NotPasted));
+    let result_kind = result.as_ref().ok().copied();
     let empty = matches!(result, Ok(Outcome::Empty));
     if let Err(e) = result {
         warn!("Pipeline echec: {e}");
@@ -484,7 +508,9 @@ async fn finish_dictation(app: &AppHandle, run: &Run, result: Result<Outcome>, p
     crate::tray::refresh(app);
     // VoiceInk ferme la bulle juste apres le paste ; 200 ms de marge pour
     // les derniers evenements, plus le temps de lire un echec.
-    let delay = if failed {
+    let delay = if matches!(result_kind, Some(Outcome::Cancelled)) {
+        0
+    } else if failed {
         FAILED_PILL_MS
     } else if empty {
         EMPTY_PILL_MS
@@ -508,6 +534,8 @@ pub enum Outcome {
     Empty,
     /// Texte transcrit mais pas colle : il est dans le presse-papiers.
     NotPasted,
+    /// Annule depuis la bulle pendant le traitement : rien n'est colle.
+    Cancelled,
 }
 
 /// Retranscrit un fichier audio existant (dernier enregistrement) avec la
@@ -531,6 +559,7 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
     let run = Run {
         job,
         history_id: insert_pending_row(&app, Some(&wav_path)),
+        pill: 0,
     };
     begin_run();
     tauri::async_runtime::spawn(async move {
@@ -918,6 +947,9 @@ fn mark_enhanced_in_history(app: &AppHandle, run: &Run, enhanced: &str, enhance_
 ///   filter -> trim -> formatter (si active) -> word_replacement -> paste.
 async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u64) -> Result<Outcome> {
     let delivery = run.delivery();
+    if run.cancelled() {
+        return Ok(Outcome::Cancelled);
+    }
     let fillers = if filler_words::is_enabled(app) {
         filler_words::current_list(app)
     } else {
@@ -1007,6 +1039,11 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             Ok(None) => {}
             Err(e) => warn!("Enhancement LLM echec, fallback texte brut: {e}"),
         }
+    }
+
+    // Annule pendant le nettoyage IA.
+    if run.cancelled() {
+        return Ok(Outcome::Cancelled);
     }
 
     emit_state(
