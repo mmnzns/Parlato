@@ -231,6 +231,7 @@ function TryStep({ keyLabel }: { keyLabel: string }) {
     <>
       <div className="flex flex-col gap-2">
         <textarea
+          aria-label={t("dashboard.practiceLabel")}
           placeholder={t("ob.tryPlaceholder", { key: keyLabel })}
           className="min-h-[160px] rounded-lg border-[1.5px] border-edge bg-card p-4 text-[15px] leading-6 shadow-[var(--sel-shadow)] outline-none focus:border-foreground"
         />

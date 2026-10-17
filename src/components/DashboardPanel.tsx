@@ -279,8 +279,11 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
           </ol>
         </div>
         <div className="flex flex-col gap-2 border-l bg-muted p-4">
-          <span className="font-mono text-[11px] text-muted-foreground">{t("dashboard.practiceLabel")}</span>
+          <label htmlFor="home-practice" className="font-mono text-[11px] text-muted-foreground">
+            {t("dashboard.practiceLabel")}
+          </label>
           <textarea
+            id="home-practice"
             placeholder={
               hotkeyLabel
                 ? t("dashboard.practicePlaceholder", { key: hotkeyLabel })

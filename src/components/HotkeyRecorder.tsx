@@ -100,6 +100,7 @@ export function HotkeyRecorder({
   const [captured, setCaptured] = useState<Captured | null>(null);
   const [error, setError] = useState<string | null>(null);
   const finishedRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Reset l'etat a chaque ouverture.
   useEffect(() => {
@@ -181,6 +182,12 @@ export function HotkeyRecorder({
     };
   }, [open, onCancel, onCapture, t]);
 
+  // Parlato: focus the dialog so screen readers announce it; every key
+  // goes to the recorder anyway (captured on the document).
+  useEffect(() => {
+    if (open) dialogRef.current?.focus();
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -189,7 +196,13 @@ export function HotkeyRecorder({
       onClick={onCancel}
     >
       <div
-        className="relative w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hotkey-record-title"
+        aria-describedby="hotkey-record-hint"
+        tabIndex={-1}
+        className="relative w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -201,10 +214,10 @@ export function HotkeyRecorder({
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="text-base font-semibold">
+        <h2 id="hotkey-record-title" className="text-base font-semibold">
           {t("hotkey.record.title")}
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p id="hotkey-record-hint" className="mt-1 text-xs text-muted-foreground">
           {t("hotkey.record.hint")}
         </p>
 

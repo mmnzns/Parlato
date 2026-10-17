@@ -70,6 +70,7 @@
     "groupSetup": "configuration",
     "groupMore": "plus",
     "tagline": "voix → texte",
+    "navLabel": "Menu principal",
     "statusReady": "Prêt",
     "statusHoldBefore": "Maintenez",
     "statusHoldAfter": "et parlez",
