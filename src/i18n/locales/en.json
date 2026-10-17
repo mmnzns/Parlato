@@ -827,6 +827,7 @@
     "fileNoAudio": "This file has no audio track, or it is silent.",
     "fileTooLong": "This file is longer than 2 hours. Split it into shorter parts.",
     "interrupted": "Parlato was closed before this dictation finished. Use Transcribe again to try once more.",
+    "pasteFailed": "Could not paste into this app. The text is on the clipboard, ready to paste.",
     "assemblyaiRealtimeOnly": "Universal-3.6 Pro handles this language only live, with \"Show words as you speak\" on. To transcribe this recording, pick another language or model."
   },
   "prompts": {

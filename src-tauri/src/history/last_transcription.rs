@@ -95,7 +95,7 @@ pub fn paste_last(app: &AppHandle, enhanced: bool) -> Result<()> {
                 Ok(()) => info!(enhanced, chars = text.len(), "Last transcription pasted"),
                 Err(e) => {
                     warn!(error = %e, "paste last transcription failed");
-                    notice::send(&app, Notice::Failed(e.to_string()));
+                    notice::send(&app, Notice::Failed("PARLA_ERR:pasteFailed".into()));
                 }
             }
         })

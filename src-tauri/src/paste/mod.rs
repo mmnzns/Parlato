@@ -66,19 +66,53 @@ pub fn remember_foreground() {
 #[cfg(not(any(windows, target_os = "macos")))]
 pub fn remember_foreground() {}
 
-fn clipboard() -> &'static Mutex<Clipboard> {
-    static CLIP: OnceLock<Mutex<Clipboard>> = OnceLock::new();
-    CLIP.get_or_init(|| Mutex::new(Clipboard::new().expect("clipboard init")))
+/// Parlato : nombre d'essais quand une autre application tient le
+/// presse-papiers (gestionnaire d'historique, bureau a distance...).
+const CLIPBOARD_ATTEMPTS: u32 = 5;
+const CLIPBOARD_RETRY_DELAY: Duration = Duration::from_millis(40);
+
+/// Execute `op` sur le presse-papiers partage. Parlato : ouvert a la
+/// premiere utilisation (et rouvert si cela avait echoue) au lieu de faire
+/// planter l'app, et reessaye quelques fois s'il est occupe.
+fn with_clipboard<T>(
+    what: &str,
+    op: impl Fn(&mut Clipboard) -> std::result::Result<T, arboard::Error>,
+) -> Result<T> {
+    static CLIP: Mutex<Option<Clipboard>> = Mutex::new(None);
+    let mut last = String::new();
+    for attempt in 0..CLIPBOARD_ATTEMPTS {
+        if attempt > 0 {
+            sleep(CLIPBOARD_RETRY_DELAY);
+        }
+        let mut guard = CLIP.lock();
+        if guard.is_none() {
+            match Clipboard::new() {
+                Ok(c) => *guard = Some(c),
+                Err(e) => {
+                    last = e.to_string();
+                    continue;
+                }
+            }
+        }
+        let Some(clip) = guard.as_mut() else {
+            continue;
+        };
+        match op(clip) {
+            Ok(v) => return Ok(v),
+            Err(arboard::Error::ClipboardOccupied) => {
+                last = arboard::Error::ClipboardOccupied.to_string();
+            }
+            Err(e) => return Err(anyhow!("{what}: {e}")),
+        }
+    }
+    Err(anyhow!("{what}: {last}"))
 }
 
 /// Copy text to the system clipboard without pasting anything. Used by the
 /// tray menu ("Copy last transcription") and any UI action that only wants
 /// to populate the clipboard.
 pub fn copy_to_clipboard(text: &str) -> Result<()> {
-    clipboard()
-        .lock()
-        .set_text(text.to_string())
-        .map_err(|e| anyhow!("set clipboard: {e}"))
+    with_clipboard("set clipboard", |c| c.set_text(text.to_string()))
 }
 
 /// Backup le contenu actuel du clipboard (tous formats sur Windows), pose
@@ -98,7 +132,9 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
             Ok(b) => Some(b),
             Err(e) => {
                 warn!("clipboard backup: {e}, fallback texte uniquement");
-                clipboard().lock().get_text().ok().map(clipboard_backup::Backup::text_only)
+                with_clipboard("get clipboard", |c| c.get_text())
+                    .ok()
+                    .map(clipboard_backup::Backup::text_only)
             }
         }
     } else {
@@ -115,15 +151,12 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
 
     #[cfg(not(any(windows, target_os = "macos")))]
     let backup = if restore {
-        clipboard().lock().get_text().ok()
+        with_clipboard("get clipboard", |c| c.get_text()).ok()
     } else {
         None
     };
 
-    clipboard()
-        .lock()
-        .set_text(text.to_string())
-        .map_err(|e| anyhow!("set clipboard: {e}"))?;
+    with_clipboard("set clipboard", |c| c.set_text(text.to_string()))?;
 
     // Laisse le temps a l'OS de propager le set avant d'envoyer Ctrl+V.
     sleep(CLIPBOARD_TO_PASTE_DELAY);
@@ -141,10 +174,10 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
     // ce qu'il avait copie a cause d'un collage rate.
     let paste_result = send_ctrl_v();
 
-    // Parlato : on macOS, if the paste could not happen (Accessibility
-    // missing), keep the dictated text on the clipboard so the user can
-    // paste it by hand instead of losing it.
-    #[cfg(target_os = "macos")]
+    // Parlato : if the paste could not happen (Accessibility missing on
+    // macOS, input blocked by an elevated window on Windows), keep the
+    // dictated text on the clipboard so the user can paste it by hand
+    // instead of losing it. The pill says it was not pasted.
     let backup = if paste_result.is_err() { None } else { backup };
 
     if let Some(prev) = backup {
@@ -164,7 +197,7 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
         }
         #[cfg(not(any(windows, target_os = "macos")))]
         {
-            if let Err(e) = clipboard().lock().set_text(prev) {
+            if let Err(e) = with_clipboard("restore clipboard", |c| c.set_text(prev.clone())) {
                 warn!("restore clipboard: {e}");
             }
         }

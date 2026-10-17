@@ -457,7 +457,7 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
 /// son d'annulation, au lieu de la fermer sans rien dire ; elle reste
 /// ouverte un peu plus longtemps pour qu'on ait le temps de le lire.
 async fn finish_dictation(app: &AppHandle, run: &Run, result: Result<Outcome>, pill: u64) {
-    let failed = result.is_err();
+    let failed = matches!(result, Err(_) | Ok(Outcome::NotPasted));
     let empty = matches!(result, Ok(Outcome::Empty));
     if let Err(e) = result {
         warn!("Pipeline echec: {e}");
@@ -506,6 +506,8 @@ const EMPTY_PILL_MS: u64 = 1500;
 pub enum Outcome {
     Delivered,
     Empty,
+    /// Texte transcrit mais pas colle : il est dans le presse-papiers.
+    NotPasted,
 }
 
 /// Retranscrit un fichier audio existant (dernier enregistrement) avec la
@@ -1032,9 +1034,26 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         };
 
         let final_text_clone = final_text.clone();
-        task::spawn_blocking(move || paste_at_cursor(&final_text_clone, restore, None))
-            .await
-            .map_err(|e| anyhow!("task join: {e}"))??;
+        let pasted =
+            task::spawn_blocking(move || paste_at_cursor(&final_text_clone, restore, None))
+                .await
+                .map_err(|e| anyhow!("task join: {e}"))?;
+        // Parlato : la transcription a reussi, seul le collage a echoue
+        // (fenetre administrateur, Accessibilite absente). L'historique garde
+        // le texte, qui reste aussi dans le presse-papiers ; la bulle le dit.
+        if let Err(e) = pasted {
+            warn!("paste: {e}");
+            emit_state(
+                app,
+                run.job,
+                PipelineState::Failed,
+                Some("PARLA_ERR:pasteFailed".into()),
+                Some(text),
+                Some(duration_ms),
+            );
+            feedback::play(app, Cue::Cancel);
+            return Ok(Outcome::NotPasted);
+        }
 
         // Stop cue, played once the text is actually inserted at the cursor
         // (VoiceInk SoundManager.playStopSound at TranscriptionPipeline.swift:209).

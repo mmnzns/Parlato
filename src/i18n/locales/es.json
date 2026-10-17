@@ -827,6 +827,7 @@
     "fileNoAudio": "Este archivo no tiene pista de audio o está en silencio.",
     "fileTooLong": "Este archivo dura más de 2 horas. Divídelo en partes más cortas.",
     "interrupted": "Parlato se cerró antes de terminar este dictado. Usa «Transcribir de nuevo» para intentarlo otra vez.",
+    "pasteFailed": "No se pudo pegar en esta aplicación. El texto está en el portapapeles, listo para pegar.",
     "assemblyaiRealtimeOnly": "Universal-3.6 Pro solo admite este idioma en vivo, con «Mostrar las palabras mientras hablas» activado. Para transcribir esta grabación, elige otro idioma u otro modelo."
   },
   "prompts": {
