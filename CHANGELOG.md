@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-16
+
+### Added
+- **Auto-send** in Power modes: press Enter, Shift+Enter or Ctrl+Enter
+  (Return, Shift+Return or Cmd+Return on a Mac) right after the text is
+  pasted, for chats and AI assistants.
+- A **Cancel** button on the recorder while it transcribes or cleans up:
+  nothing is pasted, the text stays in History.
+- AI cleanup: a **Try it** box to see what the chosen model and style do
+  with a sentence, without dictating.
+- **Keep models ready**: speech and cleanup models now stay loaded for
+  5 minutes after a dictation, so the next one starts faster. Choose the
+  time on the Speech model page.
+- Settings: **Run setup again**, and on Mac **Hide the Dock icon**.
+- Transcribe a file: drop or pick **several files**; they run one after
+  another.
+
+### Changed
+- When a dictation fails, the recorder now **says why** instead of
+  disappearing, and says "Nothing heard" when there was no speech. Copy,
+  retry and paste-last shortcuts show their result there too.
+- If Parlato cannot paste into an app, the text stays on the clipboard
+  and in History, ready to paste by hand (Windows used to lose it).
+- AI cleanup keys are checked with the provider when you save them, and
+  a wrong key or unknown model no longer delays every dictation with
+  retries. The built-in local cleanup gives up after 60 seconds.
+- Faster online dictation: connections are reused between dictations.
+- Live online transcription falls back to the recorded audio if the
+  connection fails.
+- Model downloads resume after a dropped connection, stop waiting on a
+  stalled one, and are checked against a fixed version of each file.
+- History: the All / AI cleaned / Failed filter covers every dictation,
+  and Export says how many it saves and where. Home totals now count the
+  whole history.
+- Power modes: the language is picked from a list, and modes without an
+  icon show their first letter. The AI cleanup page can be set up while
+  cleanup is off.
+- Language names, file sizes and the voice detection settings are shown
+  in the app's language. Spanish uses the same informal tone everywhere.
+- Deleting a Whisper model asks first, like the other models.
+
+### Fixed
+- A file transcribed in the background no longer mixes its result with a
+  dictation made at the same time.
+- The update banner and the Settings update button no longer download at
+  the same time.
+- Mac: the command-line AI engine used Windows commands; Power modes and
+  the menu bar show Mac key names in French and Spanish.
+
 ## [0.12.0] - 2026-10-15
 
 ### Added
