@@ -41,6 +41,30 @@ const DEFAULT_TIMEOUT_SECS: u64 = 7;
 const RATE_LIMIT_INTERVAL: Duration = Duration::from_millis(1000);
 const MAX_RETRIES: u32 = 3;
 
+/// Parlato : nature d'un echec de provider, d'apres le prefixe pose par
+/// les providers (openai_compat::map_http_err, anthropic, etc.).
+#[derive(Debug, PartialEq, Eq)]
+enum Failure {
+    Timeout,
+    /// 429, 5xx, reseau : un nouvel essai peut reussir.
+    Transient,
+    /// 4xx, reponse illisible, erreur locale : inutile de reessayer.
+    Permanent,
+}
+
+fn failure_kind(msg: &str) -> Failure {
+    if msg.to_lowercase().contains("timeout") {
+        Failure::Timeout
+    } else if ["rate_limit", "server_error", "network_error", "http: "]
+        .iter()
+        .any(|p| msg.starts_with(p))
+    {
+        Failure::Transient
+    } else {
+        Failure::Permanent
+    }
+}
+
 /// State Tauri : registry + horodatage derniere requete (pour rate limit).
 pub struct EnhancementState {
     pub registry: Arc<LLMRegistry>,
@@ -460,18 +484,22 @@ pub async fn enhance_with_override(
             }
             Err(e) => {
                 let msg = e.to_string();
-                let is_timeout = msg.to_lowercase().contains("timeout");
+                let kind = failure_kind(&msg);
                 warn!(attempt, error = %msg, "Enhancement LLM attempt echec");
                 last_err = Some(e);
                 if attempt + 1 >= MAX_RETRIES {
                     break;
                 }
-                if is_timeout && !retry_on_timeout {
-                    break;
-                }
-                if !is_timeout {
-                    tokio::time::sleep(backoff).await;
-                    backoff *= 2;
+                match kind {
+                    Failure::Timeout if retry_on_timeout => {}
+                    Failure::Transient => {
+                        tokio::time::sleep(backoff).await;
+                        backoff *= 2;
+                    }
+                    // Parlato : une cle refusee, un modele inconnu ou une
+                    // requete invalide echouera pareil au prochain essai ;
+                    // on rend la main tout de suite (texte brut colle).
+                    _ => break,
                 }
             }
         }
@@ -482,6 +510,22 @@ pub async fn enhance_with_override(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failure_kind_retries_only_what_can_succeed() {
+        let cases = [
+            ("timeout: operation timed out", Failure::Timeout),
+            ("rate_limit (429): slow down", Failure::Transient),
+            ("server_error (503): busy", Failure::Transient),
+            ("network_error: refused", Failure::Transient),
+            ("http 401 Unauthorized: bad key", Failure::Permanent),
+            ("http 404 Not Found: no model", Failure::Permanent),
+            ("llama.cpp: stopped after 60 s", Failure::Permanent),
+        ];
+        for (msg, expected) in cases {
+            assert_eq!(failure_kind(msg), expected, "{msg}");
+        }
+    }
 
     #[test]
     fn temperature_for_gpt5_family() {

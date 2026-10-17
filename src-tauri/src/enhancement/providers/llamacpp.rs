@@ -40,6 +40,10 @@ const KEY_MAX_TOKENS: &str = "llm_gguf_max_tokens";
 const KEY_CONTEXT_SIZE: &str = "llm_gguf_context_size";
 
 const DEFAULT_MAX_TOKENS: u32 = 1024;
+/// Parlato : duree maximale d'une generation (hors chargement du modele).
+/// Au-dela, le nettoyage est abandonne et le texte brut est colle, au lieu
+/// de laisser la dictee en attente sans fin sur une machine lente.
+const GENERATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(60);
 const DEFAULT_CONTEXT_SIZE: u32 = 4096;
 
 #[cfg(feature = "cuda-llama")]
@@ -182,6 +186,7 @@ impl LlamaRuntime {
         max_tokens: u32,
     ) -> Result<String> {
         self.ensure_loaded(path, n_gpu_layers, context_size)?;
+        let started = std::time::Instant::now();
         let guard = self.current.lock();
         let loaded = guard.as_ref().ok_or_else(|| anyhow!("modele non charge"))?;
         let model = &loaded.model;
@@ -234,6 +239,12 @@ impl LlamaRuntime {
         let n_max = n_cur + max_tokens as i32;
 
         while n_cur < n_max {
+            if started.elapsed() > GENERATION_LIMIT {
+                return Err(anyhow!(
+                    "llama.cpp: generation stopped after {} s",
+                    GENERATION_LIMIT.as_secs()
+                ));
+            }
             let token = sampler.sample(&ctx, batch.n_tokens() - 1);
             sampler.accept(token);
             if model.is_eog_token(token) {
