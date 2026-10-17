@@ -470,7 +470,7 @@
     "cancelled": "Cancelado",
     "errorPrefix": "Error: {{message}}",
     "missingFiles": "Archivos ausentes: {{files}}",
-    "confirmDelete": "¿Eliminar el modelo Parakeet {{id}} ?"
+    "confirmDelete": "¿Eliminar el modelo Parakeet {{id}}?"
   },
   "llmLocal": {
     "title": "LLM local (llama.cpp)",
@@ -1092,7 +1092,8 @@
     "keepAliveMinutes_other": "{{count}} minutos",
     "keepAliveHours_one": "{{count}} hora",
     "keepAliveHours_other": "{{count}} horas",
-    "keepAliveRecommended": "{{label}} (recomendado)"
+    "keepAliveRecommended": "{{label}} (recomendado)",
+    "confirmDeleteModel": "¿Eliminar {{name}}? Tendrás que descargarlo de nuevo para usarlo."
   },
   "tf": {
     "dropTitle": "Suelta aquí un archivo de audio o vídeo",

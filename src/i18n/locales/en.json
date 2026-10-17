@@ -1092,7 +1092,8 @@
     "keepAliveMinutes_other": "{{count}} minutes",
     "keepAliveHours_one": "{{count}} hour",
     "keepAliveHours_other": "{{count}} hours",
-    "keepAliveRecommended": "{{label}} (recommended)"
+    "keepAliveRecommended": "{{label}} (recommended)",
+    "confirmDeleteModel": "Delete {{name}}? You will need to download it again to use it."
   },
   "tf": {
     "dropTitle": "Drop an audio or video file here",

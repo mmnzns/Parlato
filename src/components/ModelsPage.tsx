@@ -51,6 +51,7 @@ import {
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { modelName } from "@/lib/modelText";
 
 /// Parlato: the backend reports a cancelled download as the French error
 /// "telechargement annule" (model managers); it is not a real error.
@@ -229,6 +230,10 @@ export function ModelsPage({
   }
 
   async function deleteWhisper(id: string) {
+    // Parlato: confirm like Parakeet and local AI models; a Whisper model is
+    // a 75 MB to 3 GB download.
+    const name = modelName(t, id, whisper.find((m) => m.id === id)?.display_name ?? id);
+    if (!(await confirmDelete(t("speech.confirmDeleteModel", { name })))) return;
     try {
       await api.deleteWhisperModel(id);
       if (selectedRef.current === id) onSelectModel(null);
