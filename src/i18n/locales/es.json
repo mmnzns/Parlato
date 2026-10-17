@@ -987,6 +987,7 @@
   "ai": {
     "on": "Activado",
     "off": "Desactivado",
+    "offNotice": "La limpieza con IA está desactivada. Ya puedes elegir un modelo y añadir una clave, y luego activarla con el interruptor de arriba.",
     "toggleLabel": "Limpieza con IA",
     "whereTitle": "¿Dónde debe funcionar la IA?",
     "recommended": "recomendado",

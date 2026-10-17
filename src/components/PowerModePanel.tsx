@@ -18,6 +18,7 @@ import { cn, powerShortcutLabel } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 import { promptTitle } from "@/lib/promptLabels";
 import { modelName } from "@/lib/modelText";
+import { persist } from "@/lib/persist";
 import type { CloudModel } from "@/components/models/types";
 import { LANGUAGE_NAMES, languageLabel } from "@/lib/languages";
 import {
@@ -169,8 +170,7 @@ export function PowerModePanel() {
   }
 
   async function toggleAutoRestore(v: boolean) {
-    setAutoRestore(v);
-    await api.setPowerAutoRestore(v);
+    await persist(v, autoRestore, setAutoRestore, api.setPowerAutoRestore);
   }
 
   const shortcutFor = (c: PowerModeConfig) => (c.is_enabled ? powerShortcutLabel(c.shortcut_slot) : null);

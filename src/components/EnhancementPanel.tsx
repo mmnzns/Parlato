@@ -18,6 +18,7 @@ import { PromptEditor } from "@/components/PromptEditor";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 import { translateError } from "@/lib/translateError";
+import { persist } from "@/lib/persist";
 import {
   api,
   type CustomPrompt,
@@ -133,14 +134,14 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   }
 
   async function selectCustomModel(model: string) {
-    setCustomModel(model);
-    await api.setLlmSelection("custom", model);
-    setSelection({ provider_id: "custom", model });
+    const prev = customModel;
+    if (await persist(model, prev, setCustomModel, (m) => api.setLlmSelection("custom", m))) {
+      setSelection({ provider_id: "custom", model });
+    }
   }
 
   async function toggleEnabled(v: boolean) {
-    setEnabled(v);
-    await api.setEnhancementEnabled(v);
+    await persist(v, enabled, setEnabled, api.setEnhancementEnabled);
   }
 
   async function selectProvider(providerId: string) {
@@ -162,20 +163,21 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
       return;
     }
     setTypedModel(null);
-    setSelection({ ...selection, model });
-    await api.setLlmSelection(selection.provider_id, model);
+    await persist({ ...selection, model }, selection, setSelection, (s) =>
+      api.setLlmSelection(s.provider_id, s.model),
+    );
   }
 
   async function saveTypedModel() {
     const model = (typedModel ?? "").trim();
     if (!selection || !model) return;
-    setSelection({ ...selection, model });
-    await api.setLlmSelection(selection.provider_id, model);
+    await persist({ ...selection, model }, selection, setSelection, (s) =>
+      api.setLlmSelection(s.provider_id, s.model),
+    );
   }
 
   async function selectPrompt(id: string) {
-    setActivePromptId(id);
-    await api.setActivePromptId(id);
+    await persist<string | null>(id, activePromptId, setActivePromptId, () => api.setActivePromptId(id));
   }
 
   async function saveApiKey(providerId: string) {
@@ -287,13 +289,14 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
         }
       />
 
-      <div
-        className={cn(
-          "flex flex-col gap-[22px] transition-opacity",
-          !enabled && "pointer-events-none opacity-45",
-        )}
-        aria-disabled={!enabled}
-      >
+      {/* Parlato: the page stays usable while cleanup is off, so a model and
+          a key can be set up first. */}
+      {!enabled && (
+        <p role="status" className="mb-[22px] rounded-sm border-[1.5px] border-edge bg-muted px-4 py-3 text-[13px] text-muted-foreground">
+          {t("ai.offNotice")}
+        </p>
+      )}
+      <div className="flex flex-col gap-[22px]">
         <section className="flex flex-col gap-2.5">
           <SectionHeading title={t("ai.whereTitle")} />
           <div role="radiogroup" aria-label={t("ai.whereTitle")} className="grid gap-3 sm:grid-cols-2">

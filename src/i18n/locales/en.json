@@ -987,6 +987,7 @@
   "ai": {
     "on": "On",
     "off": "Off",
+    "offNotice": "AI cleanup is off. You can choose a model and add a key now, then turn it on with the switch above.",
     "toggleLabel": "AI cleanup",
     "whereTitle": "Where should the AI run?",
     "recommended": "recommended",

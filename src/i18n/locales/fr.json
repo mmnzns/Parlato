@@ -987,6 +987,7 @@
   "ai": {
     "on": "Activé",
     "off": "Désactivé",
+    "offNotice": "Le nettoyage IA est désactivé. Vous pouvez déjà choisir un modèle et ajouter une clé, puis l'activer avec l'interrupteur ci-dessus.",
     "toggleLabel": "Nettoyage IA",
     "whereTitle": "Où l'IA doit-elle tourner ?",
     "recommended": "recommandé",
