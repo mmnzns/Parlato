@@ -105,6 +105,18 @@ pub struct LLMProviderInfo {
     pub has_api_key: bool,
 }
 
+/// Parlato : essaie le nettoyage IA sur un texte tape, avec le modele et le
+/// style choisis, meme si le nettoyage est desactive (zone "Essayer").
+#[command]
+pub async fn try_enhancement(app: AppHandle, text: String) -> Result<String, String> {
+    let prompt = prompts::get_active_prompt(&app).map_err(|e| e.to_string())?;
+    match service::enhance_with_override(app, text, Some(prompt)).await {
+        Ok(Some((out, _ms))) => Ok(out),
+        Ok(None) => Err("PARLA_ERR:aiNotConfigured".into()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Parlato : verifie une cle de nettoyage IA avant de l'enregistrer.
 #[command]
 pub async fn verify_llm_api_key(

@@ -64,7 +64,7 @@ use commands::enhancement::{
     list_extra_templates, list_llm_providers, list_ollama_models, list_prompts,
     set_active_prompt_id, set_custom_base_url, set_enhancement_enabled, set_llm_selection,
     set_localcli_custom_cmd, set_localcli_timeout_secs, set_ollama_base_url, update_prompt,
-    verify_llm_api_key,
+    try_enhancement, verify_llm_api_key,
 };
 use commands::llm_models::{
     cancel_download_gguf_model, delete_gguf_model, download_gguf_model, get_llamacpp_settings,
@@ -386,6 +386,7 @@ pub fn run() {
             list_extra_templates,
             list_llm_providers,
             verify_llm_api_key,
+            try_enhancement,
             get_llm_selection,
             set_llm_selection,
             get_ollama_base_url,

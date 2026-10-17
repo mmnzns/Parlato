@@ -429,6 +429,8 @@ export const api = {
   /** Parlato: AI cleanup key check, rejects only a key the provider refuses. */
   verifyLlmApiKey: (provider: string, key: string) =>
     invoke<void>("verify_llm_api_key", { provider, key }),
+  /** Parlato: run AI cleanup on typed text with the current model and style. */
+  tryEnhancement: (text: string) => invoke<string>("try_enhancement", { text }),
   cloudTranscribeWav: (args: {
     wav_path: string;
     provider: string;

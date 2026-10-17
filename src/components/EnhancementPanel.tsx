@@ -15,6 +15,7 @@ import { CompactHero } from "@/components/CompactHero";
 import { EnhancementScreenContext } from "@/components/EnhancementScreenContext";
 import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { PromptEditor } from "@/components/PromptEditor";
+import { EnhancementTryBox } from "@/components/EnhancementTryBox";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 import { translateError } from "@/lib/translateError";
@@ -624,6 +625,8 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
           onSelect={selectPrompt}
           onChange={refresh}
         />
+
+        <EnhancementTryBox />
 
         {/* Parlato: reading the screen (OCR) is not available on Mac yet. */}
         {isMac ? (
