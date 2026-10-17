@@ -22,7 +22,11 @@ use tracing::info;
 pub struct GgufModelInfo {
     pub id: &'static str,
     pub display_name: &'static str,
+    /// Parlato : URL figee sur un commit du depot (pas "main").
     pub url: &'static str,
+    /// Parlato : SHA-256 du fichier (oid LFS Hugging Face), verifie apres
+    /// le telechargement. Releve le 2026-10-16.
+    pub sha256: &'static str,
     pub size_bytes: u64,
     pub context_length: u32,
     pub notes: &'static str,
@@ -41,7 +45,8 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
     GgufModelInfo {
         id: "granite-4.2-3b-q4",
         display_name: "Granite 4.2 3B (Q4_K_M)",
-        url: "https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF/resolve/main/granite-4.2-3b-Q4_K_M.gguf",
+        url: "https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF/resolve/c40945d71cd90f249a56985e8155551a9188dc30/granite-4.2-3b-Q4_K_M.gguf",
+        sha256: "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
         size_bytes: 2_244_011_552,
         context_length: 131072,
         notes: "Modele recent d'IBM, precis et fidele au texte dicte.",
@@ -50,7 +55,8 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
     GgufModelInfo {
         id: "qwen2.5-3b-instruct-q4",
         display_name: "Qwen 2.5 3B Instruct (Q4_K_M)",
-        url: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+        url: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/f302c64a2269a69fb27b2f9473b362f5bb8e78d8/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+        sha256: "9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94",
         size_bytes: 2_018_000_000,
         context_length: 32768,
         notes: "Polyvalent, excellent rapport qualite / taille.",
@@ -61,7 +67,8 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
     GgufModelInfo {
         id: "llama-3.2-3b-instruct-q4",
         display_name: "Llama 3.2 3B Instruct (Q4_K_M)",
-        url: "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        url: "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/5ab33fa94d1d04e903623ae72c95d1696f09f9e8/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        sha256: "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
         size_bytes: 2_020_000_000,
         context_length: 131072,
         notes: "Longue fenetre de contexte.",
@@ -70,7 +77,8 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
     GgufModelInfo {
         id: "gemma-2-2b-it-q4",
         display_name: "Gemma 2 2B Instruct (Q4_K_M)",
-        url: "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+        url: "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/855f67caed130e1befc571b52bd181be2e858883/gemma-2-2b-it-Q4_K_M.gguf",
+        sha256: "e0aee85060f168f0f2d8473d7ea41ce2f3230c1bc1374847505ea599288a7787",
         size_bytes: 1_710_000_000,
         context_length: 8192,
         notes: "Modele leger, rapide en CPU.",
@@ -79,7 +87,8 @@ pub const GGUF_MODELS: &[GgufModelInfo] = &[
     GgufModelInfo {
         id: "phi-3.5-mini-instruct-q4",
         display_name: "Phi 3.5 Mini Instruct (Q4_K_M)",
-        url: "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
+        url: "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/6d70da17e749a471ccb62ade694486011a75cda3/Phi-3.5-mini-instruct-Q4_K_M.gguf",
+        sha256: "e4165e3a71af97f1b4820da61079826d8752a2088e313af0c7d346796c38eff5",
         size_bytes: 2_390_000_000,
         context_length: 131072,
         notes: "3.8B, fort en raisonnement et instructions.",
@@ -314,6 +323,7 @@ impl GgufModelManager {
             part: &tmp,
             cancel: Some(cancel.as_ref()),
             progress_every: std::time::Duration::from_millis(50),
+            sha256: Some(m.sha256),
         }
         .run(&client, |downloaded, total| {
             let _ = self.app.emit(
@@ -344,5 +354,17 @@ pub struct GgufModelManagerState(pub Arc<GgufModelManager>);
 impl GgufModelManagerState {
     pub fn new(app: AppHandle) -> Self {
         Self(Arc::new(GgufModelManager::new(app)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn catalog_is_pinned_with_checksums() {
+        for m in GGUF_MODELS {
+            crate::download::assert_pinned(m.url, m.sha256);
+        }
     }
 }

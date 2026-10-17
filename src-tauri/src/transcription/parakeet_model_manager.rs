@@ -505,6 +505,8 @@ impl ParakeetModelManager {
                 part: &tmp,
                 cancel: Some(cancel.as_ref()),
                 progress_every: std::time::Duration::from_millis(50),
+                // Les revisions sont figees ; pas d'empreinte par fichier ici.
+                sha256: None,
             }
             .run(&client, |downloaded, _| {
                 let _ = self.app.emit(

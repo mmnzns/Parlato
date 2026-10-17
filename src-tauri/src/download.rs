@@ -13,6 +13,8 @@
 //   reponse 200 = le serveur renvoie tout, on repart de zero.
 // - Annulation par l'utilisateur : le `.part` est supprime (Annuler veut
 //   dire recommencer, comme avant).
+// - Empreinte SHA-256 (si le catalogue en donne une) calculee au fil de
+//   l'eau ; si elle ne correspond pas, le `.part` est supprime.
 // - Fin : flush + sync, puis renommage du `.part` vers la cible, pour qu'un
 //   fichier modele present soit toujours complet.
 
@@ -24,6 +26,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use futures_util::StreamExt;
 use reqwest::header::{CONTENT_RANGE, RANGE};
 use reqwest::StatusCode;
+use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
@@ -58,6 +61,8 @@ pub struct Transfer<'a> {
     pub cancel: Option<&'a AtomicBool>,
     /// Intervalle minimal entre deux appels de `on_progress`.
     pub progress_every: Duration,
+    /// Empreinte SHA-256 attendue (hex), None = pas de verification.
+    pub sha256: Option<&'a str>,
 }
 
 impl Transfer<'_> {
@@ -118,6 +123,20 @@ impl Transfer<'_> {
         }
         .with_context(|| format!("ouverture de {}", self.part.display()))?;
 
+        // En reprise, l'empreinte commence par le contenu deja recu.
+        let mut hasher = match self.sha256 {
+            None => None,
+            Some(_) if append => {
+                let part = self.part.to_path_buf();
+                Some(
+                    tokio::task::spawn_blocking(move || hash_file(&part))
+                        .await
+                        .context("calcul de l'empreinte")??,
+                )
+            }
+            Some(_) => Some(Sha256::new()),
+        };
+
         let mut stream = resp.bytes_stream();
         let mut downloaded = offset;
         let mut last_byte = Instant::now();
@@ -146,6 +165,9 @@ impl Transfer<'_> {
                     file.write_all(&bytes)
                         .await
                         .with_context(|| format!("ecriture de {}", self.part.display()))?;
+                    if let Some(h) = hasher.as_mut() {
+                        h.update(&bytes);
+                    }
                     downloaded += bytes.len() as u64;
                     last_byte = Instant::now();
                     if last_emit.elapsed() >= self.progress_every {
@@ -162,6 +184,16 @@ impl Transfer<'_> {
         if let Some(total) = total {
             if downloaded != total {
                 bail!("telechargement incomplet : {downloaded} octets sur {total}");
+            }
+        }
+        if let (Some(expected), Some(h)) = (self.sha256, hasher) {
+            if !digest_matches(h, expected) {
+                // Fichier corrompu ou modifie : inutile de le reprendre.
+                let _ = std::fs::remove_file(self.part);
+                bail!(
+                    "le fichier telecharge ne correspond pas a l'empreinte SHA-256                      attendue, il a ete supprime ({})",
+                    self.url
+                );
             }
         }
         on_progress(downloaded, total);
@@ -185,6 +217,41 @@ impl Transfer<'_> {
             .await
             .with_context(|| format!("GET {}", self.url))
     }
+}
+
+/// Empreinte SHA-256 en cours du contenu de `path` (fichier entier).
+fn hash_file(path: &Path) -> Result<Sha256> {
+    use std::io::Read;
+    let mut file =
+        std::fs::File::open(path).with_context(|| format!("lecture de {}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = file.read(&mut buf)?;
+        if n == 0 {
+            return Ok(hasher);
+        }
+        hasher.update(&buf[..n]);
+    }
+}
+
+/// Vrai si l'empreinte finale vaut `expected` (hex, casse indifferente).
+fn digest_matches(hasher: Sha256, expected: &str) -> bool {
+    format!("{:x}", hasher.finalize()).eq_ignore_ascii_case(expected.trim())
+}
+
+/// Tests des catalogues : l'URL Hugging Face pointe sur un commit (40 hex,
+/// pas "main") et l'empreinte est un SHA-256 hex.
+#[cfg(test)]
+pub fn assert_pinned(url: &str, sha256: &str) {
+    let is_hex = |s: &str, len: usize| s.len() == len && s.bytes().all(|b| b.is_ascii_hexdigit());
+    let revision = url
+        .split("/resolve/")
+        .nth(1)
+        .and_then(|rest| rest.split('/').next())
+        .unwrap_or("");
+    assert!(is_hex(revision, 40), "URL non figee sur un commit : {url}");
+    assert!(is_hex(sha256, 64), "SHA-256 invalide pour {url}");
 }
 
 /// Premier octet annonce par `Content-Range: bytes N-M/T`.
@@ -299,6 +366,7 @@ mod tests {
         dir: &Path,
         cancel: Option<&AtomicBool>,
         stall: Duration,
+        sha256: Option<&str>,
     ) -> Result<u64> {
         let target = dir.join("model.bin");
         let part = dir.join("model.bin.part");
@@ -308,6 +376,7 @@ mod tests {
             part: &part,
             cancel,
             progress_every: Duration::from_millis(50),
+            sha256,
         }
         .run_with_stall(&client().unwrap(), stall, |_, _| {})
         .await
@@ -317,7 +386,7 @@ mod tests {
     async fn downloads_whole_file() {
         let (url, ranges) = serve(Mode::Ranges).await;
         let dir = temp_dir("whole");
-        let n = fetch(&url, &dir, None, STALL_TIMEOUT).await.unwrap();
+        let n = fetch(&url, &dir, None, STALL_TIMEOUT, None).await.unwrap();
         assert_eq!(n, body().len() as u64);
         assert_eq!(std::fs::read(dir.join("model.bin")).unwrap(), body());
         assert!(!dir.join("model.bin.part").exists());
@@ -330,7 +399,7 @@ mod tests {
         let (url, ranges) = serve(Mode::Ranges).await;
         let dir = temp_dir("resume");
         std::fs::write(dir.join("model.bin.part"), &body()[..4000]).unwrap();
-        fetch(&url, &dir, None, STALL_TIMEOUT).await.unwrap();
+        fetch(&url, &dir, None, STALL_TIMEOUT, None).await.unwrap();
         assert_eq!(std::fs::read(dir.join("model.bin")).unwrap(), body());
         assert_eq!(ranges.lock().as_slice(), &[Some("bytes=4000-".to_string())]);
         let _ = std::fs::remove_dir_all(&dir);
@@ -341,7 +410,7 @@ mod tests {
         let (url, _) = serve(Mode::NoRanges).await;
         let dir = temp_dir("norange");
         std::fs::write(dir.join("model.bin.part"), b"garbage").unwrap();
-        fetch(&url, &dir, None, STALL_TIMEOUT).await.unwrap();
+        fetch(&url, &dir, None, STALL_TIMEOUT, None).await.unwrap();
         assert_eq!(std::fs::read(dir.join("model.bin")).unwrap(), body());
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -350,7 +419,7 @@ mod tests {
     async fn stall_fails_and_keeps_part_file() {
         let (url, _) = serve(Mode::Stall).await;
         let dir = temp_dir("stall");
-        let err = fetch(&url, &dir, None, Duration::from_secs(1))
+        let err = fetch(&url, &dir, None, Duration::from_secs(1), None)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("aucune donnee"), "{err}");
@@ -372,12 +441,57 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(500)).await;
             flag.store(true, Ordering::SeqCst);
         });
-        let err = fetch(&url, &dir, Some(&cancel), STALL_TIMEOUT)
+        let err = fetch(&url, &dir, Some(&cancel), STALL_TIMEOUT, None)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("annule"), "{err}");
         assert!(!dir.join("model.bin.part").exists());
         assert!(!dir.join("model.bin").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn body_sha256() -> String {
+        format!("{:x}", Sha256::digest(body()))
+    }
+
+    #[test]
+    fn hash_file_matches_known_digest() {
+        let dir = temp_dir("hash");
+        let path = dir.join("abc.txt");
+        std::fs::write(&path, b"abc").unwrap();
+        let expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert!(digest_matches(hash_file(&path).unwrap(), expected));
+        assert!(digest_matches(
+            hash_file(&path).unwrap(),
+            &expected.to_uppercase()
+        ));
+        assert!(!digest_matches(hash_file(&path).unwrap(), &"0".repeat(64)));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn checksum_ok_after_resume() {
+        let (url, _) = serve(Mode::Ranges).await;
+        let dir = temp_dir("sha-resume");
+        std::fs::write(dir.join("model.bin.part"), &body()[..4000]).unwrap();
+        let sha = body_sha256();
+        fetch(&url, &dir, None, STALL_TIMEOUT, Some(&sha))
+            .await
+            .unwrap();
+        assert_eq!(std::fs::read(dir.join("model.bin")).unwrap(), body());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn checksum_mismatch_deletes_file() {
+        let (url, _) = serve(Mode::Ranges).await;
+        let dir = temp_dir("sha-bad");
+        let err = fetch(&url, &dir, None, STALL_TIMEOUT, Some(&"0".repeat(64)))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("SHA-256"), "{err}");
+        assert!(!dir.join("model.bin").exists());
+        assert!(!dir.join("model.bin.part").exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -390,7 +504,8 @@ mod tests {
     async fn hf_download_and_resume_smoke() {
         let url = crate::transcription::vad::VAD_MODEL_URL;
         let dir = temp_dir("hf");
-        let n = fetch(url, &dir, None, STALL_TIMEOUT).await.unwrap();
+        let sha = Some(crate::transcription::vad::VAD_MODEL_SHA256);
+        let n = fetch(url, &dir, None, STALL_TIMEOUT, sha).await.unwrap();
         let full = std::fs::read(dir.join("model.bin")).unwrap();
         assert_eq!(n, full.len() as u64);
 
@@ -405,6 +520,7 @@ mod tests {
             part: &part,
             cancel: None,
             progress_every: Duration::from_millis(50),
+            sha256: sha,
         }
         .run(&client().unwrap(), |done, _| {
             first.get_or_insert(done);

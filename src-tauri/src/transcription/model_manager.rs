@@ -251,6 +251,7 @@ impl ModelManager {
             cancel: Some(cancel.as_ref()),
             // Throttle les emits a ~20 Hz pour eviter de saturer le bridge IPC.
             progress_every: std::time::Duration::from_millis(50),
+            sha256: Some(model.sha256),
         }
         .run(&client, |downloaded, total| {
             let _ = self.app.emit(

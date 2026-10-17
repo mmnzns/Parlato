@@ -68,7 +68,8 @@ Copyright NVIDIA Corporation, licensed under CC-BY-4.0
 Whisper models by OpenAI (https://github.com/openai/whisper), released under
 the MIT License (large-v3 is published on Hugging Face under Apache-2.0).
 GGML conversions by Georgi Gerganov, https://huggingface.co/ggerganov/whisper.cpp
-(MIT).
+(MIT), downloaded at the fixed revision
+`5359861c739e955e79d9a303bcbc70fb988958b1`.
 
 ## AI cleanup models (on this PC)
 
@@ -92,7 +93,14 @@ Required notices:
   License, Copyright (c) Meta Platforms, Inc. All Rights Reserved.
 
 GGUF conversions of the Qwen, Llama, Gemma and Phi models by bartowski
-(https://huggingface.co/bartowski); Granite GGUF published by IBM.
+(https://huggingface.co/bartowski); Granite GGUF published by IBM. Each file
+is downloaded at a fixed revision of its repository:
+
+- ibm-granite/granite-4.2-3b-GGUF `c40945d71cd90f249a56985e8155551a9188dc30`
+- bartowski/Qwen2.5-3B-Instruct-GGUF `f302c64a2269a69fb27b2f9473b362f5bb8e78d8`
+- bartowski/Llama-3.2-3B-Instruct-GGUF `5ab33fa94d1d04e903623ae72c95d1696f09f9e8`
+- bartowski/gemma-2-2b-it-GGUF `855f67caed130e1befc571b52bd181be2e858883`
+- bartowski/Phi-3.5-mini-instruct-GGUF `6d70da17e749a471ccb62ade694486011a75cda3`
 
 ## Software
 

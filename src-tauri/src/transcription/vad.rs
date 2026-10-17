@@ -26,8 +26,15 @@ use whisper_rs::{WhisperVadContext, WhisperVadContextParams, WhisperVadParams, W
 /// Modele VAD Silero converti en GGML (whisper.cpp). Le repo a migre de
 /// ggerganov/whisper.cpp vers ggml-org/whisper-vad fin 2025. La 6.2.0 est
 /// la version recente recommandee par le script download-vad-model.sh.
+/// Parlato : figee sur le commit 9ffd54a (2025-11-17, dernier commit au
+/// 2026-10-16) au lieu de "main".
 pub const VAD_MODEL_URL: &str =
-    "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin";
+    "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v6.2.0.bin";
+
+/// Parlato : SHA-256 du fichier (oid LFS Hugging Face), verifie apres le
+/// telechargement.
+pub const VAD_MODEL_SHA256: &str =
+    "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987";
 
 pub const VAD_MODEL_FILENAME: &str = "ggml-silero-v6.2.0.bin";
 pub const VAD_MODEL_SIZE_BYTES: u64 = 906_752; // ~885 Ko (annonce sur HF)
@@ -174,6 +181,7 @@ pub async fn download_vad(app: &AppHandle) -> Result<PathBuf> {
         part: &tmp,
         cancel: None,
         progress_every: std::time::Duration::from_millis(100),
+        sha256: Some(VAD_MODEL_SHA256),
     }
     .run(&client, |downloaded, total| {
         let _ = app.emit(
@@ -248,6 +256,12 @@ pub fn run_vad_on_wav(engine: &VadEngine, wav_path: &Path) -> Result<VadOutput> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_url_is_pinned_with_checksum() {
+        crate::download::assert_pinned(VAD_MODEL_URL, VAD_MODEL_SHA256);
+        assert!(VAD_MODEL_URL.ends_with(VAD_MODEL_FILENAME));
+    }
 
     /// Parlato : temps de la VAD selon le nombre de threads.
     /// `PARLATO_VAD_MODEL=<ggml-silero.bin> PARLATO_WAV=<16 kHz wav>
