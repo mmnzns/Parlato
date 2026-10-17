@@ -28,6 +28,9 @@ pub struct OllamaProvider;
 const DEFAULT_BASE_URL: &str = "http://localhost:11434";
 const STORE_FILE: &str = "parla.settings.json";
 const KEY_BASE_URL: &str = "ollama_base_url";
+/// Parlato : delai maximal de la liste des modeles. Ollama local repond en
+/// quelques millisecondes ; sans delai, un hote injoignable figeait la page IA.
+const LIST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 pub fn get_base_url(app: &tauri::AppHandle) -> String {
     app.store(STORE_FILE)
@@ -59,6 +62,7 @@ pub async fn list_models(base_url: &str) -> Result<Vec<String>> {
     let url = format!("{}/api/tags", base_url.trim_end_matches('/'));
     let resp = reqwest::Client::new()
         .get(&url)
+        .timeout(LIST_TIMEOUT)
         .send()
         .await
         .map_err(|e| anyhow!("ollama list: {e}"))?;
@@ -146,5 +150,26 @@ impl LLMProvider for OllamaProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("reponse Ollama sans champ response"))?;
         Ok(EnhancementResponse { text: text.into() })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Un serveur qui accepte la connexion sans jamais repondre ne doit pas
+    /// bloquer la liste plus longtemps que LIST_TIMEOUT.
+    #[tokio::test]
+    async fn list_models_times_out_on_silent_host() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (_sock, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        });
+        let start = std::time::Instant::now();
+        let result = list_models(&format!("http://{addr}")).await;
+        assert!(result.is_err());
+        assert!(start.elapsed() < LIST_TIMEOUT + std::time::Duration::from_secs(2));
     }
 }
