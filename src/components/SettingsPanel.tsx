@@ -267,6 +267,23 @@ export function SettingsPanel() {
         <Row htmlFor="set-tray" label={t("settings.trayLabel")} description={t("settings.trayHint")}>
           <Switch id="set-tray" checked={closeToTray} onChange={(v) => persist(v, setCloseToTray, api.setCloseToTray)} />
         </Row>
+        {/* Parlato: Skip and Start both mark setup done; this brings it back. */}
+        <Row label={t("settings.setupAgainLabel")} description={t("settings.setupAgainHint")}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await api.setOnboardingCompleted(false);
+                window.location.reload();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            {t("settings.setupAgainButton")}
+          </Button>
+        </Row>
         {isMac && (
           <Row htmlFor="set-dock" label={t("settings.hideDockLabel")} description={t("settings.hideDockHint")}>
             <Switch id="set-dock" checked={hideDock} onChange={(v) => persist(v, setHideDock, api.setHideDockIcon)} />
