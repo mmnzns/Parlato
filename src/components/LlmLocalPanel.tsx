@@ -12,15 +12,10 @@ import {
   type LlamaCppSettings,
 } from "@/lib/tauri";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { formatBytes } from "@/lib/format";
 
 type DownloadProgress = { id: string; downloaded: number; total: number };
 
-function formatBytes(b: number): string {
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
-  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
 
 export function LlmLocalPanel() {
   const { t } = useTranslation();

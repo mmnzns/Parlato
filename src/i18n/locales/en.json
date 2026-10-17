@@ -712,16 +712,17 @@
     "errorPrefix": "Error: {{message}}"
   },
   "vad": {
-    "title": "Silero VAD",
-    "description": "Voice Activity Detection: ignores silences and only transcribes speech segments, like VoiceInk (ggml-silero-v5.1.2).",
-    "enableTitle": "Enable VAD",
-    "installed": "The Silero model is installed. Toggle to enable/disable.",
-    "downloadFirst": "Download the model first so you can enable it.",
-    "modelInstalled": "VAD model installed",
-    "size": "Size {{size}}",
+    "title": "Voice detection",
+    "description": "Skips the silent parts of a recording so only speech is transcribed. Uses the small Silero model, like VoiceInk.",
+    "enableTitle": "Skip silences",
+    "enableDesc": "Fewer invented words in silent parts, and faster transcription of long recordings.",
+    "downloadFirst": "Download the model below first.",
+    "modelTitle": "Silero model",
+    "notDownloaded": "Not downloaded (under 1 MB).",
+    "size": "Downloaded, {{size}}",
     "delete": "Delete",
-    "downloadingLabel": "Download: {{pct}}%",
-    "downloadButton": "Download ggml-silero-v5.1.2.bin (~2 MB)",
+    "downloadingLabel": "Downloading: {{pct}}%",
+    "downloadButton": "Download",
     "errorPrefix": "Error: {{message}}"
   },
   "permissions": {
