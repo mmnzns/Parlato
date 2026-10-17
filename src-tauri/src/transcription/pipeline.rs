@@ -466,6 +466,7 @@ pub fn finish_streaming(
     wav_path: PathBuf,
 ) {
     let pill = mini_recorder::generation();
+    let released = std::time::Instant::now();
     begin_run();
     tauri::async_runtime::spawn(async move {
         let run = Run {
@@ -493,7 +494,7 @@ pub fn finish_streaming(
                 run_pipeline(app.clone(), &run, wav_path).await
             }
         };
-        finish_dictation(&app, &run, result, pill).await;
+        finish_dictation(&app, &run, result, pill, released).await;
     });
 }
 
@@ -501,6 +502,7 @@ pub fn finish_streaming(
 /// puis paste. Emet des evenements pipeline:state vers le frontend.
 pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
     let pill = mini_recorder::generation();
+    let released = std::time::Instant::now();
     let run = Run {
         job: Job::Dictation,
         history_id: insert_pending_row(&app, Some(&wav_path)),
@@ -511,7 +513,7 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
     // (le hotkey-dispatch est un std::thread sans runtime Tokio attache).
     tauri::async_runtime::spawn(async move {
         let result = run_pipeline(app.clone(), &run, wav_path).await;
-        finish_dictation(&app, &run, result, pill).await;
+        finish_dictation(&app, &run, result, pill, released).await;
     });
 }
 
@@ -519,7 +521,20 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
 /// Parlato : un echec est montre dans la bulle (message traduit) avec le
 /// son d'annulation, au lieu de la fermer sans rien dire ; elle reste
 /// ouverte un peu plus longtemps pour qu'on ait le temps de le lire.
-async fn finish_dictation(app: &AppHandle, run: &Run, result: Result<Outcome>, pill: u64) {
+async fn finish_dictation(
+    app: &AppHandle,
+    run: &Run,
+    result: Result<Outcome>,
+    pill: u64,
+    released: std::time::Instant,
+) {
+    // Parlato : une ligne par dictee, du relachement de la touche a la fin
+    // (collage compris), pour reperer une lenteur dans parlato.log.
+    info!(
+        total_ms = released.elapsed().as_millis() as u64,
+        outcome = ?result.as_ref().map_err(|_| "failed"),
+        "Dictee terminee"
+    );
     let failed = matches!(result, Err(_) | Ok(Outcome::NotPasted));
     let result_kind = result.as_ref().ok().copied();
     let empty = matches!(result, Ok(Outcome::Empty));
