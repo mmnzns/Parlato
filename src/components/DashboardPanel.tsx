@@ -391,7 +391,7 @@ function RecentRow({ record, divider }: { record: TranscriptionRecord; divider: 
   const { copied, copy } = useCopyButton();
   const text = record.enhanced_text ?? record.text;
   const context = record.power_mode_name
-    ? `${record.power_mode_emoji ? record.power_mode_emoji + " " : ""}${record.power_mode_name}`
+    ? `${record.power_mode_emoji && record.power_mode_emoji !== "*" ? record.power_mode_emoji + " " : ""}${record.power_mode_name}`
     : null;
   return (
     <div

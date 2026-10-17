@@ -37,7 +37,7 @@ import {
   type RecorderNotice,
 } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
-import { cn } from "@/lib/utils";
+import { cn, modeBadge } from "@/lib/utils";
 
 /// Duree d'affichage de l'astuce Echap = fenetre du double-Echap (1.5 s).
 const ESCAPE_HINT_MS = 1500;
@@ -360,7 +360,9 @@ export function MiniRecorderView() {
             )}
           >
             {powerSession ? (
-              <span className="text-[14px] leading-none">{powerSession.emoji}</span>
+              <span className="text-[14px] font-semibold leading-none">
+                {modeBadge(powerSession.emoji, powerSession.config_name)}
+              </span>
             ) : (
               // VoiceInk : icone "square.grid.2x2" tant qu'aucun mode n'est
               // effectif.
