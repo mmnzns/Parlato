@@ -1147,6 +1147,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             return Ok(Outcome::NotPasted);
         }
 
+        // Parlato : touche d'envoi du Power mode actif (Entree...).
+        let send = crate::power_mode::session::auto_send_key(app);
+        if send != crate::paste::AutoSendKey::None {
+            match task::spawn_blocking(move || crate::paste::send_after_paste(send)).await {
+                Ok(Err(e)) => warn!("auto-send: {e}"),
+                Err(e) => warn!("auto-send join: {e}"),
+                Ok(Ok(())) => {}
+            }
+        }
+
         // Stop cue, played once the text is actually inserted at the cursor
         // (VoiceInk SoundManager.playStopSound at TranscriptionPipeline.swift:209).
         // Only reached for non-empty transcriptions (empty text returns earlier),

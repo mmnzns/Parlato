@@ -22,6 +22,8 @@ use std::time::Duration;
 use anyhow::{anyhow, Result};
 use arboard::Clipboard;
 use parking_lot::Mutex;
+
+pub use crate::power_mode::config::AutoSendKey;
 #[cfg_attr(not(windows), allow(unused_imports))] // debug: Windows paste only
 use tracing::{debug, warn};
 
@@ -204,6 +206,92 @@ pub fn paste_at_cursor(text: &str, restore: bool, restore_delay: Option<Duration
     }
 
     paste_result
+}
+
+/// Delai entre le collage et la touche d'envoi (VoiceInk
+/// TranscriptionDelivery : 150 ms).
+const SEND_KEY_DELAY: Duration = Duration::from_millis(150);
+
+/// Parlato : touche d'envoi pressee apres un collage reussi (Power mode
+/// "Envoyer apres collage"). Reference VoiceInk CursorPaster.performSendKey.
+pub fn send_after_paste(key: AutoSendKey) -> Result<()> {
+    if key == AutoSendKey::None {
+        return Ok(());
+    }
+    sleep(SEND_KEY_DELAY);
+    #[cfg(any(windows, target_os = "macos"))]
+    restore_target();
+    send_key(key)
+}
+
+#[cfg(windows)]
+fn restore_target() {
+    restore_foreground();
+}
+
+#[cfg(target_os = "macos")]
+fn restore_target() {
+    macos::restore_frontmost();
+}
+
+#[cfg(windows)]
+fn send_key(key: AutoSendKey) -> Result<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+        KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC, VIRTUAL_KEY, VK_CONTROL, VK_RETURN,
+        VK_SHIFT,
+    };
+
+    fn sc(vk: VIRTUAL_KEY) -> u16 {
+        unsafe { MapVirtualKeyW(vk.0 as u32, MAPVK_VK_TO_VSC) as u16 }
+    }
+    fn ki(scan: u16, flags: KEYBD_EVENT_FLAGS) -> INPUT {
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0),
+                    wScan: scan,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        }
+    }
+
+    let modifier = match key {
+        AutoSendKey::None => return Ok(()),
+        AutoSendKey::Enter => None,
+        AutoSendKey::ShiftEnter => Some(sc(VK_SHIFT)),
+        AutoSendKey::CtrlEnter => Some(sc(VK_CONTROL)),
+    };
+    let enter = sc(VK_RETURN);
+    let mut inputs = Vec::with_capacity(4);
+    if let Some(m) = modifier {
+        inputs.push(ki(m, KEYEVENTF_SCANCODE));
+    }
+    inputs.push(ki(enter, KEYEVENTF_SCANCODE));
+    inputs.push(ki(enter, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP));
+    if let Some(m) = modifier {
+        inputs.push(ki(m, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP));
+    }
+    let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+    if sent as usize != inputs.len() {
+        return Err(anyhow!("SendInput a envoye {sent}/{} events", inputs.len()));
+    }
+    debug!(?key, "touche d'envoi envoyee");
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn send_key(key: AutoSendKey) -> Result<()> {
+    macos::send_return(key)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn send_key(_key: AutoSendKey) -> Result<()> {
+    Err(anyhow!("envoi non implemente sur cette plateforme"))
 }
 
 #[cfg(windows)]

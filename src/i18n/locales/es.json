@@ -1182,7 +1182,13 @@
     "speechModel": "Modelo de voz",
     "speechModelDesc": "El motor que convierte tu voz en texto en este modo.",
     "language": "Idioma",
-    "languageDesc": "Déjalo vacío para mantener tu idioma habitual. Usa un código como en, fr o es.",
+    "languageDesc": "El idioma que hablas en este modo.",
+    "autoSend": "Tecla después de pegar",
+    "autoSendDesc": "Envía el mensaje justo después de pegar el texto, práctico en chats y asistentes de IA.",
+    "autoSendNone": "Ninguna",
+    "autoSendEnter": "Intro",
+    "autoSendShiftEnter": "Mayús+Intro",
+    "autoSendCtrlEnter": "Ctrl+Intro",
     "aiCleanup": "Limpieza con IA",
     "aiCleanupDesc": "Arregla la puntuación y las muletillas, y aplica el estilo de abajo.",
     "aiService": "Servicio de IA",
@@ -1449,7 +1455,10 @@
       "delete": "Suprimir"
     },
     "pm": {
-      "appPlaceholder": "p. ej. com.apple.mail"
+      "appPlaceholder": "p. ej. com.apple.mail",
+      "autoSendEnter": "Retorno",
+      "autoSendShiftEnter": "Mayús+Retorno",
+      "autoSendCtrlEnter": "Cmd+Retorno"
     }
   },
   "keys": {

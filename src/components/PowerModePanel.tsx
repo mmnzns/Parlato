@@ -19,8 +19,10 @@ import { isMac } from "@/lib/platform";
 import { promptTitle } from "@/lib/promptLabels";
 import { modelName } from "@/lib/modelText";
 import type { CloudModel } from "@/components/models/types";
+import { LANGUAGE_NAMES, languageLabel } from "@/lib/languages";
 import {
   api,
+  type AutoSendKey,
   type CustomPrompt,
   type InstalledApp,
   type LLMProviderInfo,
@@ -288,9 +290,14 @@ function ModeEditor({
   onDelete: () => void;
   onDuplicate: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [name, setName] = useState(c.name);
-  const [language, setLanguage] = useState(c.language ?? "");
+  const languageCodes = Object.keys(LANGUAGE_NAMES).sort((a, b) =>
+    languageLabel(a, i18n.resolvedLanguage).localeCompare(
+      languageLabel(b, i18n.resolvedLanguage),
+      i18n.resolvedLanguage,
+    ),
+  );
   const [appDraft, setAppDraft] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [siteDraft, setSiteDraft] = useState<string | null>(null);
@@ -538,17 +545,33 @@ function ModeEditor({
           </select>
         </Row>
         <Row label={t("pm.language")} description={t("pm.languageDesc")}>
-          <input
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            onBlur={() => {
-              const v = language.trim() || null;
-              if (v !== c.language) set("language", v);
-            }}
-            placeholder="auto"
+          <select
             aria-label={t("pm.language")}
-            className={cn(inputClass, "w-24 font-mono")}
-          />
+            value={c.language ?? ""}
+            onChange={(e) => set("language", e.target.value || null)}
+            className={cn(selectClass, "max-w-[240px]")}
+          >
+            <option value="">{t("pm.keep")}</option>
+            <option value="auto">{t("dictationLanguage.auto")}</option>
+            {languageCodes.map((code) => (
+              <option key={code} value={code}>
+                {languageLabel(code, i18n.resolvedLanguage)}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label={t("pm.autoSend")} description={t("pm.autoSendDesc")}>
+          <select
+            aria-label={t("pm.autoSend")}
+            value={c.auto_send_key}
+            onChange={(e) => set("auto_send_key", e.target.value as AutoSendKey)}
+            className={selectClass}
+          >
+            <option value="none">{t("pm.autoSendNone")}</option>
+            <option value="enter">{t("pm.autoSendEnter")}</option>
+            <option value="shift_enter">{t("pm.autoSendShiftEnter")}</option>
+            <option value="ctrl_enter">{t("pm.autoSendCtrlEnter")}</option>
+          </select>
         </Row>
         <Row label={t("pm.aiCleanup")} description={t("pm.aiCleanupDesc")} htmlFor="pm-ai">
           <Switch id="pm-ai" checked={c.is_enhancement_enabled} onChange={(v) => set("is_enhancement_enabled", v)} />

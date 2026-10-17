@@ -1182,7 +1182,13 @@
     "speechModel": "Speech model",
     "speechModelDesc": "The engine that turns your voice into text in this mode.",
     "language": "Language",
-    "languageDesc": "Leave empty to keep your usual language. Use a code like en, fr or es.",
+    "languageDesc": "The language you speak in this mode.",
+    "autoSend": "Press after pasting",
+    "autoSendDesc": "Sends the message right after the text is pasted, handy in chats and AI assistants.",
+    "autoSendNone": "Nothing",
+    "autoSendEnter": "Enter",
+    "autoSendShiftEnter": "Shift+Enter",
+    "autoSendCtrlEnter": "Ctrl+Enter",
     "aiCleanup": "AI cleanup",
     "aiCleanupDesc": "Tidy punctuation and filler words, then apply the writing style below.",
     "aiService": "AI service",
@@ -1449,7 +1455,10 @@
       "delete": "Forward Delete"
     },
     "pm": {
-      "appPlaceholder": "e.g. com.apple.mail"
+      "appPlaceholder": "e.g. com.apple.mail",
+      "autoSendEnter": "Return",
+      "autoSendShiftEnter": "Shift+Return",
+      "autoSendCtrlEnter": "Cmd+Return"
     }
   },
   "keys": {
