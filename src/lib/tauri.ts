@@ -420,6 +420,9 @@ export const api = {
   hasApiKey: (provider: string) => invoke<boolean>("has_api_key", { provider }),
   verifyApiKey: (provider: string, key: string) =>
     invoke<void>("verify_api_key", { provider, key }),
+  /** Parlato: AI cleanup key check, rejects only a key the provider refuses. */
+  verifyLlmApiKey: (provider: string, key: string) =>
+    invoke<void>("verify_llm_api_key", { provider, key }),
   cloudTranscribeWav: (args: {
     wav_path: string;
     provider: string;

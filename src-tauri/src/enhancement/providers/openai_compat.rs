@@ -89,6 +89,44 @@ pub async fn chat_completion(
     })
 }
 
+/// Parlato : appel de verification d'une cle (GET sans cout). Seul un
+/// refus explicite (401 / 403) bloque l'enregistrement : hors ligne ou
+/// endpoint inattendu, la cle est gardee et l'erreur viendra a l'usage.
+pub async fn check_key(url: &str, headers: &[(&str, &str)]) -> Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| anyhow!("http client: {e}"))?;
+    let mut builder = client.get(url);
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    match builder.send().await {
+        Ok(resp) if matches!(resp.status().as_u16(), 401 | 403) => {
+            Err(anyhow!("PARLA_ERR:apiKeyRejected"))
+        }
+        // Gemini repond 400 "API key not valid" a une mauvaise cle.
+        Ok(resp) if resp.status().as_u16() == 400 => {
+            let body = resp.text().await.unwrap_or_default().to_lowercase();
+            if body.contains("api key not valid") || body.contains("api_key_invalid") {
+                Err(anyhow!("PARLA_ERR:apiKeyRejected"))
+            } else {
+                Ok(())
+            }
+        }
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                tracing::warn!(status = %resp.status(), "verification de cle non concluante");
+            }
+            Ok(())
+        }
+        Err(e) => {
+            tracing::warn!("verification de cle impossible: {e}");
+            Ok(())
+        }
+    }
+}
+
 fn map_http_err(e: reqwest::Error) -> anyhow::Error {
     if e.is_timeout() {
         return anyhow!("timeout: {e}");

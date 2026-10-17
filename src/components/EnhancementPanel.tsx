@@ -17,6 +17,7 @@ import { LlmLocalPanel } from "@/components/LlmLocalPanel";
 import { PromptEditor } from "@/components/PromptEditor";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import { translateError } from "@/lib/translateError";
 import {
   api,
   type CustomPrompt,
@@ -183,12 +184,16 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
     setVerifying((v) => ({ ...v, [providerId]: true }));
     setStatus((s) => ({ ...s, [providerId]: t("enhancement.saveKeyInProgress") }));
     try {
+      await api.verifyLlmApiKey(providerId, k);
       await api.setApiKey(providerId, k);
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keySavedOk") }));
       setApiKeyInputs((i) => ({ ...i, [providerId]: "" }));
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [providerId]: t("enhancement.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({
+        ...s,
+        [providerId]: t("enhancement.errorPrefix", { message: translateError(t, String(e)) }),
+      }));
     } finally {
       setVerifying((v) => ({ ...v, [providerId]: false }));
     }

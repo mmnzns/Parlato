@@ -85,4 +85,21 @@ pub trait LLMProvider: Send + Sync {
         api_key: &str,
         req: &EnhancementRequest,
     ) -> Result<EnhancementResponse>;
+
+    /// Parlato : verifie une cle avant de l'enregistrer. Par defaut, liste
+    /// les modeles (`/models`, gratuit) a cote de l'endpoint
+    /// `/chat/completions` ; les autres providers surchargent ou acceptent.
+    async fn verify_api_key(&self, api_key: &str) -> Result<()> {
+        match self.endpoint().strip_suffix("/chat/completions") {
+            Some(base) => {
+                let auth = format!("Bearer {api_key}");
+                super::providers::openai_compat::check_key(
+                    &format!("{base}/models"),
+                    &[("Authorization", auth.as_str())],
+                )
+                .await
+            }
+            None => Ok(()),
+        }
+    }
 }

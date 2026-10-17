@@ -105,6 +105,24 @@ pub struct LLMProviderInfo {
     pub has_api_key: bool,
 }
 
+/// Parlato : verifie une cle de nettoyage IA avant de l'enregistrer.
+#[command]
+pub async fn verify_llm_api_key(
+    app: AppHandle,
+    provider: String,
+    key: String,
+) -> Result<(), String> {
+    let p = app
+        .try_state::<EnhancementState>()
+        .ok_or_else(|| "EnhancementState absent".to_string())?
+        .registry
+        .find(&provider)
+        .ok_or_else(|| format!("provider inconnu: {provider}"))?;
+    p.verify_api_key(key.trim())
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[command]
 pub fn list_llm_providers(app: AppHandle) -> Result<Vec<LLMProviderInfo>, String> {
     let state = app

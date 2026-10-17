@@ -60,6 +60,18 @@ impl LLMProvider for AnthropicProvider {
         "https://api.anthropic.com/v1/messages"
     }
 
+    /// Parlato : liste des modeles, sans cout.
+    async fn verify_api_key(&self, api_key: &str) -> Result<()> {
+        super::openai_compat::check_key(
+            "https://api.anthropic.com/v1/models",
+            &[
+                ("x-api-key", api_key),
+                ("anthropic-version", ANTHROPIC_VERSION),
+            ],
+        )
+        .await
+    }
+
     async fn chat_completion(
         &self,
         api_key: &str,
