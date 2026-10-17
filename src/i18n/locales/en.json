@@ -793,7 +793,14 @@
     "stopRecording": "Stop recording",
     "processing": "Processing...",
     "writing": "Writing it out",
-    "cleaning": "Cleaning up"
+    "cleaning": "Cleaning up",
+    "notPasted": "Not pasted",
+    "nothingHeard": "Nothing heard",
+    "notice": {
+      "copied": "Copied to clipboard",
+      "retryStarted": "Transcribing again...",
+      "retryDone": "Done, copied to clipboard"
+    }
   },
   "promptDetection": {
     "triggerDetected": "Trigger word detected: {{word}}",

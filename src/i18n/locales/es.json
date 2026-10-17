@@ -793,7 +793,14 @@
     "stopRecording": "Detener la grabación",
     "processing": "Procesando...",
     "writing": "Escribiendo",
-    "cleaning": "Limpiando"
+    "cleaning": "Limpiando",
+    "notPasted": "No se pegó nada",
+    "nothingHeard": "No se oyó nada",
+    "notice": {
+      "copied": "Copiado al portapapeles",
+      "retryStarted": "Transcribiendo de nuevo...",
+      "retryDone": "Listo, copiado al portapapeles"
+    }
   },
   "promptDetection": {
     "triggerDetected": "Palabra activadora detectada: {{word}}",

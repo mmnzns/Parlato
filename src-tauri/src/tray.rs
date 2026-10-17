@@ -312,7 +312,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
 fn report(app: &AppHandle, what: &str, result: anyhow::Result<()>) {
     if let Err(e) = result {
         warn!(action = what, error = %e, "tray action failed");
-        let _ = app.emit("tray:notice", format!("{what} failed: {e}"));
+        crate::notice::send(app, crate::notice::Notice::Failed(e.to_string()));
     }
 }
 

@@ -2,9 +2,9 @@
 // its progress survive navigating away from the page while a long file is
 // still being transcribed.
 //
-// One file at a time: the backend pipeline tracks a single in-flight
-// history row, like a dictation. Progress comes from the same
-// pipeline:state events the recorder pill uses.
+// One file at a time. Progress comes from the pipeline:state events tagged
+// job "file" (a dictation made meanwhile sends "dictation" events, which
+// this list ignores).
 
 import { useSyncExternalStore } from "react";
 import { listen } from "@tauri-apps/api/event";
@@ -25,6 +25,7 @@ type PipelineEvent = {
   state: "transcribing" | "enhancing" | "pasting" | "done" | "failed";
   message: string | null;
   text: string | null;
+  job: "dictation" | "file" | "retry";
 };
 
 type Snapshot = { jobs: FileJob[]; busy: boolean };
@@ -53,8 +54,8 @@ function ensureListener() {
   listening = true;
   listen<PipelineEvent>("pipeline:state", (e) => {
     const id = activeId;
-    if (!id) return;
     const p = e.payload;
+    if (!id || p.job !== "file") return;
     if (p.state === "transcribing") patch(id, { status: "transcribing" });
     else if (p.state === "enhancing") patch(id, { status: "cleaning" });
     else if (p.state === "done") finish(id, { status: "done", text: p.text ?? "" });

@@ -793,7 +793,14 @@
     "stopRecording": "Arrêter l'enregistrement",
     "processing": "Traitement en cours...",
     "writing": "Rédaction",
-    "cleaning": "Nettoyage"
+    "cleaning": "Nettoyage",
+    "notPasted": "Rien n'a été collé",
+    "nothingHeard": "Rien entendu",
+    "notice": {
+      "copied": "Copié dans le presse-papiers",
+      "retryStarted": "Nouvelle transcription...",
+      "retryDone": "Terminé, copié dans le presse-papiers"
+    }
   },
   "promptDetection": {
     "triggerDetected": "Mot déclencheur détecté : {{word}}",

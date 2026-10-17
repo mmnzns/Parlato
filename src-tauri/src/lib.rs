@@ -11,6 +11,7 @@ mod history;
 mod logging;
 mod hotkeys;
 mod mini_recorder;
+mod notice;
 mod paste;
 mod power_mode;
 mod screen_context;
@@ -179,7 +180,6 @@ pub fn run() {
         .manage(transcription::parakeet::ParakeetEngineState::default())
         .manage(power_mode::session::PowerSessionState::default())
         .manage(screen_context::service::ScreenContextState::default())
-        .manage(transcription::pipeline::HistorySessionState::default())
         // GgufModelManagerState + ParakeetModelManagerState sont enregistres
         // dans le setup() ci-dessous car ils ont besoin de l'AppHandle pour
         // resoudre AppLocalData.
@@ -349,6 +349,7 @@ pub fn run() {
             mini_recorder::open_recorder_popover,
             mini_recorder::close_recorder_popover,
             mini_recorder::show_main_window,
+            notice::take_recorder_notice,
             list_word_replacements,
             add_word_replacement,
             update_word_replacement,

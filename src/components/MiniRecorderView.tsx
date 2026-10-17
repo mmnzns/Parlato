@@ -29,7 +29,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { emit, listen } from "@tauri-apps/api/event";
 import { LayoutGrid, Sparkles } from "lucide-react";
-import { api, type AudioMeter, type PowerModeConfig, type PowerSession } from "@/lib/tauri";
+import {
+  api,
+  type AudioMeter,
+  type PowerModeConfig,
+  type PowerSession,
+  type RecorderNotice,
+} from "@/lib/tauri";
+import { translateError } from "@/lib/translateError";
 import { cn } from "@/lib/utils";
 
 /// Duree d'affichage de l'astuce Echap = fenetre du double-Echap (1.5 s).
@@ -38,13 +45,24 @@ const ESCAPE_HINT_MS = 1500;
 const POPOVER_GRACE_MS = 250;
 const BARS = 15;
 
-type Stage = "idle" | "recording" | "transcribing" | "enhancing";
+// Parlato: "failed" (shows the reason), "empty" (nothing heard) and
+// "notice" (a short message for copy / retry shortcuts) before the pill
+// closes, instead of vanishing without a word.
+type Stage =
+  | "idle"
+  | "recording"
+  | "transcribing"
+  | "enhancing"
+  | "failed"
+  | "empty"
+  | "notice";
 
 type PipelineEvent = {
   state: "transcribing" | "enhancing" | "pasting" | "done" | "failed";
   message: string | null;
   text: string | null;
   duration_ms: number | null;
+  job: "dictation" | "file" | "retry";
 };
 
 type StreamingEvent =
@@ -69,6 +87,9 @@ export function MiniRecorderView() {
   const [powerSession, setPowerSession] = useState<PowerSession | null>(null);
   const [powerConfigs, setPowerConfigs] = useState<PowerModeConfig[]>([]);
   const [style, setStyle] = useState<"mini" | "notch">("mini");
+  // Parlato: reason shown in the "failed" stage, label of the "notice" stage.
+  const [failure, setFailure] = useState<string>("");
+  const [notice, setNotice] = useState<RecorderNotice | null>(null);
 
   // Popover Mode : survol du bouton (cette fenetre) + survol du popover
   // (remonte par l'autre fenetre via "recorder:popover-hover").
@@ -133,6 +154,13 @@ export function MiniRecorderView() {
       })
       .catch(console.error);
 
+    const showNotice = (n: RecorderNotice | null) => {
+      if (!n) return;
+      setNotice(n);
+      setStage("notice");
+    };
+    api.takeRecorderNotice().then(showNotice).catch(console.error);
+
     let hintTimer: number | null = null;
     const unlistens = [
       listen("recording:stopped", () => {
@@ -142,10 +170,20 @@ export function MiniRecorderView() {
       listen("recording:cancelled", () => setStage("idle")),
       listen<PipelineEvent>("pipeline:state", (e) => {
         const p = e.payload;
+        // Parlato: only this dictation's events, not a file being
+        // transcribed in the background.
+        if (p.job !== "dictation") return;
         if (p.state === "transcribing") setStage("transcribing");
         else if (p.state === "enhancing") setStage("enhancing");
-        // pasting / done / failed -> VoiceInk dismiss directement sans
-        // afficher de badge. On laisse le stage precedent jusqu'au close.
+        else if (p.state === "failed") {
+          setFailure(p.message ?? "");
+          setStage("failed");
+        } else if (p.state === "done" && !p.text) setStage("empty");
+        // pasting / done -> VoiceInk dismiss directement sans afficher de
+        // badge. On laisse le stage precedent jusqu'au close.
+      }),
+      listen("recorder:notice", () => {
+        api.takeRecorderNotice().then(showNotice).catch(console.error);
       }),
       listen<StreamingEvent>("streaming:event", (e) => {
         const s = e.payload;
@@ -193,7 +231,8 @@ export function MiniRecorderView() {
   // par le badge "Transcribing".
   const hasLiveText =
     showLiveTranscript && stage === "recording" && liveText.trim().length > 0;
-  const expanded = hasLiveText;
+  const failureText = stage === "failed" ? translateError(t, failure) : "";
+  const expanded = hasLiveText || stage === "failed" || stage === "notice";
   const isNotch = style === "notch";
   const hasEnabledConfigs = powerConfigs.some((c) => c.is_enabled);
 
@@ -239,6 +278,12 @@ export function MiniRecorderView() {
             <div className="h-px bg-white/15" />
           </>
         )}
+        {failureText && !isNotch && (
+          <>
+            <FailureText text={failureText} />
+            <div className="h-px bg-white/15" />
+          </>
+        )}
         <div className="flex h-10 items-center">
           <RecorderRecordButton
             stage={stage}
@@ -261,6 +306,30 @@ export function MiniRecorderView() {
               <ProcessingStatusDisplay label={t("miniRecorder.cleaning")} intervalMs={220} />
             )}
             {stage === "idle" && <StaticVisualizer />}
+            {stage === "failed" && (
+              <span role="alert" className="truncate text-[11px] font-semibold text-[#FF8A5C]">
+                {t("miniRecorder.notPasted")}
+              </span>
+            )}
+            {stage === "empty" && (
+              <span className="truncate text-[11px] font-medium text-white/90">
+                {t("miniRecorder.nothingHeard")}
+              </span>
+            )}
+            {stage === "notice" && notice && (
+              <span
+                role="status"
+                title={notice.kind === "failed" ? translateError(t, notice.detail) : undefined}
+                className={cn(
+                  "truncate text-[11px] font-medium",
+                  notice.kind === "failed" ? "text-[#FF8A5C]" : "text-white/90",
+                )}
+              >
+                {notice.kind === "failed"
+                  ? translateError(t, notice.detail)
+                  : t(`miniRecorder.notice.${notice.kind}`)}
+              </span>
+            )}
           </div>
 
           <button
@@ -291,6 +360,12 @@ export function MiniRecorderView() {
           <>
             <div className="h-px bg-white/15" />
             <LiveTranscript text={liveText} />
+          </>
+        )}
+        {failureText && isNotch && (
+          <>
+            <div className="h-px bg-white/15" />
+            <FailureText text={failureText} />
           </>
         )}
       </div>
@@ -325,7 +400,11 @@ function RecorderRecordButton({
 }) {
   const { t } = useTranslation();
   const visual =
-    stage === "recording" ? "recording" : stage === "idle" ? "ready" : "processing";
+    stage === "recording"
+      ? "recording"
+      : stage === "transcribing" || stage === "enhancing"
+        ? "processing"
+        : "ready";
   const colors = RECORD_COLORS[visual];
   const disabled = visual === "processing";
   const title =
@@ -452,6 +531,22 @@ function ProcessingStatusDisplay({
           />
         ))}
       </span>
+    </div>
+  );
+}
+
+// -- FailureText (Parlato) ----------------------------------------------------
+//
+// Why the dictation was not pasted, translated, in the same 54 px band as
+// the live transcript. The recording stays in History for Transcribe again.
+
+function FailureText({ text }: { text: string }) {
+  return (
+    <div
+      role="alert"
+      className="line-clamp-3 h-[54px] overflow-hidden px-4 py-1.5 text-left text-[12px] leading-snug text-white/85"
+    >
+      {text}
     </div>
   );
 }

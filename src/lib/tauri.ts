@@ -124,6 +124,14 @@ export type CustomPrompt = {
   use_system_instructions: boolean;
 };
 
+/** Parlato: message shown in the recorder pill for actions done outside
+ *  the main window (copy / paste / retry the last transcription). */
+export type RecorderNotice =
+  | { kind: "copied" }
+  | { kind: "retryStarted" }
+  | { kind: "retryDone" }
+  | { kind: "failed"; detail: string };
+
 export type LLMProviderInfo = {
   id: string;
   label: string;
@@ -378,6 +386,8 @@ export const api = {
   closeRecorderPopover: () => invoke<void>("close_recorder_popover"),
   // Bouton d'enregistrement de la bulle : meme cycle que le raccourci.
   toggleRecordingFromUi: () => invoke<void>("toggle_recording_from_ui"),
+  /** Parlato: short message waiting for the recorder pill (see notice.rs). */
+  takeRecorderNotice: () => invoke<RecorderNotice | null>("take_recorder_notice"),
 
   listCloudProviders: () =>
     invoke<

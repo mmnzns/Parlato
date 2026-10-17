@@ -18,11 +18,11 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tracing::{info, warn};
 
-use crate::commands::recording::RecorderState;
 use crate::db::{transcription as history_repo, Database};
+use crate::notice::{self, Notice};
 use crate::paste;
 use crate::transcription::pipeline;
 
@@ -55,10 +55,6 @@ fn preferred_text(rec: &history_repo::TranscriptionRecord) -> String {
         .to_string()
 }
 
-fn notice(app: &AppHandle, message: impl Into<String>) {
-    let _ = app.emit("tray:notice", message.into());
-}
-
 /// Copie la derniere transcription (amelioree de preference) dans le
 /// presse-papiers.
 pub fn copy_last(app: &AppHandle) -> Result<()> {
@@ -69,7 +65,7 @@ pub fn copy_last(app: &AppHandle) -> Result<()> {
     }
     paste::copy_to_clipboard(&text)?;
     info!(chars = text.len(), "Last transcription copied");
-    notice(app, "Last transcription copied");
+    notice::send(app, Notice::Copied);
     Ok(())
 }
 
@@ -99,7 +95,7 @@ pub fn paste_last(app: &AppHandle, enhanced: bool) -> Result<()> {
                 Ok(()) => info!(enhanced, chars = text.len(), "Last transcription pasted"),
                 Err(e) => {
                     warn!(error = %e, "paste last transcription failed");
-                    notice(&app, format!("Paste failed: {e}"));
+                    notice::send(&app, Notice::Failed(e.to_string()));
                 }
             }
         })
@@ -111,11 +107,7 @@ pub fn paste_last(app: &AppHandle, enhanced: bool) -> Result<()> {
 /// resultat. Refuse pendant un enregistrement (le pipeline partage l'etat
 /// de session d'historique).
 pub fn retry_last(app: &AppHandle) -> Result<()> {
-    if app
-        .try_state::<RecorderState>()
-        .map(|s| s.0.lock().is_some())
-        .unwrap_or(false)
-    {
+    if crate::commands::recording::recording_active(app) {
         anyhow::bail!("PARLA_ERR:recordingInProgress");
     }
     let rec = last_record(app)?;
@@ -138,6 +130,7 @@ pub fn retry_last(app: &AppHandle) -> Result<()> {
     let copy = path.with_file_name(format!("{}.wav", uuid::Uuid::new_v4()));
     std::fs::copy(&path, &copy).map_err(|e| anyhow!("copy wav: {e}"))?;
     info!(path = %copy.display(), "Retrying last transcription");
+    notice::send(app, Notice::RetryStarted);
     pipeline::run_retry(app.clone(), copy);
     Ok(())
 }
