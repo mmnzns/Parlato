@@ -89,13 +89,11 @@ impl LLMProvider for AnthropicProvider {
             body["temperature"] = json!(temperature);
         }
 
-        let client = reqwest::Client::builder()
-            .timeout(req.timeout)
-            .build()
-            .map_err(|e| anyhow!("http client: {e}"))?;
+        let client = crate::transcription::cloud::http::shared_client();
 
         let resp = client
             .post(self.endpoint())
+            .timeout(req.timeout)
             .header("x-api-key", api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
             .json(&body)

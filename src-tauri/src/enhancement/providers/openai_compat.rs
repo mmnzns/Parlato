@@ -51,12 +51,12 @@ pub async fn chat_completion(
         }
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(req.timeout)
-        .build()
-        .map_err(|e| anyhow!("http client: {e}"))?;
+    let client = crate::transcription::cloud::http::shared_client();
 
-    let mut builder = client.post(endpoint).json(&Value::Object(body));
+    let mut builder = client
+        .post(endpoint)
+        .timeout(req.timeout)
+        .json(&Value::Object(body));
     if !api_key.is_empty() {
         builder = builder.bearer_auth(api_key);
     }
