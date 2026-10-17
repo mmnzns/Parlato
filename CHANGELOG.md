@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Windows: Parlato no longer risks crashing with "illegal instruction"
+  the first time a Whisper model runs. The Whisper engine could be built
+  for the newer processor of the machine that made the release; it is now
+  built for a fixed baseline that most PCs since about 2015 have (AVX2),
+  and for any Windows on ARM PC.
+
 ## [0.13.0] - 2026-10-16
 
 ### Added

@@ -83,6 +83,17 @@ forward `CMAKE_*` env vars to CMake). To check: `CMAKE_CXX_FLAGS_RELEASE` in
 `target/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt`. After
 changing it: `cargo clean --release -p whisper-rs-sys -p llama-cpp-sys-2`.
 
+**Windows releases build ggml for a fixed CPU, not the runner's (fixed
+2026-10-16).** whisper.cpp defaults to `GGML_NATIVE=ON`, so `whisper-rs-sys`
+compiled for the building machine's CPU (AVX-512 on this Ryzen and on some
+GitHub runners), which crashes with "illegal instruction" on most Intel PCs.
+`scripts/cpu-baseline.ps1` sets `GGML_NATIVE=OFF` plus x86-64-v3 (AVX2, no
+AVX-512) on x64 and plain armv8-a on ARM64; `release.yml` and `ci.yml` call it
+and fail if a CMake cache has NATIVE or AVX-512 on. It is Windows only, not
+`.cargo/config.toml` (`[env]` can't be scoped to a target and the Mac must stay
+native). Local `tauri dev` / `cargo test` still build natively unless you
+dot-source the script and call `Set-GgmlBaseline x64` first.
+
 ## Conventions (from CONTRIBUTING.md — follow these)
 
 - **No emojis** in code, commit messages, or documentation.
