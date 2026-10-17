@@ -23,3 +23,12 @@ rustflags = ["-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
 [env]
 CMAKE_C_FLAGS_RELEASE = "-O2 -DNDEBUG"
 CMAKE_CXX_FLAGS_RELEASE = "-O2 -DNDEBUG"
+
+# Parlato : llama.cpp (llama-cpp-sys-2) compile sa copie de cpp-httplib avec
+# OpenSSL s'il le trouve. Parlato ne s'en sert pas (les modeles sont
+# telecharges par Parlato lui-meme), et l'OpenSSL des runners macOS de
+# GitHub ne compile plus avec cette version de httplib (2026-10-15 :
+# "cannot initialize a variable of type 'X509_NAME *'"). llama-cpp-sys-2 ne
+# transmet a CMake que les variables CMAKE_*, d'ou cette variable-ci : elle
+# empeche find_package(OpenSSL), httplib est alors compile sans HTTPS.
+CMAKE_DISABLE_FIND_PACKAGE_OpenSSL = "TRUE"
