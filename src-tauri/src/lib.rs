@@ -86,7 +86,7 @@ use commands::power_mode::{
     select_power_config, set_power_auto_restore, update_power_config,
 };
 use commands::history::{
-    count_history, delete_history_item, export_history_csv, get_history_item,
+    count_history, delete_history_item, export_history_csv, get_history_item, get_usage_stats,
     get_retention_settings, list_history, read_history_audio, retranscribe_history_item,
     run_history_cleanup, set_retention_settings,
 };
@@ -434,6 +434,7 @@ pub fn run() {
             read_history_audio,
             retranscribe_history_item,
             count_history,
+            get_usage_stats,
             export_history_csv,
             get_retention_settings,
             set_retention_settings,

@@ -44,21 +44,17 @@ type Metrics = {
 const TYPING_WPM = 40;
 const LOCAL_LLM_PROVIDERS = new Set(["llamacpp", "ollama", "local_cli"]);
 
-function computeMetrics(items: TranscriptionRecord[]): Metrics {
-  let sessions = 0;
-  let words = 0;
-  let durationSec = 0;
-  let charCount = 0;
-  for (const it of items) {
-    if (it.status !== "completed") continue;
-    const txt = it.enhanced_text ?? it.text;
-    if (!txt) continue;
-    sessions += 1;
-    const w = txt.trim().split(/\s+/).filter(Boolean).length;
-    words += w;
-    charCount += txt.length;
-    durationSec += it.duration_sec ?? 0;
-  }
+// Parlato: totals come from the backend over every dictation
+// (get_usage_stats), not from the last 200 rows.
+function computeMetrics(stats: {
+  sessions: number;
+  words: number;
+  chars: number;
+  duration_sec: number;
+}): Metrics {
+  const { sessions, words } = stats;
+  const durationSec = stats.duration_sec;
+  const charCount = stats.chars;
   const wpm = durationSec > 0 ? Math.round(words / (durationSec / 60)) : 0;
   // Typing speed ref : 40 WPM soit ~200 cpm. Temps frappe estime =
   // charCount / 200 caracteres par minute.
@@ -181,8 +177,11 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
 
   async function load() {
     try {
-      const items = await api.listHistory({ limit: 200 });
-      setMetrics(computeMetrics(items));
+      const [stats, items] = await Promise.all([
+        api.getUsageStats(),
+        api.listHistory({ limit: 20 }),
+      ]);
+      setMetrics(computeMetrics(stats));
       setRecent(items.filter((it) => it.status === "completed" && (it.enhanced_text ?? it.text)).slice(0, 3));
     } catch (e) {
       console.error(e);

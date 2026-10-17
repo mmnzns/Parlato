@@ -596,6 +596,11 @@ export const api = {
   retranscribeHistoryItem: (id: string) =>
     invoke<void>("retranscribe_history_item", { id }),
   countHistory: () => invoke<number>("count_history"),
+  /** Parlato: Home totals over every completed dictation. */
+  getUsageStats: () =>
+    invoke<{ sessions: number; words: number; chars: number; duration_sec: number }>(
+      "get_usage_stats",
+    ),
   exportHistoryCsv: (ids: string[]) =>
     invoke<string | null>("export_history_csv", { ids }),
   getModelPerformanceMetrics: (period: MetricsPeriod) =>

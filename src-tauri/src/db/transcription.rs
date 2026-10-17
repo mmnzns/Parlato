@@ -285,6 +285,36 @@ pub fn count(conn: &Connection) -> Result<i64> {
         .map_err(|e| anyhow!("count: {e}"))
 }
 
+/// Parlato : totaux de l'accueil, sur toutes les dictees reussies (avant :
+/// calcules par l'interface sur les 200 dernieres seulement).
+#[derive(Debug, Default, Clone, Serialize)]
+pub struct UsageStats {
+    pub sessions: i64,
+    pub words: i64,
+    pub chars: i64,
+    pub duration_sec: f64,
+}
+
+pub fn usage_stats(conn: &Connection) -> Result<UsageStats> {
+    let mut stmt = conn.prepare(
+        "SELECT ifnull(enhanced_text, text), ifnull(duration_sec, 0)
+         FROM transcriptions WHERE status = 'completed'",
+    )?;
+    let mut rows = stmt.query([])?;
+    let mut out = UsageStats::default();
+    while let Some(row) = rows.next()? {
+        let text: String = row.get(0)?;
+        if text.is_empty() {
+            continue;
+        }
+        out.sessions += 1;
+        out.words += text.split_whitespace().count() as i64;
+        out.chars += text.encode_utf16().count() as i64;
+        out.duration_sec += row.get::<_, f64>(1)?;
+    }
+    Ok(out)
+}
+
 // -- Metrics aggregation par modele ----------------------------------------
 //
 // Reference VoiceInk : Views/Metrics/ModelPerformancePanel.swift +
@@ -458,6 +488,29 @@ pub fn all_audio_file_names(conn: &Connection) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn usage_stats_counts_completed_dictations() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let a = insert_pending(&conn, None, Some(6.0)).unwrap();
+        conn.execute(
+            "UPDATE transcriptions SET status = 'completed', text = 'one two',
+             enhanced_text = 'One, two, three.' WHERE id = ?1",
+            params![a],
+        )
+        .unwrap();
+        let b = insert_pending(&conn, None, Some(3.0)).unwrap();
+        conn.execute(
+            "UPDATE transcriptions SET status = 'completed', text = 'four' WHERE id = ?1",
+            params![b],
+        )
+        .unwrap();
+        insert_pending(&conn, None, Some(9.0)).unwrap();
+        let s = usage_stats(&conn).unwrap();
+        assert_eq!((s.sessions, s.words, s.chars), (2, 4, 20));
+        assert_eq!(s.duration_sec, 9.0);
+    }
 
     #[test]
     fn list_page_filters_in_the_query() {

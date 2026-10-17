@@ -125,6 +125,16 @@ pub fn count_history(app: AppHandle) -> Result<i64, String> {
     repo::count(&conn).map_err(|e| e.to_string())
 }
 
+/// Parlato : totaux de l'accueil sur tout l'historique.
+#[command]
+pub fn get_usage_stats(app: AppHandle) -> Result<repo::UsageStats, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let conn = db.0.lock();
+    repo::usage_stats(&conn).map_err(|e| e.to_string())
+}
+
 #[command]
 pub async fn export_history_csv(app: AppHandle, ids: Vec<String>) -> Result<Option<String>, String> {
     // Collect les records a exporter.
