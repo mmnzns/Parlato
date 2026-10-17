@@ -14,6 +14,7 @@ pub fn list_history(
     limit: Option<i64>,
     before: Option<String>,
     search: Option<String>,
+    filter: Option<String>,
 ) -> Result<Vec<repo::TranscriptionRecord>, String> {
     let db = app
         .try_state::<Database>()
@@ -25,7 +26,8 @@ pub fn list_history(
         .map(|t| t.with_timezone(&Utc));
     let search_s = search.filter(|s| !s.trim().is_empty());
     let conn = db.0.lock();
-    repo::list_page(&conn, lim, before_ts, search_s.as_deref()).map_err(|e| e.to_string())
+    let filter = repo::ListFilter::parse(filter.as_deref());
+    repo::list_page(&conn, lim, before_ts, search_s.as_deref(), filter).map_err(|e| e.to_string())
 }
 
 #[command]

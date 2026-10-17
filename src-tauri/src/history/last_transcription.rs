@@ -39,7 +39,7 @@ pub fn last_record(app: &AppHandle) -> Result<history_repo::TranscriptionRecord>
         .ok_or_else(|| anyhow!("database not initialized"))?;
     let page = {
         let conn = db.0.lock();
-        history_repo::list_page(&conn, 1, None, None)?
+        history_repo::list_page(&conn, 1, None, None, history_repo::ListFilter::All)?
     };
     page.into_iter()
         .next()

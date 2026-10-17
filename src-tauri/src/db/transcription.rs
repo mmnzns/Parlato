@@ -195,73 +195,64 @@ pub fn fail_interrupted(conn: &Connection) -> Result<usize> {
 
 /// Liste la page la plus recente (timestamp DESC). `before` permet la
 /// pagination curseur : renvoie les rows dont timestamp < before.
+/// Parlato : filtre de l'onglet Historique, applique dans la requete pour
+/// porter sur toutes les dictees et pas seulement la page chargee.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListFilter {
+    All,
+    /// Nettoyees par l'IA (texte ameliore present).
+    Ai,
+    Failed,
+}
+
+impl ListFilter {
+    pub fn parse(s: Option<&str>) -> Self {
+        match s {
+            Some("ai") => Self::Ai,
+            Some("failed") => Self::Failed,
+            _ => Self::All,
+        }
+    }
+}
+
 pub fn list_page(
     conn: &Connection,
     limit: i64,
     before: Option<DateTime<Utc>>,
     search: Option<&str>,
+    filter: ListFilter,
 ) -> Result<Vec<TranscriptionRecord>> {
     let like = search
         .map(|s| format!("%{}%", s.trim().to_lowercase()))
         .filter(|s| s.len() > 2);
-    let mut out = Vec::new();
-    let mut push = |row: &Row<'_>| -> rusqlite::Result<()> {
-        out.push(row_to_record(row)?);
-        Ok(())
-    };
 
-    match (before, like) {
-        (Some(ts), Some(q)) => {
-            let ts_s = ts.to_rfc3339();
-            let mut stmt = conn.prepare(
-                "SELECT * FROM transcriptions
-                 WHERE timestamp < ?1
-                   AND (lower(text) LIKE ?2 OR lower(ifnull(enhanced_text, '')) LIKE ?2)
-                 ORDER BY timestamp DESC
-                 LIMIT ?3",
-            )?;
-            let mut rows = stmt.query(params![ts_s, q, limit])?;
-            while let Some(row) = rows.next()? {
-                push(row)?;
-            }
-        }
-        (Some(ts), None) => {
-            let ts_s = ts.to_rfc3339();
-            let mut stmt = conn.prepare(
-                "SELECT * FROM transcriptions
-                 WHERE timestamp < ?1
-                 ORDER BY timestamp DESC
-                 LIMIT ?2",
-            )?;
-            let mut rows = stmt.query(params![ts_s, limit])?;
-            while let Some(row) = rows.next()? {
-                push(row)?;
-            }
-        }
-        (None, Some(q)) => {
-            let mut stmt = conn.prepare(
-                "SELECT * FROM transcriptions
-                 WHERE lower(text) LIKE ?1 OR lower(ifnull(enhanced_text, '')) LIKE ?1
-                 ORDER BY timestamp DESC
-                 LIMIT ?2",
-            )?;
-            let mut rows = stmt.query(params![q, limit])?;
-            while let Some(row) = rows.next()? {
-                push(row)?;
-            }
-        }
-        (None, None) => {
-            let mut stmt = conn.prepare(
-                "SELECT * FROM transcriptions ORDER BY timestamp DESC LIMIT ?1",
-            )?;
-            let mut rows = stmt.query(params![limit])?;
-            while let Some(row) = rows.next()? {
-                push(row)?;
-            }
-        }
+    let mut clauses: Vec<&str> = Vec::new();
+    let mut args: Vec<rusqlite::types::Value> = Vec::new();
+    if let Some(ts) = before {
+        clauses.push("timestamp < ?");
+        args.push(ts.to_rfc3339().into());
     }
+    if let Some(q) = like {
+        clauses.push("(lower(text) LIKE ? OR lower(ifnull(enhanced_text, '')) LIKE ?)");
+        args.push(q.clone().into());
+        args.push(q.into());
+    }
+    match filter {
+        ListFilter::All => {}
+        ListFilter::Ai => clauses.push("ifnull(enhanced_text, '') != ''"),
+        ListFilter::Failed => clauses.push("status = 'failed'"),
+    }
+    let where_sql = if clauses.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", clauses.join(" AND "))
+    };
+    args.push(limit.into());
+    let sql = format!("SELECT * FROM transcriptions {where_sql} ORDER BY timestamp DESC LIMIT ?");
 
-    Ok(out)
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(args), row_to_record)?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 pub fn get(conn: &Connection, id: &str) -> Result<Option<TranscriptionRecord>> {
@@ -467,6 +458,38 @@ pub fn all_audio_file_names(conn: &Connection) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_page_filters_in_the_query() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let set = |id: &str, status: &str, text: &str, enhanced: Option<&str>| {
+            conn.execute(
+                "UPDATE transcriptions SET status = ?1, text = ?2, enhanced_text = ?3 WHERE id = ?4",
+                params![status, text, enhanced, id],
+            )
+            .unwrap();
+        };
+        let failed = insert_pending(&conn, None, None).unwrap();
+        set(&failed, "failed", "Transcription Failed: x", None);
+        let cleaned = insert_pending(&conn, None, None).unwrap();
+        set(&cleaned, "completed", "raw words", Some("Clean words."));
+        let plain = insert_pending(&conn, None, None).unwrap();
+        set(&plain, "completed", "plain words", None);
+
+        let ids = |filter, search| -> Vec<String> {
+            list_page(&conn, 20, None, search, filter)
+                .unwrap()
+                .into_iter()
+                .map(|r| r.id)
+                .collect()
+        };
+        assert_eq!(ids(ListFilter::All, None).len(), 3);
+        assert_eq!(ids(ListFilter::Failed, None), vec![failed.clone()]);
+        assert_eq!(ids(ListFilter::Ai, None), vec![cleaned.clone()]);
+        assert_eq!(ids(ListFilter::Ai, Some("clean")), vec![cleaned]);
+        assert!(ids(ListFilter::Failed, Some("plain")).is_empty());
+    }
 
     #[test]
     fn fail_interrupted_only_touches_pending_rows() {

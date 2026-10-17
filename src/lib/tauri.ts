@@ -577,11 +577,14 @@ export const api = {
     limit?: number;
     before?: string | null;
     search?: string | null;
+    /** Parlato: "ai" or "failed", applied in the query. */
+    filter?: "all" | "ai" | "failed";
   }) =>
     invoke<TranscriptionRecord[]>("list_history", {
       limit: args?.limit ?? null,
       before: args?.before ?? null,
       search: args?.search ?? null,
+      filter: args?.filter ?? null,
     }),
   getHistoryItem: (id: string) =>
     invoke<TranscriptionRecord | null>("get_history_item", { id }),
