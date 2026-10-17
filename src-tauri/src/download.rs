@@ -37,9 +37,9 @@ pub const STALL_TIMEOUT: Duration = Duration::from_secs(30);
 /// Frequence de verification de l'annulation et du blocage pendant l'attente.
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
-/// Message d'erreur d'une annulation. Le frontend le reconnait a "annule"
-/// (ModelsPage.tsx, LlmLocalPanel.tsx) : ne pas le changer.
-pub const CANCELLED: &str = "telechargement annule";
+/// Message d'erreur d'une annulation. Le frontend le reconnait a ce code
+/// (translateError.ts isCancelled) : ne pas le changer.
+pub const CANCELLED: &str = "PARLA_ERR:cancelled";
 
 /// Client HTTP des telechargements de modeles, avec les delais ci-dessus.
 pub fn client() -> Result<reqwest::Client> {
@@ -444,7 +444,7 @@ mod tests {
         let err = fetch(&url, &dir, Some(&cancel), STALL_TIMEOUT, None)
             .await
             .unwrap_err();
-        assert!(err.to_string().contains("annule"), "{err}");
+        assert!(err.to_string().contains("PARLA_ERR:cancelled"), "{err}");
         assert!(!dir.join("model.bin.part").exists());
         assert!(!dir.join("model.bin").exists());
         let _ = std::fs::remove_dir_all(&dir);

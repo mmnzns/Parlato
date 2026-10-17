@@ -14,6 +14,7 @@ import type { ParakeetModelState } from "@/lib/tauri";
 import type { ParakeetDownloadProgress } from "./types";
 
 import { formatBytes } from "@/lib/format";
+import { isFailure, statusText, type Status } from "@/lib/status";
 
 type Props = {
   /** Parlato: plain title from companies.ts ("Best for English"). */
@@ -21,7 +22,7 @@ type Props = {
   model: ParakeetModelState;
   isCurrent: boolean;
   progress: ParakeetDownloadProgress | null;
-  status: string | null;
+  status: Status | null;
   onDownload: () => void;
   onCancelDownload: () => void;
   onDelete: () => void;
@@ -105,10 +106,10 @@ export function ParakeetModelCard({
         <p
           className={cn(
             "text-xs",
-            st.startsWith(t("common.error")) ? "text-destructive" : "text-muted-foreground",
+            isFailure(st) ? "text-destructive" : "text-muted-foreground",
           )}
         >
-          {st}
+          {statusText(st)}
         </p>
       )}
     </ModelTile>

@@ -63,7 +63,7 @@ pub async fn import_gguf_model(app: AppHandle) -> Result<String, String> {
         .add_filter("GGUF", &["gguf"])
         .blocking_pick_file();
     let Some(fp) = file else {
-        return Err("Import annule".into());
+        return Err("PARLA_ERR:cancelled".into());
     };
     let p: PathBuf = fp.as_path().map(|p| p.to_path_buf()).ok_or_else(|| "chemin invalide".to_string())?;
     let mgr = ensure_state(&app);

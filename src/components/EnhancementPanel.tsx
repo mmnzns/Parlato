@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 import { translateError } from "@/lib/translateError";
 import { persist } from "@/lib/persist";
+import { fail, isFailure, statusText, type Status } from "@/lib/status";
 import {
   api,
   type CustomPrompt,
@@ -53,7 +54,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   const [activePromptId, setActivePromptId] = useState<string | null>(null);
   const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
   const [verifying, setVerifying] = useState<Record<string, boolean>>({});
-  const [status, setStatus] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<Record<string, Status>>({});
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ollamaStatus, setOllamaStatus] = useState("");
@@ -130,7 +131,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
       await api.setCustomBaseUrl(customBaseUrl.trim());
       setStatus((s) => ({ ...s, custom: t("enhancement.urlSaved") }));
     } catch (e) {
-      setStatus((s) => ({ ...s, custom: t("enhancement.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({ ...s, custom: fail(t("enhancement.errorPrefix", { message: String(e) })) }));
     }
   }
 
@@ -195,7 +196,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
     } catch (e) {
       setStatus((s) => ({
         ...s,
-        [providerId]: t("enhancement.errorPrefix", { message: translateError(t, String(e)) }),
+        [providerId]: fail(t("enhancement.errorPrefix", { message: translateError(t, String(e)) })),
       }));
     } finally {
       setVerifying((v) => ({ ...v, [providerId]: false }));
@@ -208,7 +209,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keyDeleted") }));
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [providerId]: t("enhancement.errorPrefix", { message: String(e) }) }));
+      setStatus((s) => ({ ...s, [providerId]: fail(t("enhancement.errorPrefix", { message: String(e) })) }));
     }
   }
 
@@ -274,7 +275,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
   ];
 
   const keyStatus = currentProvider ? status[currentProvider.id] : undefined;
-  const keyIsError = !!keyStatus && keyStatus.startsWith(t("common.error"));
+  const keyIsError = isFailure(keyStatus);
 
   return (
     <>
@@ -424,7 +425,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
                       <textarea
                         value={localcliCustomCmd}
                         onChange={(e) => setLocalcliCustomCmd(e.target.value)}
-                        placeholder="& mon-cli -p $env:PARLA_FULL_PROMPT"
+                        placeholder="& my-cli -p $env:PARLA_FULL_PROMPT"
                         className="min-h-[80px] rounded-sm border-[1.5px] border-input bg-background px-3 py-2 font-mono text-sm"
                       />
                       <Button size="sm" className="self-start" onClick={saveLocalcliCustomCmd}>
@@ -516,7 +517,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
 
             {isCustom && (
               <>
-                <Row label={t("enhancement.customBaseUrlLabel")} description={status.custom || undefined}>
+                <Row label={t("enhancement.customBaseUrlLabel")} description={status.custom ? statusText(status.custom) : undefined}>
                   <input
                     type="text"
                     value={customBaseUrl}
@@ -590,7 +591,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
                     role={keyIsError ? "alert" : undefined}
                     className={cn("text-xs", keyIsError ? "text-destructive" : "text-muted-foreground")}
                   >
-                    {keyStatus}
+                    {statusText(keyStatus)}
                   </span>
                 )}
                 <span className="text-xs text-muted-foreground">{t("ai.keyNote")}</span>
