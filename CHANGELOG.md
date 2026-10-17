@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-16
+
 ### Fixed
 - Windows: Parlato no longer risks crashing with "illegal instruction"
   the first time a Whisper model runs. The Whisper engine could be built
