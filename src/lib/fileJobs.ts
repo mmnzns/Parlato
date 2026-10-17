@@ -2,7 +2,8 @@
 // its progress survive navigating away from the page while a long file is
 // still being transcribed.
 //
-// One file at a time. Progress comes from the pipeline:state events tagged
+// One file at a time; Parlato queues the others ("queued") and starts the
+// next one when a file ends. Progress comes from the pipeline:state events tagged
 // job "file" (a dictation made meanwhile sends "dictation" events, which
 // this list ignores).
 
@@ -10,7 +11,10 @@ import { useSyncExternalStore } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "@/lib/tauri";
 
-export type FileJobStatus = "converting" | "transcribing" | "cleaning" | "done" | "failed";
+export type FileJobStatus = "queued" | "converting" | "transcribing" | "cleaning" | "done" | "failed";
+
+/** Extensions symphonia can decode (see Cargo.toml). Opus/webm is not supported. */
+export const FILE_EXTENSIONS = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "oga", "aif", "aiff", "caf", "mp4", "m4v", "mov", "mkv"];
 
 export type FileJob = {
   id: string;
@@ -33,6 +37,8 @@ type Snapshot = { jobs: FileJob[]; busy: boolean };
 let snapshot: Snapshot = { jobs: [], busy: false };
 let activeId: string | null = null;
 let listening = false;
+/** Paths waiting their turn, by job id. */
+const queuedPaths = new Map<string, string>();
 const subscribers = new Set<() => void>();
 
 function publish(jobs: FileJob[]) {
@@ -47,6 +53,17 @@ function patch(id: string, p: Partial<FileJob>) {
 function finish(id: string, p: Partial<FileJob>) {
   activeId = null;
   patch(id, p);
+  runNext();
+}
+
+/** Starts the oldest queued file, if nothing is running. */
+function runNext() {
+  if (activeId) return;
+  const next = [...snapshot.jobs].reverse().find((j) => j.status === "queued");
+  if (!next) return;
+  const path = queuedPaths.get(next.id);
+  queuedPaths.delete(next.id);
+  if (path) void run(next.id, path);
 }
 
 function ensureListener() {
@@ -63,13 +80,27 @@ function ensureListener() {
   });
 }
 
-export async function startFileJob(path: string) {
-  if (activeId) return;
+/** Adds files to the list. Unsupported ones fail at once; the others
+ *  run one after another. */
+export function startFileJobs(paths: string[]) {
   ensureListener();
-  const id = crypto.randomUUID();
-  const name = path.split(/[\\/]/).pop() ?? path;
+  const added: FileJob[] = paths.map((path) => {
+    const id = crypto.randomUUID();
+    const name = path.split(/[\\/]/).pop() ?? path;
+    const ext = name.includes(".") ? (name.split(".").pop() ?? "").toLowerCase() : "";
+    if (!FILE_EXTENSIONS.includes(ext)) {
+      return { id, name, status: "failed", error: "PARLA_ERR:fileUnsupported" };
+    }
+    queuedPaths.set(id, path);
+    return { id, name, status: "queued" };
+  });
+  publish([...added.reverse(), ...snapshot.jobs]);
+  runNext();
+}
+
+async function run(id: string, path: string) {
   activeId = id;
-  publish([{ id, name, status: "converting" }, ...snapshot.jobs]);
+  patch(id, { status: "converting" });
   try {
     const res = await api.transcribeFile(path);
     patch(id, { durationSec: res.duration_sec });
@@ -80,6 +111,7 @@ export async function startFileJob(path: string) {
 
 export function removeFileJob(id: string) {
   if (id === activeId) return;
+  queuedPaths.delete(id);
   publish(snapshot.jobs.filter((j) => j.id !== id));
 }
 

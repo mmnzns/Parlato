@@ -1124,7 +1124,7 @@
     "copy": "Copy text",
     "copied": "Copied",
     "remove": "Remove",
-    "busyNote": "One file at a time. Wait for this one to finish.",
+    "queued": "Waiting its turn",
     "cloudNote": "Online services limit upload size, so long files work best with a model on this computer.",
     "dialogTitle": "Choose an audio or video file",
     "filterName": "Audio and video"

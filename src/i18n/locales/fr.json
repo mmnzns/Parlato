@@ -1124,7 +1124,7 @@
     "copy": "Copier le texte",
     "copied": "Copié",
     "remove": "Retirer",
-    "busyNote": "Un fichier à la fois. Attendez la fin de celui-ci.",
+    "queued": "En attente",
     "cloudNote": "Les services en ligne limitent la taille des envois : les longs fichiers marchent mieux avec un modèle sur cet ordinateur.",
     "dialogTitle": "Choisir un fichier audio ou vidéo",
     "filterName": "Audio et vidéo"

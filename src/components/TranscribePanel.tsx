@@ -17,13 +17,16 @@ import { Block, Row, Section } from "@/components/ui/section";
 import { DictationLanguagePanel } from "@/components/DictationLanguagePanel";
 import { resolveDefaultDisplayName } from "@/components/models/types";
 import { useCopyButton } from "@/hooks/useCopyButton";
-import { removeFileJob, startFileJob, useFileJobs, type FileJob } from "@/lib/fileJobs";
+import {
+  FILE_EXTENSIONS as EXTENSIONS,
+  removeFileJob,
+  startFileJobs,
+  useFileJobs,
+  type FileJob,
+} from "@/lib/fileJobs";
 import { api, type TranscriptionSource } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
 import { cn } from "@/lib/utils";
-
-/** Extensions symphonia can decode (see Cargo.toml). Opus/webm is not supported. */
-const EXTENSIONS = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "oga", "aif", "aiff", "caf", "mp4", "m4v", "mov", "mkv"];
 
 function formatClock(secs: number): string {
   const total = Math.round(secs);
@@ -35,7 +38,7 @@ function formatClock(secs: number): string {
 
 export function TranscribePanel({ onNavigate }: { onNavigate: (view: "models" | "enhancement") => void }) {
   const { t } = useTranslation();
-  const { jobs, busy } = useFileJobs();
+  const { jobs } = useFileJobs();
   const [dragging, setDragging] = useState(false);
   const [modelName, setModelName] = useState<string | null>(null);
   const [source, setSource] = useState<TranscriptionSource | null>(null);
@@ -51,8 +54,8 @@ export function TranscribePanel({ onNavigate }: { onNavigate: (view: "models" | 
       else if (p.type === "leave") setDragging(false);
       else if (p.type === "drop") {
         setDragging(false);
-        const file = p.paths.find((f) => EXTENSIONS.includes(f.split(".").pop()?.toLowerCase() ?? ""));
-        if (file ?? p.paths[0]) startFileJob(file ?? p.paths[0]);
+        // Parlato: every dropped file is listed; unsupported ones say so.
+        if (p.paths.length > 0) startFileJobs(p.paths);
       }
     });
     return () => {
@@ -80,11 +83,12 @@ export function TranscribePanel({ onNavigate }: { onNavigate: (view: "models" | 
 
   async function chooseFile() {
     const picked = await openDialog({
-      multiple: false,
+      multiple: true,
       title: t("tf.dialogTitle"),
       filters: [{ name: t("tf.filterName"), extensions: EXTENSIONS }],
     });
-    if (typeof picked === "string") startFileJob(picked);
+    if (Array.isArray(picked) && picked.length > 0) startFileJobs(picked);
+    else if (typeof picked === "string") startFileJobs([picked]);
   }
 
   const [before, after] = t("tf.dropOr", { choose: "\u0000" }).split("\u0000");
@@ -94,7 +98,6 @@ export function TranscribePanel({ onNavigate }: { onNavigate: (view: "models" | 
       <button
         type="button"
         onClick={chooseFile}
-        disabled={busy}
         className={cn(
           "flex flex-col items-center gap-1.5 rounded-lg border-[1.5px] border-dashed bg-card px-6 py-9 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60",
           dragging ? "border-edge bg-accent" : "border-input hover:border-edge",
@@ -112,7 +115,6 @@ export function TranscribePanel({ onNavigate }: { onNavigate: (view: "models" | 
           {after}
         </span>
         <span className="font-mono text-[11px] text-muted-foreground">{t("tf.formats")}</span>
-        {busy && <span className="mt-1 text-xs text-muted-foreground">{t("tf.busyNote")}</span>}
       </button>
 
       <Section title={t("tf.optionsTitle")}>
@@ -151,7 +153,9 @@ function FileRow({ job }: { job: FileJob }) {
   const { t } = useTranslation();
   const working = job.status === "converting" || job.status === "transcribing" || job.status === "cleaning";
   const statusLabel =
-    job.status === "converting"
+    job.status === "queued"
+      ? t("tf.queued")
+      : job.status === "converting"
       ? t("tf.converting")
       : job.status === "transcribing"
         ? t("tf.transcribing")
@@ -178,6 +182,7 @@ function FileRow({ job }: { job: FileJob }) {
             {statusLabel}
           </span>
         )}
+        {job.status === "queued" && <span className="text-[13px] text-muted-foreground">{statusLabel}</span>}
         {job.status === "failed" && (
           <span role="alert" className="flex items-start gap-1.5 text-[13px] text-destructive">
             <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-none" />
