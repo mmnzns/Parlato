@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-10-19
+
 ### Fixed
 - The recorder no longer squeezes "Cleaning up" onto two lines while it
   transcribes or cleans up; it is wider while the Cancel button shows.
