@@ -267,7 +267,13 @@ export function MiniRecorderView() {
           stage === "recording"
             ? "shadow-[4px_4px_0_#B5E61D]"
             : "shadow-[0_6px_20px_rgba(0,0,0,0.25)]",
-          expanded ? "w-[300px]" : "w-[184px]",
+          // Parlato: wider while the Cancel button is shown, so "Cleaning up"
+          // stays on one line in every language.
+          expanded
+            ? "w-[300px]"
+            : stage === "transcribing" || stage === "enhancing"
+              ? "w-[224px]"
+              : "w-[184px]",
           shape,
         )}
         style={spacingStyle}
@@ -532,7 +538,7 @@ function ProcessingStatusDisplay({
     return () => window.clearInterval(id);
   }, [intervalMs]);
   return (
-    <div className="flex items-center gap-2 text-[11px] font-medium text-white">
+    <div className="flex items-center gap-2 whitespace-nowrap text-[11px] font-medium text-white">
       <span>{label}</span>
       <span className="flex items-center gap-[3px]">
         {Array.from({ length: 5 }).map((_, i) => (
