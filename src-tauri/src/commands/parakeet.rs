@@ -50,18 +50,13 @@ pub fn delete_parakeet_model(app: AppHandle, id: String) -> Result<(), String> {
     mgr.delete(&id).map_err(|e| e.to_string())
 }
 
+/// Parlato : ce qui a vraiment servi au dernier chargement du modele :
+/// "cpu", "directml", "cuda" ou "cpu-fallback" (carte graphique demandee, le
+/// processeur a pris le relais).
 #[command]
-pub fn parakeet_execution_provider() -> &'static str {
-    #[cfg(feature = "cuda-onnx")]
-    {
-        "cuda"
-    }
-    #[cfg(all(not(feature = "cuda-onnx"), feature = "directml-onnx"))]
-    {
-        "directml"
-    }
-    #[cfg(all(not(feature = "cuda-onnx"), not(feature = "directml-onnx")))]
-    {
-        "cpu"
-    }
+pub fn parakeet_execution_provider(app: AppHandle) -> String {
+    app.try_state::<crate::transcription::parakeet::ParakeetEngineState>()
+        .map(|e| e.0.provider())
+        .unwrap_or("cpu")
+        .to_string()
 }

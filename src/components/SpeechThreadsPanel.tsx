@@ -4,22 +4,42 @@
 // Automatique par defaut (cf `auto_threads` dans transcription/whisper.rs,
 // choisi d'apres whisper_threads_smoke et parakeet_threads_smoke). Le reglage manuel sert aux utilisateurs qui
 // veulent l'ajuster a leur machine.
+//
+// Parakeet seulement : "utiliser la carte graphique" (reglage `parakeet_gpu`,
+// desactive par defaut, avec repli automatique sur le processeur).
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Row, Section, selectClass } from "@/components/ui/section";
+import { Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/tauri";
 
-export function SpeechThreadsPanel() {
+export function SpeechThreadsPanel({ parakeet = false }: { parakeet?: boolean }) {
   const { t } = useTranslation();
   const [info, setInfo] = useState<{ value: number; auto: number; max: number } | null>(null);
   const [keep, setKeep] = useState<{ value: number; recommended: number } | null>(null);
+  const [gpu, setGpu] = useState<{
+    enabled: boolean;
+    available: boolean;
+    failed: boolean;
+    provider: string;
+  } | null>(null);
 
   useEffect(() => {
     api.getSpeechThreads().then(setInfo).catch(console.error);
     api.getModelKeepAlive().then(setKeep).catch(console.error);
+    api.getParakeetGpu().then(setGpu).catch(console.error);
   }, []);
+
+  async function changeGpu(enabled: boolean) {
+    if (!gpu) return;
+    setGpu({ ...gpu, enabled });
+    try {
+      await api.setParakeetGpu(enabled);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   async function changeKeep(value: number) {
     if (!keep) return;
@@ -34,6 +54,7 @@ export function SpeechThreadsPanel() {
   function reset() {
     change(0);
     if (keep) changeKeep(keep.recommended);
+    if (gpu?.enabled) changeGpu(false);
   }
 
   async function change(value: number) {
@@ -47,7 +68,8 @@ export function SpeechThreadsPanel() {
   }
 
   if (!info || !keep) return null;
-  const custom = info.value !== 0 || keep.value !== keep.recommended;
+  const showGpu = parakeet && !!gpu?.available;
+  const custom = info.value !== 0 || keep.value !== keep.recommended || (showGpu && !!gpu?.enabled);
   // Choices in seconds; a value saved by hand elsewhere is kept as is.
   const keepChoices = Array.from(new Set([0, 60, 300, 900, 3600, keep.value])).sort(
     (a, b) => a - b,
@@ -88,6 +110,29 @@ export function SpeechThreadsPanel() {
           ))}
         </select>
       </Row>
+      {showGpu && gpu && (
+        <Row
+          label={t("speech.gpuLabel")}
+          description={
+            <>
+              {t("speech.gpuDesc")}
+              {gpu.enabled && gpu.failed && (
+                <span className="mt-1 block font-medium text-foreground">
+                  {t("speech.gpuFailed")}
+                </span>
+              )}
+            </>
+          }
+          htmlFor="parakeet-gpu"
+        >
+          <Switch
+            id="parakeet-gpu"
+            checked={gpu.enabled}
+            onChange={changeGpu}
+            label={t("speech.gpuLabel")}
+          />
+        </Row>
+      )}
       <Row label={t("speech.keepAliveLabel")} description={t("speech.keepAliveDesc")}>
         <select
           aria-label={t("speech.keepAliveLabel")}

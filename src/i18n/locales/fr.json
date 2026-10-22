@@ -411,7 +411,8 @@
     "notice": {
       "copied": "Copié dans le presse-papiers",
       "retryStarted": "Nouvelle transcription...",
-      "retryDone": "Terminé, copié dans le presse-papiers"
+      "retryDone": "Terminé, copié dans le presse-papiers",
+      "gpuFallback": "Carte graphique indisponible, processeur utilisé"
     }
   },
   "errors": {
@@ -682,6 +683,9 @@
     "threadsDesc": "Le nombre de parties du processeur que le modèle vocal utilise en même temps. Automatique est le choix le plus rapide sur la plupart des ordinateurs.",
     "threadsAuto": "Automatique ({{count}})",
     "threadsReset": "Utiliser les réglages recommandés",
+    "gpuLabel": "Utiliser la carte graphique (expérimental)",
+    "gpuDesc": "Peut être plus rapide avec une carte graphique puissante. Si cela ne fonctionne pas, Parlato utilise le processeur.",
+    "gpuFailed": "La carte graphique n'a pas fonctionné : le processeur est utilisé jusqu'au prochain redémarrage de Parlato.",
     "keepAliveLabel": "Garder les modèles prêts",
     "keepAliveDesc": "Durée pendant laquelle les modèles restent en mémoire après une dictée, pour que la suivante démarre plus vite. Les libérer tout de suite rend la mémoire plus tôt.",
     "keepAliveNever": "Libérer tout de suite",

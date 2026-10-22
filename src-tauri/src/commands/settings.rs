@@ -4,7 +4,7 @@
 // tauri-plugin-store qui ecrit dans un JSON sous AppConfig.
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 
 use crate::text_processing::filler_words;
@@ -317,6 +317,38 @@ pub fn get_speech_threads(app: AppHandle) -> SpeechThreads {
 #[tauri::command]
 pub fn set_speech_threads(app: AppHandle, threads: usize) -> Result<(), String> {
     pipeline::set_speech_threads(&app, threads).map_err(|e| e.to_string())
+}
+
+// -- Parakeet on the graphics card (Parlato) -------------------------------
+
+#[derive(serde::Serialize)]
+pub struct ParakeetGpu {
+    /// Choix enregistre (faux par defaut).
+    pub enabled: bool,
+    /// Ce build sait utiliser la carte graphique (Windows, ou CUDA).
+    pub available: bool,
+    /// La carte graphique a echoue depuis le lancement : le processeur sert.
+    pub failed: bool,
+    /// Ce qui a tourne au dernier chargement : "cpu", "directml", "cuda" ou
+    /// "cpu-fallback".
+    pub provider: String,
+}
+
+#[tauri::command]
+pub fn get_parakeet_gpu(app: AppHandle) -> ParakeetGpu {
+    let engine = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>();
+    ParakeetGpu {
+        enabled: pipeline::get_parakeet_gpu(&app),
+        available: crate::transcription::parakeet::gpu_available(),
+        failed: engine.as_ref().map(|e| e.0.gpu_failed()).unwrap_or(false),
+        provider: engine.map(|e| e.0.provider()).unwrap_or("cpu").to_string(),
+    }
+}
+
+/// Le modele se recharge a la prochaine utilisation (comme pour les threads).
+#[tauri::command]
+pub fn set_parakeet_gpu(app: AppHandle, enabled: bool) -> Result<(), String> {
+    pipeline::set_parakeet_gpu(&app, enabled).map_err(|e| e.to_string())
 }
 
 /// Parlato : duree (s) pendant laquelle les modeles restent charges apres

@@ -130,6 +130,7 @@ export type RecorderNotice =
   | { kind: "copied" }
   | { kind: "retryStarted" }
   | { kind: "retryDone" }
+  | { kind: "gpuFallback" }
   | { kind: "failed"; detail: string };
 
 export type LLMProviderInfo = {
@@ -355,6 +356,14 @@ export const api = {
   getSpeechThreads: () =>
     invoke<{ value: number; auto: number; max: number }>("get_speech_threads"),
   setSpeechThreads: (threads: number) => invoke<void>("set_speech_threads", { threads }),
+  /** Parlato: Parakeet on the graphics card. `available` is false on builds
+   *  without a GPU provider (Mac); `failed` after a fall back to the
+   *  processor; `provider` is what ran at the last load. */
+  getParakeetGpu: () =>
+    invoke<{ enabled: boolean; available: boolean; failed: boolean; provider: string }>(
+      "get_parakeet_gpu",
+    ),
+  setParakeetGpu: (enabled: boolean) => invoke<void>("set_parakeet_gpu", { enabled }),
   /** Parlato: seconds the models stay loaded after a dictation (0 = unload). */
   getModelKeepAlive: () =>
     invoke<{ value: number; recommended: number }>("get_model_keep_alive"),

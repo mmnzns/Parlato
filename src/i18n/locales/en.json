@@ -411,7 +411,8 @@
     "notice": {
       "copied": "Copied to clipboard",
       "retryStarted": "Transcribing again...",
-      "retryDone": "Done, copied to clipboard"
+      "retryDone": "Done, copied to clipboard",
+      "gpuFallback": "Graphics card unavailable, used the processor"
     }
   },
   "errors": {
@@ -682,6 +683,9 @@
     "threadsDesc": "How many parts of your processor the speech model works with at once. Automatic is the fastest choice on most computers.",
     "threadsAuto": "Automatic ({{count}})",
     "threadsReset": "Use recommended settings",
+    "gpuLabel": "Use the graphics card (experimental)",
+    "gpuDesc": "Can be faster on a strong graphics card. If it does not work, Parlato uses the processor.",
+    "gpuFailed": "The graphics card did not work, so the processor is being used until Parlato restarts.",
     "keepAliveLabel": "Keep models ready",
     "keepAliveDesc": "How long the models stay in memory after a dictation, so the next one starts faster. Unloading right away frees memory sooner.",
     "keepAliveNever": "Unload right away",

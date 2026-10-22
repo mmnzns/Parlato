@@ -74,7 +74,9 @@ llama-cpp-2 = "0.1"
 # Transcription Parakeet (NVIDIA NeMo TDT) via ONNX Runtime.
 # Les defaults de parakeet-rs activent "cpu" + "ort-defaults" (qui embarque
 # onnxruntime via download-binaries). Acceleration GPU activable via les
-# features Parla "cuda-onnx" (NVIDIA) ou "directml-onnx" (GPU Windows).
+# feature Parla "cuda-onnx" (NVIDIA, build depuis les sources). Sous Windows,
+# DirectML est compile dans tous les builds (voir plus bas) et se choisit a
+# l'execution par le reglage "parakeet_gpu".
 parakeet-rs = "0.3"
 
 # Capture de fenetre active (Phase 7 screen context).
@@ -92,6 +94,10 @@ tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 nvml-wrapper = { version = "0.11", optional = true }
 
 [target.'cfg(windows)'.dependencies]
+# Parlato : DirectML pour Parakeet (reglage "carte graphique"). ONNX Runtime est
+# deja telecharge avec DirectML sur Windows ; la feature ajoute seulement le
+# provider cote parakeet-rs. Cargo unit les features avec la ligne ci-dessus.
+parakeet-rs = { version = "0.3", features = ["directml"] }
 # UI Automation pour l'extraction d'URL des navigateurs (Power Mode).
 uiautomation = "0.24"
 keyring = { version = "3", features = ["windows-native"] }
@@ -153,4 +159,3 @@ cuda = ["cuda-whisper", "cuda-llama", "cuda-onnx"]
 cuda-whisper = ["whisper-rs/cuda"]
 cuda-llama = ["llama-cpp-2/cuda"]
 cuda-onnx = ["parakeet-rs/cuda"]
-directml-onnx = ["parakeet-rs/directml"]
