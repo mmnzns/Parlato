@@ -116,7 +116,12 @@ made Parakeet drift into English and drop sentences. Over 15 s, the TDT models
 matching the overlap, following FluidAudio's `ChunkProcessor` at the commit
 VoiceInk pins (762baf67). It is pure functions with unit tests; the module
 header lists what is not ported (gap repair, parallel windows). Check it on a
-long real recording with the ignored `parakeet_long_audio` test.
+long real recording with the ignored `parakeet_long_audio` test. Checked
+2026-10-22 on a 77 s dictation with Parakeet Ultra: 6 windows, nothing lost
+or doubled at the seams. That recording did not drift in a single pass
+either, and the two texts differ only in a few words (single pass "Parlato",
+windows "Parlat"), so it shows no harm, not the fix itself; Florian's case
+was a 147 s recording.
 
 **Parakeet on the graphics card is a user setting, default off** (2026-10-22).
 Store key `parakeet_gpu`, commands `get/set_parakeet_gpu`, switch in
@@ -136,8 +141,13 @@ and shows one recorder-pill notice after that dictation. `parakeet_execution_pro
 reports what actually ran (`cpu`, `directml`, `cuda`, `cpu-fallback`).
 Benchmark: `PARLATO_PARAKEET_DIR=<dir> PARLATO_WAV=<wav> cargo test --release
 --lib parakeet_gpu_smoke -- --ignored --nocapture`. Result on the owner's PC
-(RTX 5070 Ti): not measured yet. Do not make the switch default-on, or hide
-it, without that result.
+(RTX 5070 Ti, 2026-10-22, Parakeet Ultra int8, 77 s dictation, 12 threads,
+release build): processor 1.25 s, GPU encoder 0.52 s (2.4x faster), GPU
+encoder + joint 0.84 s, so `JOINT_ON_GPU` stays false. The GPU text is not
+byte-identical to the processor's (small floating-point differences change a
+few words, for example "Parlat" vs "Parlato"), but equally good. Kept
+default-off: one NVIDIA card is not enough to make it automatic; measure on
+AMD, Intel and Snapdragon first.
 
 **Whisper and local AI on the GPU are harder than Parakeet** (reviewed
 2026-10-22, not done). `whisper-rs-sys` and `llama-cpp-sys-2` each carry a
