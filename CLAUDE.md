@@ -190,7 +190,7 @@ and so do the user-facing strings outside the locale files: the language names i
 unaccented ASCII.
 
 **Tailwind scans every file in the repo, docs included.** A backslash path
-in a Markdown file (for example `C:\...\63e9c49c-...`) reads as a CSS escape
+in a Markdown file (a backslash followed by hex digits) reads as a CSS escape
 and fails `npm run build` with "Invalid code point". Write paths in docs
 with forward slashes.
 
