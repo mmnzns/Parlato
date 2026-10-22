@@ -2,7 +2,9 @@
 //
 // Reference VoiceInk : LLMkit DeepgramClient.swift.
 // Endpoint : POST https://api.deepgram.com/v1/listen?model=...&smart_format=true
-//   &punctuate=true&paragraphs=true[&language=...]
+//   &punctuate=true&paragraphs=true&mip_opt_out=true[&language=...]
+// mip_opt_out=true asks Deepgram not to use the audio for model improvement
+// (LLMkit f35a17a).
 // Headers : Authorization: Token <key>, Content-Type: audio/wav
 // Body : raw audio bytes.
 // Reponse : results.channels[0].alternatives[0].transcript.
@@ -17,6 +19,24 @@ use super::http::{batch_client, map_http_err};
 use super::provider::{CloudTranscriptionProvider, TranscribeRequest};
 
 pub struct DeepgramProvider;
+
+/// Batch request URL. `mip_opt_out=true` keeps the audio out of Deepgram's
+/// model improvement program (LLMkit DeepgramClient f35a17a).
+fn listen_url(model: &str, language: Option<&str>, keyterms: &[String]) -> String {
+    let mut url = format!(
+        "https://api.deepgram.com/v1/listen?model={}&smart_format=true&punctuate=true&paragraphs=true&mip_opt_out=true",
+        urlencoding::encode(model)
+    );
+    if let Some(lang) = language {
+        if !lang.is_empty() && lang != "auto" {
+            url.push_str(&format!("&language={}", urlencoding::encode(lang)));
+        }
+    }
+    for term in keyterms {
+        url.push_str(&format!("&keyterm={}", urlencoding::encode(term)));
+    }
+    url
+}
 
 #[derive(Debug, Deserialize)]
 struct DeepgramResponse {
@@ -63,18 +83,11 @@ impl CloudTranscriptionProvider for DeepgramProvider {
     ) -> Result<String> {
         let audio_bytes = tokio::fs::read(wav_path).await?;
 
-        let mut url = format!(
-            "https://api.deepgram.com/v1/listen?model={}&smart_format=true&punctuate=true&paragraphs=true",
-            urlencoding::encode(&request.model)
+        let url = listen_url(
+            &request.model,
+            request.language.as_deref(),
+            &request.custom_vocabulary,
         );
-        if let Some(lang) = request.language.as_deref() {
-            if !lang.is_empty() && lang != "auto" {
-                url.push_str(&format!("&language={}", urlencoding::encode(lang)));
-            }
-        }
-        for term in &request.custom_vocabulary {
-            url.push_str(&format!("&keyterm={}", urlencoding::encode(term)));
-        }
 
         let client = batch_client()?;
         let resp = client
@@ -101,5 +114,25 @@ impl CloudTranscriptionProvider for DeepgramProvider {
             .map(|a| a.transcript.clone())
             .unwrap_or_default();
         Ok(transcript)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn batch_url_opts_out_of_training() {
+        let url = listen_url("nova-3", None, &[]);
+        assert!(url.contains("&mip_opt_out=true"));
+        assert!(url.starts_with("https://api.deepgram.com/v1/listen?model=nova-3&"));
+    }
+
+    #[test]
+    fn batch_url_keeps_language_and_keyterms() {
+        let url = listen_url("nova-3", Some("fr"), &["Parlato".to_string()]);
+        assert!(url.contains("&mip_opt_out=true"));
+        assert!(url.ends_with("&language=fr&keyterm=Parlato"));
+        assert!(!listen_url("nova-3", Some("auto"), &[]).contains("language"));
     }
 }

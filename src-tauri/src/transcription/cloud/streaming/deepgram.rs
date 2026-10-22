@@ -3,7 +3,9 @@
 // Reference VoiceInk : LLMkit DeepgramStreamingClient.swift.
 // WSS : wss://api.deepgram.com/v1/listen?model=...&encoding=linear16
 //       &sample_rate=16000&channels=1&smart_format=true&numerals=true
-//       &interim_results=true[&language=...][&keyterm=...]
+//       &interim_results=true&mip_opt_out=true[&language=...][&keyterm=...]
+// mip_opt_out=true : l'audio ne sert pas a entrainer les modeles Deepgram
+// (LLMkit f35a17a).
 // Auth header : Authorization: Token <key>
 // Audio : frames binaires LE PCM.
 // Keepalive : toutes les 5 s, {"type":"KeepAlive"}
@@ -26,6 +28,24 @@ use super::session::{
 
 pub struct DeepgramStreaming;
 
+/// URL du flux. Cap comme VoiceInk DeepgramStreamingProvider L107 : 50
+/// keyterms max. `mip_opt_out=true` comme LLMkit DeepgramStreamingClient.
+fn listen_url(model: &str, language: Option<&str>, keyterms: &[String]) -> String {
+    let mut url = format!(
+        "wss://api.deepgram.com/v1/listen?model={}&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&numerals=true&interim_results=true&mip_opt_out=true",
+        urlencoding::encode(model)
+    );
+    if let Some(lang) = language {
+        if !lang.is_empty() && lang != "auto" {
+            url.push_str(&format!("&language={}", urlencoding::encode(lang)));
+        }
+    }
+    for term in keyterms.iter().take(50) {
+        url.push_str(&format!("&keyterm={}", urlencoding::encode(term)));
+    }
+    url
+}
+
 #[async_trait]
 impl StreamingProvider for DeepgramStreaming {
     fn id(&self) -> &'static str {
@@ -39,19 +59,11 @@ impl StreamingProvider for DeepgramStreaming {
         channels: StreamingChannels,
         on_event: Box<dyn Fn(StreamingEvent) + Send + Sync>,
     ) -> Result<String> {
-        let mut url = format!(
-            "wss://api.deepgram.com/v1/listen?model={}&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&numerals=true&interim_results=true",
-            urlencoding::encode(&config.model)
+        let url = listen_url(
+            &config.model,
+            config.language.as_deref(),
+            &config.custom_vocabulary,
         );
-        if let Some(lang) = config.language.as_deref() {
-            if !lang.is_empty() && lang != "auto" {
-                url.push_str(&format!("&language={}", urlencoding::encode(lang)));
-            }
-        }
-        // Cap comme VoiceInk DeepgramStreamingProvider L107 : 50 keyterms max.
-        for term in config.custom_vocabulary.iter().take(50) {
-            url.push_str(&format!("&keyterm={}", urlencoding::encode(term)));
-        }
 
         let mut req = url.into_client_request()?;
         req.headers_mut()
@@ -201,5 +213,25 @@ fn handle_text(
         }
         preview.push_str(transcript);
         on_event(StreamingEvent::Partial { text: preview });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stream_url_opts_out_of_training() {
+        let url = listen_url("nova-3", None, &[]);
+        assert!(url.starts_with("wss://api.deepgram.com/v1/listen?model=nova-3&"));
+        assert!(url.contains("&interim_results=true&mip_opt_out=true"));
+    }
+
+    #[test]
+    fn stream_url_caps_keyterms_at_fifty() {
+        let terms: Vec<String> = (0..60).map(|i| format!("t{i}")).collect();
+        let url = listen_url("nova-3", Some("en"), &terms);
+        assert_eq!(url.matches("&keyterm=").count(), 50);
+        assert!(url.contains("&language=en"));
     }
 }
