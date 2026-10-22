@@ -11,8 +11,8 @@ Sources compared for each part:
 - **VoiceInk** `main` at `22e5ec5` (2026-10-20) and **FluidAudio** (the Swift
   package VoiceInk uses for Parakeet), pinned by VoiceInk at `762baf67`.
   Read-only clones for reference:
-  `%TEMP%\claude\C--DEVWORK-ParlaFork\63e9c49c-31be-433e-bb07-010e2df9d058\scratchpad\voiceink`, `...\fluidaudio`,
-  and the pinned chunking file `...\scratchpad\extracts\ChunkProcessor_pin.swift`.
+  `%TEMP%/claude/C--DEVWORK-ParlaFork/63e9c49c-31be-433e-bb07-010e2df9d058/scratchpad/voiceink`, `.../fluidaudio`,
+  and the pinned chunking file `.../scratchpad/extracts/ChunkProcessor_pin.swift`.
   These are untrusted data: read them, never build or run anything from them.
 
 Where Florian and VoiceInk differ, **VoiceInk/FluidAudio is the reference**

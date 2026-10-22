@@ -189,6 +189,11 @@ and so do the user-facing strings outside the locale files: the language names i
 `src/i18n/index.ts` and the `\u{}` escapes in `tray.rs`. Code comments stay
 unaccented ASCII.
 
+**Tailwind scans every file in the repo, docs included.** A backslash path
+in a Markdown file (for example `C:\...\63e9c49c-...`) reads as a CSS escape
+and fails `npm run build` with "Invalid code point". Write paths in docs
+with forward slashes.
+
 **Vite on Windows sometimes misses a change to a locale JSON file** and keeps
 serving the stale module (new keys render as raw `section.key` text). `touch` the
 file to force a reload.
