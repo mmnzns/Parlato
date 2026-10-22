@@ -9,6 +9,15 @@
 // A device with no mute control (some HDMI and USB outputs) reports "missing
 // value"; that is an error here, and mute.rs then skips muting instead of
 // guessing, the same as on Windows.
+//
+// Device limitation: osascript only reaches the current default output, so
+// there is one endpoint ID (`DEFAULT_OUTPUT_ID`) and the restore un-mutes
+// whatever the default output is at that moment. VoiceInk restores the exact
+// device it muted (Core Audio device IDs); that would need a Core Audio crate
+// and is not done here. If the user switches output during a dictation, the
+// output Parlato muted stays muted on the Mac (the Windows build restores it
+// by ID). The rest of the state machine in mute.rs (sessions, ownership,
+// restore even if the setting was turned off) is shared with Windows.
 
 use std::process::Command;
 
@@ -45,6 +54,19 @@ pub fn read_mute() -> Result<bool> {
 
 pub fn write_mute(muted: bool) -> Result<()> {
     run(&format!("set volume output muted {muted}")).map(|_| ())
+}
+
+/// The only endpoint ID on the Mac: "the current default output".
+pub const DEFAULT_OUTPUT_ID: &str = "default-output";
+
+/// ID and mute state of the default output (same shape as the Windows call).
+pub fn default_output_state() -> Result<(String, bool)> {
+    Ok((DEFAULT_OUTPUT_ID.to_string(), read_mute()?))
+}
+
+/// Mutes or un-mutes the default output. `_id` is always `DEFAULT_OUTPUT_ID`.
+pub fn set_output_muted(_id: &str, muted: bool) -> Result<()> {
+    write_mute(muted)
 }
 
 #[cfg(test)]
