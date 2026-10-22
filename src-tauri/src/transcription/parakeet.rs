@@ -124,7 +124,16 @@ impl ParakeetEngine {
         // Pas de timestamps pour l'usage dictee : on veut juste le texte.
         // parakeet-rs attend un Vec<f32>. Une copie est inevitable ici.
         let result = match &mut loaded.engine {
-            Engine::Tdt(e) => e.transcribe_samples(samples.to_vec(), 16000, 1, None),
+            Engine::Tdt(e) => {
+                // Plus de 15 s : fenetres qui se recouvrent (parakeet_windows),
+                // une passe unique fait deriver le modele sur un long audio.
+                // Unified (flux a memoire) et Nemotron (etat de flux, relance
+                // de langue) gardent leur chemin : derive non constatee.
+                if samples.len() > super::parakeet_windows::SINGLE_PASS_MAX_SAMPLES {
+                    return transcribe_tdt_windows(e, samples);
+                }
+                e.transcribe_samples(samples.to_vec(), 16000, 1, None)
+            }
             Engine::Unified(e) => e.transcribe_samples(samples.to_vec(), 16000, 1, None),
             Engine::Nemotron(e) => return transcribe_nemotron(e, samples, language),
         }
@@ -169,6 +178,20 @@ impl ParakeetEngine {
     pub fn unload(&self) {
         *self.current.lock() = None;
     }
+}
+
+/// Parlato : TDT sur un audio de plus de 15 s, fenetre par fenetre.
+fn transcribe_tdt_windows(e: &mut ParakeetTDT, samples: &[f32]) -> Result<String> {
+    let (text, windows) = super::parakeet_windows::transcribe_in_windows(samples, |slice| {
+        e.transcribe_samples(slice.to_vec(), 16000, 1, None)
+            .map(|r| r.tokens)
+            .map_err(|err| anyhow!("parakeet transcribe: {err:?}"))
+    })?;
+    tracing::info!(
+        "parakeet: {:.1}s decoupees en {windows} fenetres",
+        samples.len() as f32 / 16000.0
+    );
+    Ok(text)
 }
 
 /// Parlato : La langue de dictee ("fr") est passee au modele, sinon "auto"
@@ -268,6 +291,61 @@ mod tests {
             t1.elapsed().as_secs_f32()
         );
         assert!(!text.trim().is_empty());
+    }
+
+    /// Compare passe unique et fenetres sur un vrai enregistrement (Parakeet
+    /// TDT : v2, v3 ou Ultra) :
+    /// `PARLATO_PARAKEET_DIR=<modele tdt> PARLATO_WAV=<wav 16 kHz>
+    /// cargo test --release --lib parakeet_long_audio -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn parakeet_long_audio() {
+        use crate::transcription::parakeet_windows::{plan_windows, SAMPLE_RATE};
+        let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
+        let engine = ParakeetEngine::new();
+        engine
+            .ensure_loaded(Path::new(&dir), ParakeetKind::Tdt, 0)
+            .unwrap();
+        let t0 = std::time::Instant::now();
+        let single = {
+            let mut g = engine.current.lock();
+            match &mut g.as_mut().unwrap().engine {
+                Engine::Tdt(e) => {
+                    e.transcribe_samples(samples.clone(), 16000, 1, None)
+                        .unwrap()
+                        .text
+                }
+                _ => panic!("il faut un modele Parakeet TDT"),
+            }
+        };
+        println!(
+            "=== passe unique ({:.1}s audio, {} car., {:.1}s)
+{single}
+",
+            samples.len() as f32 / SAMPLE_RATE as f32,
+            single.len(),
+            t0.elapsed().as_secs_f32()
+        );
+        let t1 = std::time::Instant::now();
+        let chunked = engine.transcribe_samples(&samples, None).unwrap();
+        println!(
+            "=== fenetres ({} car., {:.1}s)
+{chunked}
+",
+            chunked.len(),
+            t1.elapsed().as_secs_f32()
+        );
+        for w in plan_windows(&samples) {
+            println!(
+                "fenetre {:.2}s..{:.2}s (propre des {:.2}s)",
+                w.start as f32 / SAMPLE_RATE as f32,
+                w.end as f32 / SAMPLE_RATE as f32,
+                w.own_from as f32 / SAMPLE_RATE as f32
+            );
+        }
+        assert!(!chunked.trim().is_empty());
     }
 
     /// Parlato : temps de Parakeet TDT selon `intra_threads` (4 par defaut

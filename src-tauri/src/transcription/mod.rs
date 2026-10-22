@@ -15,6 +15,7 @@ pub mod model_manager;
 pub mod parakeet;
 pub mod parakeet_live;
 pub mod parakeet_model_manager;
+pub mod parakeet_windows;
 pub mod pipeline;
 pub mod vad;
 pub mod whisper;
