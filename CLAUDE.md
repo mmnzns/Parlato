@@ -108,6 +108,46 @@ dot-source the script and call `Set-GgmlBaseline x64` first.
 
 ## Things that are easy to get wrong
 
+**Long Parakeet TDT dictations are decoded in windows** (2026-10-22,
+`transcription/parakeet_windows.rs`). A single pass over a long recording
+made Parakeet drift into English and drop sentences. Over 15 s, the TDT models
+(v2, v3, Ultra; not Unified or Nemotron) are cut into 14.96 s windows with a
+2 s overlap, starts aligned on silence, and the timed tokens are merged by
+matching the overlap, following FluidAudio's `ChunkProcessor` at the commit
+VoiceInk pins (762baf67). It is pure functions with unit tests; the module
+header lists what is not ported (gap repair, parallel windows). Check it on a
+long real recording with the ignored `parakeet_long_audio` test.
+
+**Parakeet on the graphics card is a user setting, default off** (2026-10-22).
+Store key `parakeet_gpu`, commands `get/set_parakeet_gpu`, switch in
+`SpeechThreadsPanel.tsx` (NVIDIA models page, hidden when the build has no GPU
+provider, so on the Mac). Every Windows build already carries ONNX Runtime with
+DirectML (ort-sys only ships a DirectML build for Windows, x64 and ARM64) and
+uses the DirectML.dll of Windows (System32, Windows 10 1903+; it is not
+bundled, very old Windows 10 builds fall back to the processor), so there is
+still one installer and the auto-updater is untouched. `parakeet-rs`'s
+`directml` feature is on for Windows targets in `Cargo.toml`; the old
+`directml-onnx` Cargo feature is gone, `cuda-onnx` still works for source
+builds. The encoder goes on the GPU, the TDT decoder/joint stays on the
+processor (`JOINT_ON_GPU` in `parakeet.rs`; `parakeet_gpu_smoke` measures
+both). If loading or the first transcription on the GPU fails, Parlato reloads
+on the processor, retries once, remembers the failure until the app restarts
+and shows one recorder-pill notice after that dictation. `parakeet_execution_provider`
+reports what actually ran (`cpu`, `directml`, `cuda`, `cpu-fallback`).
+Benchmark: `PARLATO_PARAKEET_DIR=<dir> PARLATO_WAV=<wav> cargo test --release
+--lib parakeet_gpu_smoke -- --ignored --nocapture`. Result on the owner's PC
+(RTX 5070 Ti): not measured yet. Do not make the switch default-on, or hide
+it, without that result.
+
+**Whisper and local AI on the GPU are harder than Parakeet** (reviewed
+2026-10-22, not done). `whisper-rs-sys` and `llama-cpp-sys-2` each carry a
+ggml copy (see "Do not bump `llama-cpp-2` on its own"), so a GPU back end has
+to be changed in both together. A Vulkan build makes the exe hard-require
+`vulkan-1.dll`, whisper's ggml copy starts Vulkan even when
+`GGML_DISABLE_VULKAN` is set, and Windows ARM64 is uncertain. It needs its own
+research spike. CUDA needs a separate installer outside the updater, so it
+stays out of releases.
+
 **Model names and descriptions shown in the UI come from the locale files.**
 The Rust catalogs keep upstream's French `display_name` / `notes`; the UI
 shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
@@ -131,7 +171,7 @@ bundles or hosts model files; they download from the original host. Pin
 third-party repositories to a commit (`revision` in the Parakeet catalog).
 
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-856 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
+860 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
 are written with their accents (converted 2026-10-05, commit 3d7925b; Spanish
 questions and exclamations take their opening marks). New strings follow suit,
@@ -495,10 +535,18 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   and `window_subclass.rs`. These are the hardest to debug and are off-limits until
   more reps are built on lower-risk changes. The Mac port adds new macOS-only
   files in these folders (see "Mac port plan"); that is allowed, editing the
-  Windows code paths is not.
-- **CPU-only.** Do not add CUDA features to the build. The GPU here is Blackwell
-  (needs CUDA 12.8+) and the VS version is v18 while CUDA integrates with v17 —
-  two independent failure points. CUDA is its own future task.
+  Windows code paths is not. One exception, with the owner's OK (2026-10-22):
+  `audio/mute.rs` was edited for the mute-restore fix (the mute state machine
+  only). Capture code stays off-limits.
+- **GPU use is allowed, on conditions** (owner decision, 2026-10-22; it
+  replaces the old "CPU-only" rule). It must keep one installer per platform
+  and the auto-updater, be a user choice with a fallback to the processor,
+  and never stop the app from starting on a PC without that GPU. CUDA builds
+  stay out of releases: do not add CUDA features to the release build. The GPU
+  here is Blackwell (needs CUDA 12.8+) and the VS version is v18 while CUDA
+  integrates with v17, two independent failure points. CUDA is its own future
+  task. The Parakeet DirectML switch (see "Things that are easy to get wrong")
+  is the first use.
 - **Preserve GPL-3.0.** Keep the LICENSE and all copyright/license headers. Note
   modifications if anything is ever distributed.
 - **Commit only what builds and works.** One logical change per commit.

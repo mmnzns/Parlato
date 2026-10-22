@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Use the graphics card for Parakeet** (Windows, experimental): a switch
+  on the Speech model page under NVIDIA models. It is off by default. If the
+  graphics card does not work, Parlato falls back to the processor, says so
+  once, and the dictation still pastes.
+
+### Fixed
+- Long dictations with Parakeet no longer drift into English or lose
+  sentences: recordings over 15 seconds are now read in overlapping parts and
+  joined back together.
+- Pause other audio gives back the speakers it muted, even after you switch
+  output (for example by plugging in headphones) or turn the setting off in
+  the middle of a dictation. On a Mac it still follows the current output.
+
+### Changed
+- Deepgram is asked not to use your audio for training its models.
+
 ## [0.13.2] - 2026-10-19
 
 ### Fixed
