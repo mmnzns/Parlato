@@ -104,7 +104,8 @@ Parla exposes several Cargo features in `src-tauri/Cargo.toml` that control back
 | `cuda-whisper` | no | Compile `whisper.cpp` with CUDA support |
 | `cuda-llama` | no | Compile `llama.cpp` with CUDA support |
 | `cuda-onnx` | no | Enable the ONNX Runtime CUDA Execution Provider for Parakeet |
-| `directml-onnx` | no | Enable the ONNX Runtime DirectML EP (AMD / Intel GPU) |
+
+On Windows the ONNX Runtime DirectML provider is always compiled in. Parakeet uses it when "Use the graphics card" is switched on (Speech model page); there is no Cargo feature for it.
 
 The CI workflow `.github/workflows/release.yml` builds CPU variants for both x64 and ARM64. The GitHub public `windows-latest` runner (4 cores, 16 GB RAM, 14 GB disk) cannot fit the CUDA build of whisper.cpp + llama.cpp + ggml-cuda within the 6 hour job limit - nvcc and MSBuild oversubscribe the machine and swap-thrash until the job dies. If you need CUDA, build it yourself from source with the recipe below.
 

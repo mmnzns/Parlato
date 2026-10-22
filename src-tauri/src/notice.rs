@@ -36,9 +36,28 @@ pub enum Notice {
     /// Echec, avec le message d'erreur (code PARLA_ERR traduit par
     /// l'interface).
     Failed(String),
+    /// Parakeet n'a pas pu utiliser la carte graphique et a utilise le
+    /// processeur (une fois par lancement de l'application).
+    GpuFallback,
 }
 
 static PENDING: Mutex<Option<Notice>> = Mutex::new(None);
+/// Message a montrer quand la dictee en cours aura fini (sa bulle est
+/// occupee jusque-la).
+static AFTER_DICTATION: Mutex<Option<Notice>> = Mutex::new(None);
+
+/// Garde `notice` pour `flush_after_dictation`.
+pub fn send_after_dictation(notice: Notice) {
+    *AFTER_DICTATION.lock() = Some(notice);
+}
+
+/// Montre le message garde par `send_after_dictation`, s'il y en a un.
+pub fn flush_after_dictation(app: &AppHandle) {
+    let queued = AFTER_DICTATION.lock().take();
+    if let Some(notice) = queued {
+        send(app, notice);
+    }
+}
 
 /// Montre `notice` dans la bulle pendant quelques secondes. Ne fait rien
 /// pendant un enregistrement : la bulle est alors occupee.

@@ -43,6 +43,8 @@ const STORE_FILE: &str = "parla.settings.json";
 const SELECTED_MODEL_KEY: &str = "selected_whisper_model";
 const LANGUAGE_KEY: &str = "whisper_language";
 const SPEECH_THREADS_KEY: &str = "speech_threads";
+/// Parlato : Parakeet sur la carte graphique (bool, faux par defaut).
+const PARAKEET_GPU_KEY: &str = "parakeet_gpu";
 /// Parlato : secondes pendant lesquelles les modeles restent charges apres
 /// une dictee (0 = liberes tout de suite, comme VoiceInk).
 const KEEP_ALIVE_KEY: &str = "model_keep_alive_secs";
@@ -345,6 +347,23 @@ pub fn set_speech_threads(app: &AppHandle, threads: usize) -> Result<()> {
     Ok(())
 }
 
+/// Parlato : Parakeet doit-il utiliser la carte graphique ? Faux par defaut
+/// (a mesurer avant d'en faire un choix automatique, cf CLAUDE.md).
+pub fn get_parakeet_gpu(app: &AppHandle) -> bool {
+    app.store(STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(PARAKEET_GPU_KEY))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+pub fn set_parakeet_gpu(app: &AppHandle, enabled: bool) -> Result<()> {
+    let store = app.store(STORE_FILE)?;
+    store.set(PARAKEET_GPU_KEY, serde_json::Value::Bool(enabled));
+    store.save()?;
+    Ok(())
+}
+
 pub fn get_restore_clipboard(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
         return true;
@@ -574,6 +593,7 @@ async fn finish_dictation(
     };
     tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
     mini_recorder::close_if_current(app, pill);
+    crate::notice::flush_after_dictation(app);
 }
 
 /// Duree d'affichage d'un echec dans la bulle.
@@ -821,9 +841,11 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         let language_clone = language.clone();
         let vad = vad_for(&app);
         let threads = get_speech_threads(&app);
+        let gpu = get_parakeet_gpu(&app);
         let start = std::time::Instant::now();
+        let engine_for_notice = engine_state.clone();
         let text = task::spawn_blocking(move || -> Result<String> {
-            engine_state.ensure_loaded(&model_dir, kind, threads)?;
+            engine_state.ensure_loaded(&model_dir, kind, threads, gpu)?;
             let used_vad = vad.is_some();
             let mut samples = speech_samples(vad, &wav_path_clone)?;
             if samples.is_empty() {
@@ -844,6 +866,11 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
             model = model_id,
             "Transcription Parakeet terminee"
         );
+        // Parlato : repli carte graphique -> processeur, a dire une fois dans la
+        // bulle, une fois la dictee finie (la bulle est occupee d'ici la).
+        if engine_for_notice.take_gpu_notice() && run.job == Job::Dictation {
+            crate::notice::send_after_dictation(crate::notice::Notice::GpuFallback);
+        }
         mark_transcribed_in_history(
             &app,
             run,
@@ -1197,6 +1224,7 @@ mod tests {
                 Path::new(&dir),
                 crate::transcription::parakeet_model_manager::ParakeetKind::Tdt,
                 0,
+                false,
             )
             .unwrap();
         let text = engine.transcribe_samples(&speech, None).unwrap();
