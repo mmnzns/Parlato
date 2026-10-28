@@ -153,10 +153,12 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let hk = hotkey_cfg::load(app);
 
     let open = MenuItem::with_id(app, "open", t("open"), true, None::<&str>)?;
+    // Parlato: no shortcut next to "Start or stop dictation" (it follows the
+    // shortcut mode, and a shorter label keeps the menu narrower).
     let toggle = MenuItem::with_id(
         app,
         "toggle_record",
-        with_accel(&lang, t("toggleRecorder"), hk.primary.trigger),
+        t("toggleRecorder"),
         true,
         None::<&str>,
     )?;
