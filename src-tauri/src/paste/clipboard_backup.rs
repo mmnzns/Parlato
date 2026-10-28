@@ -103,12 +103,29 @@ fn is_skipped_format(format: u32) -> bool {
         || (CF_GDIOBJFIRST..=CF_GDIOBJLAST).contains(&format)
 }
 
+/// Parlato : une autre application (gestionnaire d'historique, bureau a
+/// distance...) peut tenir le clipboard quelques millisecondes ; on reessaye
+/// comme `paste::with_clipboard` au lieu de perdre images et mise en forme.
+const OPEN_ATTEMPTS: u32 = 5;
+const OPEN_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(40);
+
+fn open_clipboard(what: &str) -> Result<()> {
+    let mut last = None;
+    for attempt in 0..OPEN_ATTEMPTS {
+        if attempt > 0 {
+            std::thread::sleep(OPEN_RETRY_DELAY);
+        }
+        match unsafe { OpenClipboard(Some(HWND(ptr::null_mut()))) } {
+            Ok(()) => return Ok(()),
+            Err(e) => last = Some(e),
+        }
+    }
+    Err(anyhow!("{what}: {}", last.map(|e| e.to_string()).unwrap_or_default()))
+}
+
 /// Ouvre le clipboard, enumere tous les formats, copie les bytes de chacun.
 pub fn backup_all() -> Result<Backup> {
-    unsafe {
-        OpenClipboard(Some(HWND(ptr::null_mut())))
-            .map_err(|e| anyhow!("OpenClipboard: {e}"))?;
-    }
+    open_clipboard("OpenClipboard")?;
 
     let mut entries = Vec::new();
     let mut fmt = 0u32;
@@ -165,10 +182,7 @@ fn read_format_bytes(format: u32) -> Result<Vec<u8>> {
 
 /// Efface le clipboard puis re-ecrit tous les formats sauvegardes.
 pub fn restore_all(backup: &Backup) -> Result<()> {
-    unsafe {
-        OpenClipboard(Some(HWND(ptr::null_mut())))
-            .map_err(|e| anyhow!("OpenClipboard (restore): {e}"))?;
-    }
+    open_clipboard("OpenClipboard (restore)")?;
 
     let result = (|| -> Result<()> {
         unsafe {
