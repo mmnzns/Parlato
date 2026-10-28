@@ -321,9 +321,14 @@ export function MiniRecorderView() {
             {stage === "notice" && notice && (
               <span
                 role="status"
-                title={notice.kind === "failed" ? translateError(t, notice.detail) : undefined}
+                // Full text on hover, in case the label is cut with an ellipsis.
+                title={
+                  notice.kind === "failed"
+                    ? translateError(t, notice.detail)
+                    : t(`miniRecorder.notice.${notice.kind}`)
+                }
                 className={cn(
-                  "truncate text-[11px] font-medium",
+                  "min-w-0 truncate text-[11px] font-medium",
                   notice.kind === "failed" ? "text-[#FF8A5C]" : "text-white/90",
                 )}
               >

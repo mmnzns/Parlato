@@ -411,7 +411,7 @@
       "copied": "Copié dans le presse-papiers",
       "retryStarted": "Nouvelle transcription...",
       "retryDone": "Terminé, copié dans le presse-papiers",
-      "gpuFallback": "Carte graphique indisponible, processeur utilisé"
+      "gpuFallback": "Échec carte graphique, processeur utilisé"
     }
   },
   "errors": {

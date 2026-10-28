@@ -411,7 +411,7 @@
       "copied": "Copied to clipboard",
       "retryStarted": "Transcribing again...",
       "retryDone": "Done, copied to clipboard",
-      "gpuFallback": "Graphics card unavailable, used the processor"
+      "gpuFallback": "Graphics card failed, used processor"
     }
   },
   "errors": {

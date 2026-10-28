@@ -411,7 +411,7 @@
       "copied": "Copiado al portapapeles",
       "retryStarted": "Transcribiendo de nuevo...",
       "retryDone": "Listo, copiado al portapapeles",
-      "gpuFallback": "Sin tarjeta gráfica, se usó el procesador"
+      "gpuFallback": "Falló la gráfica, se usó el procesador"
     }
   },
   "errors": {
