@@ -268,7 +268,7 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
               ) : (
                 `${t(`${wording}.step2Before`)} ... ${t(`${wording}.step2After`)}`
               ),
-              t("dashboard.step3"),
+              t(`${wording}.step3`),
             ].map((step, i) => (
               <li key={i} className="flex items-start gap-3">
                 <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-highlight font-mono text-xs font-semibold text-[#141416]">
