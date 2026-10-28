@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- The recorder pill no longer has a shadow, in any state.
+- The recorder pill no longer has a shadow. Instead it has a thin green
+  outline (orange when something failed), so it is easy to find on a dark
+  desktop.
 - The power mode picker on the recorder pill is redesigned: a dark list as
   wide as the pill, titled "mode", with a check on the current mode and its
   Alt+number key on the right. The pill itself stays the same when it opens,

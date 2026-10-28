@@ -263,6 +263,10 @@ export function MiniRecorderView() {
         className={cn(
           // Parlato: Workbench charcoal pill, flat: no shadow in any state.
           "flex flex-col bg-[#141416] text-white transition-all duration-300 ease-in-out",
+          // Parlato: thin lime outline (orange on a failure) so the pill stays
+          // easy to find on a dark desktop. Drawn inside, the size is unchanged.
+          "ring-[1.5px] ring-inset",
+          stage === "failed" ? "ring-[#FF8A5C]" : "ring-[#B5E61D]",
           // Parlato: wider while the Cancel button is shown, so "Cleaning up"
           // stays on one line in every language.
           expanded
