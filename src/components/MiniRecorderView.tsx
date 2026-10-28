@@ -261,12 +261,8 @@ export function MiniRecorderView() {
       <div
         ref={pillRef}
         className={cn(
-          // Parlato: Workbench charcoal pill; a hard lime offset shadow while
-          // listening (design token pill-rec-shadow), a soft one otherwise.
+          // Parlato: Workbench charcoal pill, flat: no shadow in any state.
           "flex flex-col bg-[#141416] text-white transition-all duration-300 ease-in-out",
-          stage === "recording"
-            ? "shadow-[4px_4px_0_#B5E61D]"
-            : "shadow-[0_6px_20px_rgba(0,0,0,0.25)]",
           // Parlato: wider while the Cancel button is shown, so "Cleaning up"
           // stays on one line in every language.
           expanded
