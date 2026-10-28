@@ -24,7 +24,7 @@ import { Row, Switch } from "@/components/ui/section";
 import { HotkeyCard } from "@/components/HotkeyCard";
 import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { ModelsPage } from "@/components/ModelsPage";
-import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
+import { useHotkeyLabel, wordingMode } from "@/hooks/useHotkeyLabel";
 import { AccessibilityAction, MicrophoneAction, PermissionRow } from "@/components/PermissionsPanel";
 import { api, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,8 @@ export function Onboarding({
   const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const step: Step = STEPS[index];
-  const { label: keyLabel } = useHotkeyLabel(step);
+  const { label: keyLabel, mode } = useHotkeyLabel(step);
+  const wording = `shortcutWording.${wordingMode(mode)}`;
   const key = keyLabel ?? t("hotkey.options.rightAlt");
 
   const copy: Record<Step, { label: string; title: string; desc: string }> = {
@@ -56,7 +57,7 @@ export function Onboarding({
     mic: { label: t("ob.micLabel"), title: t("ob.micTitle"), desc: t("ob.micDesc") },
     model: { label: t("ob.modelLabel"), title: t("ob.modelTitle"), desc: t("ob.modelDesc") },
     key: { label: t("ob.keyLabel"), title: t("ob.keyTitle"), desc: t("ob.keyDesc") },
-    try: { label: t("ob.tryLabel"), title: t("ob.tryTitle"), desc: t("ob.tryDesc", { key }) },
+    try: { label: t("ob.tryLabel"), title: t("ob.tryTitle"), desc: t(`${wording}.tryDesc`, { key }) },
   };
 
   async function finish() {
@@ -145,7 +146,7 @@ export function Onboarding({
             )}
             {step === "model" && <ModelsPage selectedModelId={selectedModelId} onSelectModel={onSelectModel} />}
             {step === "key" && <HotkeyCard />}
-            {step === "try" && <TryStep keyLabel={key} />}
+            {step === "try" && <TryStep keyLabel={key} wording={wording} />}
           </div>
         </div>
 
@@ -206,7 +207,7 @@ function AccessStep() {
   );
 }
 
-function TryStep({ keyLabel }: { keyLabel: string }) {
+function TryStep({ keyLabel, wording }: { keyLabel: string; wording: string }) {
   const { t } = useTranslation();
   const [autostart, setAutostart] = useState<boolean | null>(null);
 
@@ -232,10 +233,10 @@ function TryStep({ keyLabel }: { keyLabel: string }) {
       <div className="flex flex-col gap-2">
         <textarea
           aria-label={t("dashboard.practiceLabel")}
-          placeholder={t("ob.tryPlaceholder", { key: keyLabel })}
+          placeholder={t(`${wording}.tryPlaceholder`, { key: keyLabel })}
           className="min-h-[160px] rounded-lg border-[1.5px] border-edge bg-card p-4 text-[15px] leading-6 shadow-[var(--sel-shadow)] outline-none focus:border-foreground"
         />
-        <span className="text-xs text-muted-foreground">{t("ob.tryNote")}</span>
+        <span className="text-xs text-muted-foreground">{t(`${wording}.tryNote`)} {t("ob.tryPrivacy")}</span>
       </div>
       {autostart !== null && (
         <div className="rounded-lg border-[1.5px] border-edge bg-card">

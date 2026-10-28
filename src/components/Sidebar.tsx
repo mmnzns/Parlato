@@ -175,8 +175,7 @@ export function Sidebar({
           </span>
         </div>
         {hotkeyLabel && (
-          <div className="text-xs leading-5 text-sidebar-muted">
-            {t("sidebar.statusHoldBefore")}{" "}
+          <div className="whitespace-nowrap text-xs leading-5 text-sidebar-muted">
             {/* Parlato: the key chip opens the shortcut settings. */}
             <button
               type="button"
@@ -189,7 +188,7 @@ export function Sidebar({
                 {hotkeyLabel}
               </kbd>
             </button>{" "}
-            {t("sidebar.statusHoldAfter")}
+            {t("sidebar.statusTalk")}
           </div>
         )}
       </div>

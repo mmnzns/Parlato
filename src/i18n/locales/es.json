@@ -26,13 +26,12 @@
     "tagline": "voz → texto",
     "navLabel": "Menú principal",
     "statusReady": "Listo",
-    "statusHoldBefore": "Mantén",
-    "statusHoldAfter": "y habla",
+    "statusTalk": "para hablar",
     "statusNoShortcut": "Sin atajo de dictado"
   },
   "hero": {
     "dashboardTitle": "Listo cuando tú lo estés",
-    "dashboardDescription": "Parlato funciona en segundo plano. Mantén pulsada tu tecla de dictado en cualquier aplicación para empezar a hablar.",
+    "dashboardDescription": "Parlato funciona en segundo plano. Usa tu tecla de dictado en cualquier aplicación para empezar a hablar.",
     "transcribeTitle": "Transcribir un archivo",
     "transcribeDescription": "Convierte un archivo de audio o vídeo en texto.",
     "historyTitle": "Historial",
@@ -55,13 +54,9 @@
   "dashboard": {
     "timeSaved": "tiempo ahorrado",
     "howLabel": "cómo dictar",
-    "howTitle": "Mantén, habla, suelta.",
     "step1": "Haz clic donde quieras el texto: un correo, un documento, un chat.",
-    "step2Before": "Mantén",
-    "step2After": "y habla con normalidad.",
     "step3": "Suelta. Parlato escribe tus palabras por ti.",
     "practiceLabel": "practica aquí",
-    "practicePlaceholder": "Haz clic aquí, mantén {{key}} y di \"Hola, este es mi primer dictado.\"",
     "practicePlaceholderNoKey": "Haz clic aquí y prueba tu primer dictado.",
     "setupTitle": "Tu configuración",
     "setupMic": "Micrófono",
@@ -827,12 +822,10 @@
     "modelDesc": "En este ordenador es privado y gratis tras una descarga única. Los servicios en línea necesitan una clave. Puedes cambiarlo luego en Modelo de voz.",
     "keyLabel": "Tu atajo",
     "keyTitle": "¿Qué tecla inicia el dictado?",
-    "keyDesc": "Pulsarás esta tecla cada vez que quieras hablar. Elige una cómoda que no uses para otra cosa.",
+    "keyDesc": "Usarás esta tecla cada vez que quieras hablar. Elige una cómoda que no uses para otra cosa.",
     "tryLabel": "Pruébalo",
     "tryTitle": "Haz una prueba",
-    "tryDesc": "Haz clic en el cuadro, pulsa {{key}}, di una frase y suelta.",
-    "tryPlaceholder": "Haz clic aquí, pulsa {{key}} y di: \"Este es mi primer dictado.\"",
-    "tryNote": "Tus palabras aparecen aquí al soltar la tecla. No se envía nada, salvo que hayas elegido un servicio en línea.",
+    "tryPrivacy": "No se envía nada, salvo que hayas elegido un servicio en línea.",
     "autostart": "Iniciar Parlato con el ordenador",
     "autostartDesc": "Para que esté listo cuando quieras dictar.",
     "back": "Atrás",
@@ -1066,5 +1059,34 @@
     "down": "Abajo",
     "insert": "Insert",
     "printScreen": "Impr Pant"
+  },
+  "shortcutWording": {
+    "hold": {
+      "title": "Mantén, habla, suelta.",
+      "step2Before": "Mantén",
+      "step2After": "y habla con normalidad.",
+      "practice": "Haz clic aquí, mantén {{key}} y di \"Hola, este es mi primer dictado.\"",
+      "tryDesc": "Haz clic en el cuadro, mantén {{key}}, di una frase y suelta.",
+      "tryPlaceholder": "Haz clic aquí, mantén {{key}} y di: \"Este es mi primer dictado.\"",
+      "tryNote": "Tus palabras aparecen aquí al soltar la tecla."
+    },
+    "toggle": {
+      "title": "Pulsa, habla, pulsa otra vez.",
+      "step2Before": "Pulsa",
+      "step2After": "y habla con normalidad. Púlsala otra vez para parar.",
+      "practice": "Haz clic aquí, pulsa {{key}} y di \"Hola, este es mi primer dictado.\"",
+      "tryDesc": "Haz clic en el cuadro, pulsa {{key}}, di una frase y vuelve a pulsar la tecla.",
+      "tryPlaceholder": "Haz clic aquí, pulsa {{key}} y di: \"Este es mi primer dictado.\"",
+      "tryNote": "Tus palabras aparecen aquí al volver a pulsar la tecla."
+    },
+    "hybrid": {
+      "title": "Mantén o pulsa, y habla.",
+      "step2Before": "Mantén o pulsa",
+      "step2After": "y habla con normalidad. Si pulsaste, púlsala otra vez para parar.",
+      "practice": "Haz clic aquí, mantén o pulsa {{key}} y di \"Hola, este es mi primer dictado.\"",
+      "tryDesc": "Haz clic en el cuadro, mantén o pulsa {{key}}, di una frase y luego suelta, o vuelve a pulsar la tecla.",
+      "tryPlaceholder": "Haz clic aquí, mantén o pulsa {{key}} y di: \"Este es mi primer dictado.\"",
+      "tryNote": "Tus palabras aparecen aquí al soltar la tecla o al volver a pulsarla."
+    }
   }
 }

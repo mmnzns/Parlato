@@ -26,13 +26,12 @@
     "tagline": "voix → texte",
     "navLabel": "Menu principal",
     "statusReady": "Prêt",
-    "statusHoldBefore": "Maintenez",
-    "statusHoldAfter": "et parlez",
+    "statusTalk": "pour parler",
     "statusNoShortcut": "Aucun raccourci de dictée"
   },
   "hero": {
     "dashboardTitle": "Prêt quand vous l'êtes",
-    "dashboardDescription": "Parlato tourne en arrière-plan. Maintenez votre touche de dictée dans n'importe quelle application pour commencer à parler.",
+    "dashboardDescription": "Parlato tourne en arrière-plan. Utilisez votre touche de dictée dans n'importe quelle application pour commencer à parler.",
     "transcribeTitle": "Transcrire un fichier",
     "transcribeDescription": "Transformez un fichier audio ou vidéo en texte.",
     "historyTitle": "Historique",
@@ -55,13 +54,9 @@
   "dashboard": {
     "timeSaved": "temps gagné",
     "howLabel": "comment dicter",
-    "howTitle": "Maintenez, parlez, relâchez.",
     "step1": "Cliquez là où vous voulez le texte : un e-mail, un document, une discussion.",
-    "step2Before": "Maintenez",
-    "step2After": "et parlez normalement.",
     "step3": "Relâchez. Parlato tape vos mots à votre place.",
     "practiceLabel": "entraînez-vous ici",
-    "practicePlaceholder": "Cliquez ici, maintenez {{key}} et dites \"Bonjour, ceci est ma première dictée.\"",
     "practicePlaceholderNoKey": "Cliquez ici et essayez votre première dictée.",
     "setupTitle": "Votre configuration",
     "setupMic": "Micro",
@@ -827,12 +822,10 @@
     "modelDesc": "Sur cet ordinateur, c'est privé et gratuit après un téléchargement unique. Les services en ligne demandent une clé. Modifiable plus tard dans Modèle vocal.",
     "keyLabel": "Votre raccourci",
     "keyTitle": "Quelle touche lance la dictée ?",
-    "keyDesc": "Vous appuierez sur cette touche chaque fois que vous voudrez parler. Choisissez-en une confortable que vous n'utilisez pas pour autre chose.",
+    "keyDesc": "Vous utiliserez cette touche chaque fois que vous voudrez parler. Choisissez-en une confortable que vous n'utilisez pas pour autre chose.",
     "tryLabel": "Essayer",
     "tryTitle": "Faites un essai",
-    "tryDesc": "Cliquez dans la zone, appuyez sur {{key}}, dites une phrase, puis relâchez.",
-    "tryPlaceholder": "Cliquez ici, appuyez sur {{key}} et dites : \"Ceci est ma première dictée.\"",
-    "tryNote": "Vos mots apparaissent ici quand vous relâchez la touche. Rien n'est envoyé, sauf si vous avez choisi un service en ligne.",
+    "tryPrivacy": "Rien n'est envoyé, sauf si vous avez choisi un service en ligne.",
     "autostart": "Lancer Parlato avec l'ordinateur",
     "autostartDesc": "Pour qu'il soit prêt dès que vous voulez dicter.",
     "back": "Retour",
@@ -1066,5 +1059,34 @@
     "down": "Bas",
     "insert": "Inser",
     "printScreen": "Impr écran"
+  },
+  "shortcutWording": {
+    "hold": {
+      "title": "Maintenez, parlez, relâchez.",
+      "step2Before": "Maintenez",
+      "step2After": "et parlez normalement.",
+      "practice": "Cliquez ici, maintenez {{key}} et dites \"Bonjour, ceci est ma première dictée.\"",
+      "tryDesc": "Cliquez dans la zone, maintenez {{key}}, dites une phrase, puis relâchez.",
+      "tryPlaceholder": "Cliquez ici, maintenez {{key}} et dites : \"Ceci est ma première dictée.\"",
+      "tryNote": "Vos mots apparaissent ici quand vous relâchez la touche."
+    },
+    "toggle": {
+      "title": "Appuyez, parlez, appuyez encore.",
+      "step2Before": "Appuyez sur",
+      "step2After": "et parlez normalement. Appuyez encore pour arrêter.",
+      "practice": "Cliquez ici, appuyez sur {{key}} et dites \"Bonjour, ceci est ma première dictée.\"",
+      "tryDesc": "Cliquez dans la zone, appuyez sur {{key}}, dites une phrase, puis appuyez de nouveau sur la touche.",
+      "tryPlaceholder": "Cliquez ici, appuyez sur {{key}} et dites : \"Ceci est ma première dictée.\"",
+      "tryNote": "Vos mots apparaissent ici quand vous appuyez de nouveau sur la touche."
+    },
+    "hybrid": {
+      "title": "Maintenez ou appuyez, puis parlez.",
+      "step2Before": "Maintenez ou appuyez sur",
+      "step2After": "et parlez normalement. Si vous avez appuyé, appuyez encore pour arrêter.",
+      "practice": "Cliquez ici, maintenez ou appuyez sur {{key}} et dites \"Bonjour, ceci est ma première dictée.\"",
+      "tryDesc": "Cliquez dans la zone, maintenez ou appuyez sur {{key}}, dites une phrase, puis relâchez ou appuyez de nouveau sur la touche.",
+      "tryPlaceholder": "Cliquez ici, maintenez ou appuyez sur {{key}} et dites : \"Ceci est ma première dictée.\"",
+      "tryNote": "Vos mots apparaissent ici quand vous relâchez, ou appuyez de nouveau sur la touche."
+    }
   }
 }
