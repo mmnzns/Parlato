@@ -178,8 +178,10 @@ porting a new model from upstream, add its en/fr/es `modelText` entry too.
 The owner's local AI helper, model catalog and model finder, built for
 Talaan and already copied into Ensayo, is becoming one shared engine that
 Parlato will also use. The plan and the engine change log live in Notion:
-"Local AI Sync For Parlato/Talaan/Ensayo"
-(https://app.notion.com/p/4074dc1744e18017a92ffe0752e2282d). Read the change
+"Voice Apps Engine Sync"
+(https://app.notion.com/p/4074dc1744e18017a92ffe0752e2282d). Parlato-only
+plans go on the "Parlato Journey" page instead
+(https://app.notion.com/p/3eb4dc1744e1815ca2d2efa19ab6552f). Read the change
 log before any work on local AI, model downloads or GPU, and add a row for
 any engine change. Code flows one way only: from the engine into Parlato,
 never from Parlato (GPL, derived from Parla and VoiceInk) into the engine,
