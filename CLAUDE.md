@@ -94,6 +94,16 @@ and fail if a CMake cache has NATIVE or AVX-512 on. It is Windows only, not
 native). Local `tauri dev` / `cargo test` still build natively unless you
 dot-source the script and call `Set-GgmlBaseline x64` first.
 
+**Debug builds crash when voice detection loads (found 2026-10-28).** A
+`tauri dev` / debug `cargo test` build aborts right after
+`whisper_vad_init_from_file_with_params` (the app exits with 0xc0000409, the
+`vad_threads_smoke` test with exit code 3). The linker warns `LNK4098:
+defaultlib 'msvcrt' conflicts`: the C++ sys crates link the release C runtime
+while debug Rust links the debug one. Release builds are fine (same test
+passes, installed releases load VAD normally). To test dictation by hand,
+use a release build (`npm run tauri build`), or turn voice detection off in
+the dev build.
+
 ## Conventions (from CONTRIBUTING.md — follow these)
 
 - **No emojis** in code, commit messages, or documentation.
