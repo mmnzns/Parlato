@@ -104,12 +104,12 @@ export function MiniRecorderView() {
     const btn = modeButtonRef.current;
     const pill = pillRef.current;
     if (!btn || !pill) return;
-    const b = btn.getBoundingClientRect();
     const p = pill.getBoundingClientRect();
     popoverOpenRef.current = true;
     try {
       await emit("recorder:popover-refresh", {});
-      await api.openRecorderPopover(b.left + b.width / 2, p.top, p.bottom);
+      // Parlato: the picker is centred on the pill, not on the button.
+      await api.openRecorderPopover(p.left + p.width / 2, p.top, p.bottom);
     } catch (e) {
       console.error(e);
     }
@@ -261,12 +261,12 @@ export function MiniRecorderView() {
       <div
         ref={pillRef}
         className={cn(
-          // Parlato: Workbench charcoal pill; a hard lime offset shadow while
-          // listening (design token pill-rec-shadow), a soft one otherwise.
+          // Parlato: Workbench charcoal pill, flat: no shadow in any state.
           "flex flex-col bg-[#141416] text-white transition-all duration-300 ease-in-out",
-          stage === "recording"
-            ? "shadow-[4px_4px_0_#B5E61D]"
-            : "shadow-[0_6px_20px_rgba(0,0,0,0.25)]",
+          // Parlato: thin lime outline (orange on a failure) so the pill stays
+          // easy to find on a dark desktop. Drawn inside, the size is unchanged.
+          "ring-[1.5px] ring-inset",
+          stage === "failed" ? "ring-[#FF8A5C]" : "ring-[#B5E61D]",
           // Parlato: wider while the Cancel button is shown, so "Cleaning up"
           // stays on one line in every language.
           expanded
@@ -325,9 +325,14 @@ export function MiniRecorderView() {
             {stage === "notice" && notice && (
               <span
                 role="status"
-                title={notice.kind === "failed" ? translateError(t, notice.detail) : undefined}
+                // Full text on hover, in case the label is cut with an ellipsis.
+                title={
+                  notice.kind === "failed"
+                    ? translateError(t, notice.detail)
+                    : t(`miniRecorder.notice.${notice.kind}`)
+                }
                 className={cn(
-                  "truncate text-[11px] font-medium",
+                  "min-w-0 truncate text-[11px] font-medium",
                   notice.kind === "failed" ? "text-[#FF8A5C]" : "text-white/90",
                 )}
               >
@@ -361,7 +366,8 @@ export function MiniRecorderView() {
             }}
             title={powerSession?.config_name ?? t("miniRecorder.powerMode")}
             className={cn(
-              "mr-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10",
+              // Parlato: no highlight on hover, the pill looks the same with the picker open.
+              "mr-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full",
               !hasEnabledConfigs && "opacity-60",
             )}
           >

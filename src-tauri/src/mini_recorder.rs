@@ -47,8 +47,8 @@ const BOTTOM_PADDING: f64 = 24.0;
 const TOP_PADDING: f64 = 0.0;
 
 /// Fenetre popover du bouton Mode (VoiceInk ModePopover : 180 pt de large,
-/// 340 max de haut ; un peu plus large ici pour les badges Alt+N).
-const POPOVER_WIDTH: f64 = 240.0;
+/// 340 max de haut ; ici 184 px, la largeur de la bulle).
+const POPOVER_WIDTH: f64 = 184.0;
 const POPOVER_HEIGHT: f64 = 320.0;
 /// Espace entre la bulle et le popover (fleche NSPopover).
 const POPOVER_GAP: f64 = 8.0;
@@ -272,8 +272,8 @@ fn reposition(window: &tauri::WebviewWindow, style: RecorderStyle) {
 }
 
 /// Montre le popover du bouton Mode, ancre sur la bulle. Les ancres sont en
-/// pixels logiques relatifs a la fenetre recorder : `anchor_x` = centre du
-/// bouton, `anchor_top` / `anchor_bottom` = bords de la pilule. Mini : le
+/// pixels logiques relatifs a la fenetre recorder : `anchor_x` = centre de
+/// la bulle, `anchor_top` / `anchor_bottom` = bords de la pilule. Mini : le
 /// popover se pose au-dessus de la pilule ; notch : en dessous.
 #[tauri::command]
 pub fn open_recorder_popover(app: AppHandle, anchor_x: f64, anchor_top: f64, anchor_bottom: f64) {

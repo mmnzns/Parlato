@@ -26,13 +26,12 @@
     "tagline": "voice → text",
     "navLabel": "Main menu",
     "statusReady": "Ready",
-    "statusHoldBefore": "Hold",
-    "statusHoldAfter": "and speak",
+    "statusTalk": "to talk",
     "statusNoShortcut": "No dictation shortcut set"
   },
   "hero": {
     "dashboardTitle": "Ready when you are",
-    "dashboardDescription": "Parlato is running in the background. Hold your dictation key in any app to start talking.",
+    "dashboardDescription": "Parlato is running in the background. Use your dictation key in any app to start talking.",
     "transcribeTitle": "Transcribe a file",
     "transcribeDescription": "Turn an audio or video file into text.",
     "historyTitle": "History",
@@ -55,13 +54,8 @@
   "dashboard": {
     "timeSaved": "time saved",
     "howLabel": "how to dictate",
-    "howTitle": "Hold, speak, let go.",
     "step1": "Click where you want the text: an email, a document, a chat.",
-    "step2Before": "Hold",
-    "step2After": "and talk normally.",
-    "step3": "Let go. Parlato types your words for you.",
     "practiceLabel": "practice here",
-    "practicePlaceholder": "Click here, hold {{key}} and say \"Hello, this is my first dictation.\"",
     "practicePlaceholderNoKey": "Click here and try your first dictation.",
     "setupTitle": "Your setup",
     "setupMic": "Microphone",
@@ -396,9 +390,8 @@
     "powerMode": "Power Mode",
     "noConfigs": "No config defined. Create a profile so Parlato automatically switches prompt + LLM + source based on the active app.",
     "openPowerMode": "Open Power Mode",
-    "autoSwitch": "Switches automatically based on the current app. Alt+number picks a profile manually.",
     "escapeHint": "Press Esc again to cancel",
-    "selectMode": "Select profile",
+    "selectMode": "mode",
     "noModesAvailable": "No profiles available",
     "startRecording": "Start recording",
     "stopRecording": "Stop recording",
@@ -412,7 +405,7 @@
       "copied": "Copied to clipboard",
       "retryStarted": "Transcribing again...",
       "retryDone": "Done, copied to clipboard",
-      "gpuFallback": "Graphics card unavailable, used the processor"
+      "gpuFallback": "Graphics card failed, used processor"
     }
   },
   "errors": {
@@ -828,12 +821,10 @@
     "modelDesc": "On this computer is private and free after a one-time download. Online services need an account key. You can change this later in Speech model.",
     "keyLabel": "Your shortcut",
     "keyTitle": "Which key should start dictation?",
-    "keyDesc": "You will press this key whenever you want to talk. Pick one that is comfortable and that you do not use for anything else.",
+    "keyDesc": "You will use this key whenever you want to talk. Pick one that is comfortable and that you do not use for anything else.",
     "tryLabel": "Try it",
     "tryTitle": "Give it a try",
-    "tryDesc": "Click in the box, press {{key}}, say a sentence, then let go.",
-    "tryPlaceholder": "Click here, press {{key}} and say: \"This is my first dictation.\"",
-    "tryNote": "Your words appear here when you let go of the key. Nothing is sent anywhere unless you picked an online service.",
+    "tryPrivacy": "Nothing is sent anywhere unless you picked an online service.",
     "autostart": "Start Parlato when my computer starts",
     "autostartDesc": "So it is ready whenever you want to dictate.",
     "back": "Back",
@@ -1007,9 +998,6 @@
         "hint": "Plug a microphone in, or check System Settings > Sound > Input."
       }
     },
-    "miniRecorder": {
-      "autoSwitch": "Switches automatically based on the current app. Option+number picks a profile manually."
-    },
     "errors": {
       "shortcutReserved": "Option+digit is reserved for Power Mode profiles while recording ({{action}}).",
       "shortcutNeedsModifier": "This key needs a modifier (Control, Option, Shift or Command) ({{action}})."
@@ -1070,5 +1058,37 @@
     "down": "Down",
     "insert": "Insert",
     "printScreen": "Print Screen"
+  },
+  "shortcutWording": {
+    "hold": {
+      "title": "Hold, speak, let go.",
+      "step2Before": "Hold",
+      "step2After": "and talk normally.",
+      "step3": "Let go. Parlato types your words for you.",
+      "practice": "Click here, hold {{key}} and say \"Hello, this is my first dictation.\"",
+      "tryDesc": "Click in the box, hold {{key}}, say a sentence, then let go.",
+      "tryPlaceholder": "Click here, hold {{key}} and say: \"This is my first dictation.\"",
+      "tryNote": "Your words appear here when you let go of the key."
+    },
+    "toggle": {
+      "title": "Tap, speak, tap again.",
+      "step2Before": "Tap",
+      "step2After": "and talk normally. Tap it again to stop.",
+      "step3": "Tap it again. Parlato types your words for you.",
+      "practice": "Click here, tap {{key}} and say \"Hello, this is my first dictation.\"",
+      "tryDesc": "Click in the box, tap {{key}}, say a sentence, then tap the key again.",
+      "tryPlaceholder": "Click here, tap {{key}} and say: \"This is my first dictation.\"",
+      "tryNote": "Your words appear here when you tap the key again."
+    },
+    "hybrid": {
+      "title": "Hold or tap, then speak.",
+      "step2Before": "Hold or tap",
+      "step2After": "and talk normally. If you tapped, tap again to stop.",
+      "step3": "Let go, or tap again. Parlato types your words for you.",
+      "practice": "Click here, hold or tap {{key}} and say \"Hello, this is my first dictation.\"",
+      "tryDesc": "Click in the box, hold or tap {{key}}, say a sentence, then let go, or tap the key again.",
+      "tryPlaceholder": "Click here, hold or tap {{key}} and say: \"This is my first dictation.\"",
+      "tryNote": "Your words appear here when you let go, or tap the key again."
+    }
   }
 }

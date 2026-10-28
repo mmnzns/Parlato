@@ -17,6 +17,14 @@ export function triggerLabel(
   return formatCombo(trigger);
 }
 
+/// Parlato: which block of `shortcutWording.*` matches the shortcut mode.
+/// Before the config is read (or if it fails), use the app's default mode.
+export function wordingMode(mode: HotkeyMode | null): "hold" | "toggle" | "hybrid" {
+  if (mode === "pushToTalk") return "hold";
+  if (mode === "toggle") return "toggle";
+  return "hybrid";
+}
+
 export function useHotkeyLabel(refreshKey?: unknown): {
   label: string | null;
   mode: HotkeyMode | null;

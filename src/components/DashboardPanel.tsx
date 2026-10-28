@@ -27,7 +27,7 @@ import type { LucideIcon } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { View } from "@/components/Sidebar";
 import { useCopyButton } from "@/hooks/useCopyButton";
-import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
+import { useHotkeyLabel, wordingMode } from "@/hooks/useHotkeyLabel";
 import { modelName } from "@/lib/modelText";
 import { api, type HotkeyMode, type TranscriptionRecord } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
@@ -162,6 +162,7 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
   const [recent, setRecent] = useState<TranscriptionRecord[]>([]);
   const [setup, setSetup] = useState<SetupState | null>(null);
   const { label: hotkeyLabel, mode } = useHotkeyLabel();
+  const wording = `shortcutWording.${wordingMode(mode)}`;
 
   useEffect(() => {
     load();
@@ -244,14 +245,14 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
         <div className="flex flex-col gap-3.5 px-6 py-[22px]">
           <span className="font-mono text-[11px] text-muted-foreground">[01] {t("dashboard.howLabel")}</span>
           <h2 className="font-display text-2xl leading-7 font-extrabold tracking-[-0.035em]">
-            {t("dashboard.howTitle")}
+            {t(`${wording}.title`)}
           </h2>
           <ol className="flex flex-col gap-2.5">
             {[
               t("dashboard.step1"),
               hotkeyLabel ? (
                 <>
-                  {t("dashboard.step2Before")}{" "}
+                  {t(`${wording}.step2Before`)}{" "}
                   {/* Parlato: the key chip opens the shortcut settings. */}
                   <button
                     type="button"
@@ -262,12 +263,12 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
                   >
                     <Kbd>{hotkeyLabel}</Kbd>
                   </button>{" "}
-                  {t("dashboard.step2After")}
+                  {t(`${wording}.step2After`)}
                 </>
               ) : (
-                `${t("dashboard.step2Before")} ... ${t("dashboard.step2After")}`
+                `${t(`${wording}.step2Before`)} ... ${t(`${wording}.step2After`)}`
               ),
-              t("dashboard.step3"),
+              t(`${wording}.step3`),
             ].map((step, i) => (
               <li key={i} className="flex items-start gap-3">
                 <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-highlight font-mono text-xs font-semibold text-[#141416]">
@@ -286,7 +287,7 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
             id="home-practice"
             placeholder={
               hotkeyLabel
-                ? t("dashboard.practicePlaceholder", { key: hotkeyLabel })
+                ? t(`${wording}.practice`, { key: hotkeyLabel })
                 : t("dashboard.practicePlaceholderNoKey")
             }
             className="min-h-[120px] flex-1 resize-none rounded-sm border-[1.5px] border-input bg-card p-3 text-sm"
