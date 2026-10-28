@@ -104,12 +104,12 @@ export function MiniRecorderView() {
     const btn = modeButtonRef.current;
     const pill = pillRef.current;
     if (!btn || !pill) return;
-    const b = btn.getBoundingClientRect();
     const p = pill.getBoundingClientRect();
     popoverOpenRef.current = true;
     try {
       await emit("recorder:popover-refresh", {});
-      await api.openRecorderPopover(b.left + b.width / 2, p.top, p.bottom);
+      // Parlato: the picker is centred on the pill, not on the button.
+      await api.openRecorderPopover(p.left + p.width / 2, p.top, p.bottom);
     } catch (e) {
       console.error(e);
     }
@@ -357,7 +357,8 @@ export function MiniRecorderView() {
             }}
             title={powerSession?.config_name ?? t("miniRecorder.powerMode")}
             className={cn(
-              "mr-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10",
+              // Parlato: no highlight on hover, the pill looks the same with the picker open.
+              "mr-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full",
               !hasEnabledConfigs && "opacity-60",
             )}
           >

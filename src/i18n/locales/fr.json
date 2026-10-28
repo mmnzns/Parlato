@@ -396,9 +396,8 @@
     "powerMode": "Power Mode",
     "noConfigs": "Aucune config définie. Crée un profil pour que Parlato bascule automatiquement prompt + LLM + source selon l'app active.",
     "openPowerMode": "Ouvrir Power Mode",
-    "autoSwitch": "Bascule automatiquement selon l'application courante. Alt+chiffre pour choisir un profil à la main.",
     "escapeHint": "Appuyez encore sur Échap pour annuler",
-    "selectMode": "Choisir un profil",
+    "selectMode": "mode",
     "noModesAvailable": "Aucun profil disponible",
     "startRecording": "Démarrer l'enregistrement",
     "stopRecording": "Arrêter l'enregistrement",
@@ -1006,9 +1005,6 @@
       "audio": {
         "hint": "Branchez un micro, ou vérifiez Réglages Système > Son > Entrée."
       }
-    },
-    "miniRecorder": {
-      "autoSwitch": "Bascule automatiquement selon l'application courante. Option+chiffre pour choisir un profil à la main."
     },
     "errors": {
       "shortcutReserved": "Option+chiffre est réservé aux profils Power Mode pendant l'enregistrement ({{action}}).",
