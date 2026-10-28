@@ -174,6 +174,17 @@ shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
 non-alphanumerics replaced by `_`), falling back to the catalog text. When
 porting a new model from upstream, add its en/fr/es `modelText` entry too.
 
+**One shared engine for Parlato, Talaan and Ensayo (planned 2026-10-28).**
+The owner's local AI helper, model catalog and model finder, built for
+Talaan and already copied into Ensayo, is becoming one shared engine that
+Parlato will also use. The plan and the engine change log live in Notion:
+"Local AI Sync For Parlato/Talaan/Ensayo"
+(https://app.notion.com/p/4074dc1744e18017a92ffe0752e2282d). Read the change
+log before any work on local AI, model downloads or GPU, and add a row for
+any engine change. Code flows one way only: from the engine into Parlato,
+never from Parlato (GPL, derived from Parla and VoiceInk) into the engine,
+Talaan or Ensayo, which are the owner's own work.
+
 **Do not bump `llama-cpp-2` on its own.** `whisper-rs-sys` and
 `llama-cpp-sys-2` each bundle their own copy of ggml, linked together with
 `/FORCE:MULTIPLE` (`src-tauri/.cargo/config.toml`), so only one copy of each
