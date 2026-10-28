@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- The recorder pill no longer has a shadow, in any state.
+- The power mode picker on the recorder pill is redesigned: a dark list as
+  wide as the pill, titled "mode", with a check on the current mode and its
+  Alt+number key on the right. The pill itself stays the same when it opens,
+  and the explanation line is gone.
+- The notice shown when the graphics card fails for Parakeet is shorter
+  ("Graphics card failed, used processor"), and a long label in any language
+  is cut with an ellipsis instead of spilling out of the pill.
+- The wording about your shortcut now follows how you set it up (hold, tap,
+  or both): the Home how-to card and practice box, the onboarding "Try it"
+  step, and the status card in the sidebar, which now just says
+  "[key] to talk". The Home subtitle and the onboarding key step no longer
+  assume you hold the key.
+- The tray menu no longer shows the shortcut next to "Start or stop
+  dictation", which makes it a little narrower.
+
+### Fixed
+- Copied images and formatting are kept more reliably after a dictation
+  when another app is using the clipboard.
+
 ## [0.14.0] - 2026-10-22
 
 ### Added
