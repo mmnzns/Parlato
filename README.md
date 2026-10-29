@@ -36,8 +36,6 @@
 - **Dictate anywhere.** Hold your shortcut key (Right Alt on Windows, Right
   Option on Mac, or any key you pick) in any app: an email, a document, a
   chat. Let go, and Parlato types what you said.
-- **See your words as you speak.** With Parakeet Unified or an online
-  service that supports it, the recorder shows the text live while you talk.
 - **Private by default.** Speech models run on your own computer. Nothing
   leaves it unless you choose an online service.
 - **AI cleanup (optional).** A language model can tidy up what you said:

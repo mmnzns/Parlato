@@ -650,11 +650,6 @@ export const api = {
   listHotkeyOptions: () => invoke<HotkeyOptionInfo[]>("list_hotkey_options"),
   resetEscapeHint: () => invoke<void>("reset_escape_hint"),
 
-  // Live text display in the recorder pill (VoiceInk ShowLiveTranscript).
-  getShowLiveTranscript: () => invoke<boolean>("get_show_live_transcript"),
-  setShowLiveTranscript: (enabled: boolean) =>
-    invoke<void>("set_show_live_transcript", { enabled }),
-
   // Cloud batch transcription timeout, seconds (VoiceInk CloudTranscriptionSettings).
   getCloudTranscriptionTimeout: () =>
     invoke<number>("get_cloud_transcription_timeout"),

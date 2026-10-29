@@ -107,7 +107,6 @@
     "recorderStyleInfo": "'Mini' affiche une pilule flottante en bas de l'écran. 'Notch' descend du haut comme l'encoche du MacBook Pro.",
     "recorderStyleMini": "Mini (pilule flottante, bas)",
     "recorderStyleNotch": "Notch (ancrée en haut)",
-    "liveTranscriptInfo": "Affiche vos mots pendant l'enregistrement. Fonctionne avec NVIDIA Parakeet Unified sur cet ordinateur et avec les services en ligne qui gèrent le texte en direct. Le texte collé vient toujours de la passe complète à la fin.",
     "sectionGeneral": "Général",
     "sectionDictating": "Pendant la dictée",
     "sectionAfterPaste": "Après le collage",
@@ -136,8 +135,6 @@
     "muteHint": "Coupe la musique et les vidéos pour qu'elles ne finissent pas dans votre texte.",
     "resumeLabel": "Reprendre le son après",
     "resumeHint": "Délai avant de rétablir le son une fois la dictée terminée.",
-    "liveLabel": "Afficher les mots pendant que vous parlez",
-    "liveHint": "Avec Parakeet Unified sur cet ordinateur, ou les modèles en ligne qui gèrent le texte en direct.",
     "recorderPosLabel": "Position de l'enregistreur",
     "recorderPosHint": "Où apparaît la petite barre d'enregistrement.",
     "formatLabel": "Mettre en forme les paragraphes",
@@ -429,7 +426,7 @@
     "fileTooLong": "Ce fichier dépasse 2 heures. Coupez-le en parties plus courtes.",
     "interrupted": "Parlato a été fermé avant la fin de cette dictée. Utilisez « Retranscrire » pour réessayer.",
     "pasteFailed": "Impossible de coller dans cette application. Le texte est dans le presse-papiers, prêt à être collé.",
-    "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, avec « Afficher les mots pendant que vous parlez » activé. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle."
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, et la connexion en direct a échoué. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle."
   },
   "prompts": {
     "default": {
@@ -638,7 +635,7 @@
     "englishOnly": "Anglais seulement",
     "languages": "{{count}} langues",
     "downloaded": "téléchargé",
-    "liveWords": "mots en direct",
+    "liveWords": "en direct",
     "perfTitle": "Vitesse de vos modèles",
     "perfDesc": "Mesurée sur vos propres dictées.",
     "faster": "plus rapide que votre voix",
@@ -887,7 +884,7 @@
       "notes": "Whisper v3 Turbo sur les serveurs de Groq. Très rapide."
     },
     "scribe_v2": {
-      "notes": "Affiche vos mots en direct pendant que vous parlez."
+      "notes": "Transcrit pendant que vous parlez : le texte est prêt dès que vous arrêtez."
     },
     "scribe_v2_medical": {
       "notes": "Optimisé pour le vocabulaire et la terminologie médicale. Transcrit une fois que vous avez fini de parler."
@@ -902,13 +899,13 @@
       "notes": "Transcrit une fois que vous avez fini de parler. Détecte la langue tout seul."
     },
     "voxtral_mini_transcribe_realtime_2602": {
-      "notes": "Affiche vos mots en direct pendant que vous parlez."
+      "notes": "Transcrit pendant que vous parlez : le texte est prêt dès que vous arrêtez."
     },
     "stt_async_v5": {
       "notes": "Transcrit une fois que vous avez fini de parler. 60 langues."
     },
     "stt_rt_v5": {
-      "notes": "Affiche vos mots en direct, un par un, pendant que vous parlez."
+      "notes": "Transcrit mot par mot pendant que vous parlez : le texte est prêt dès que vous arrêtez."
     },
     "speechmatics_enhanced": {
       "notes": "Fonctionne en direct ou après que vous avez parlé."
@@ -923,13 +920,13 @@
       "notes": "En direct uniquement, le plus rapide de Cartesia. Anglais uniquement, sans détection automatique de la langue."
     },
     "universal_3_6_pro": {
-      "notes": "Le modèle le plus récent d'AssemblyAI, 32 langues. Affiche vos mots en direct ; sans le direct, il utilise Universal-3.5 Pro ou Universal-2 selon la langue."
+      "notes": "Le modèle le plus récent d'AssemblyAI, 32 langues. Transcrit pendant que vous parlez ; sinon, il utilise Universal-3.5 Pro ou Universal-2 selon la langue."
     },
     "universal_3_5_pro": {
-      "notes": "Le modèle le plus précis d'AssemblyAI. Peut afficher vos mots en direct."
+      "notes": "Le modèle le plus précis d'AssemblyAI. Peut transcrire pendant que vous parlez."
     },
     "universal_2": {
-      "notes": "Plus de 90 langues. Plus rapide que Universal-3.5 Pro, mais sans mots en direct."
+      "notes": "Plus de 90 langues. Plus rapide que Universal-3.5 Pro, mais seulement après que vous avez parlé."
     },
     "qwen2_5_3b_instruct_q4": {
       "notes": "Polyvalent, excellent rapport qualité / taille."
