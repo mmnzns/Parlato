@@ -406,27 +406,6 @@ pub fn set_sound_feedback_enabled(app: AppHandle, enabled: bool) -> Result<(), S
     crate::audio::feedback::set_enabled(&app, enabled).map_err(|e| e.to_string())
 }
 
-// -- Live text display in the recorder pill (VoiceInk ShowLiveTranscript) ---
-
-const KEY_SHOW_LIVE_TRANSCRIPT: &str = "show_live_transcript";
-
-/// Reference VoiceInk AppDefaults `RecorderDisplaySettingsKeys
-/// .showLiveTranscript` = "ShowLiveTranscript", defaut true.
-#[tauri::command]
-pub fn get_show_live_transcript(app: AppHandle) -> bool {
-    app.store(STORE_FILE)
-        .ok()
-        .and_then(|s| s.get(KEY_SHOW_LIVE_TRANSCRIPT).and_then(|v| v.as_bool()))
-        .unwrap_or(true)
-}
-
-#[tauri::command]
-pub fn set_show_live_transcript(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
-    store.set(KEY_SHOW_LIVE_TRANSCRIPT, serde_json::Value::Bool(enabled));
-    store.save().map_err(|e| e.to_string())
-}
-
 // -- Cloud transcription timeout (VoiceInk CloudTranscriptionSettings) ------
 
 const KEY_CLOUD_TIMEOUT: &str = "cloud_transcription_timeout_secs";

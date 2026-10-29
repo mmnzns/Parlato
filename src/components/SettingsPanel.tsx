@@ -68,7 +68,6 @@ export function SettingsPanel() {
   const [systemMute, setSystemMute] = useState(false);
   const [resumeDelay, setResumeDelay] = useState(0.2);
   const [soundFeedback, setSoundFeedback] = useState(true);
-  const [showLiveTranscript, setShowLiveTranscript] = useState(true);
   const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref());
   const [text, setText] = useState<TextProcessingSettings | null>(null);
   const [fillers, setFillers] = useState("");
@@ -96,7 +95,6 @@ export function SettingsPanel() {
     api.getSystemMuteEnabled().then(setSystemMute).catch(console.error);
     api.getAudioResumptionDelay().then(setResumeDelay).catch(console.error);
     api.getSoundFeedbackEnabled().then(setSoundFeedback).catch(console.error);
-    api.getShowLiveTranscript().then(setShowLiveTranscript).catch(console.error);
     api.getRetentionSettings().then(setRetention).catch(console.error);
     getVersion().then(setVersion).catch(console.error);
     refreshText();
@@ -324,22 +322,6 @@ export function SettingsPanel() {
             <span className="text-xs text-muted-foreground">{t("common.seconds")}</span>
           </Row>
         )}
-        <Row
-          htmlFor="set-live"
-          label={
-            <span className="inline-flex items-center gap-1.5">
-              {t("settings.liveLabel")}
-              <InfoTip>{t("settings.liveTranscriptInfo")}</InfoTip>
-            </span>
-          }
-          description={t("settings.liveHint")}
-        >
-          <Switch
-            id="set-live"
-            checked={showLiveTranscript}
-            onChange={(v) => persist(v, setShowLiveTranscript, api.setShowLiveTranscript)}
-          />
-        </Row>
         <Row
           label={
             <span className="inline-flex items-center gap-1.5">
