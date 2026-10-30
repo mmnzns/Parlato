@@ -93,11 +93,22 @@ tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 # Detection GPU NVIDIA (CUDA runtime presence)
 nvml-wrapper = { version = "0.11", optional = true }
 
+# Shared engine (voice-engine, MIT): models, speech, local AI client. Every
+# engine crate stays on the same tag. Code flows from the engine into Parlato
+# only, never the other way (see CLAUDE.md "One shared engine").
+voice-engine-protocol = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.2.2" }
+voice-engine-client = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.2.2" }
+voice-engine-models = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.2.2" }
+voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.2.2" }
+
 [target.'cfg(windows)'.dependencies]
 # Parlato : DirectML pour Parakeet (reglage "carte graphique"). ONNX Runtime est
 # deja telecharge avec DirectML sur Windows ; la feature ajoute seulement le
 # provider cote parakeet-rs. Cargo unit les features avec la ligne ci-dessus.
 parakeet-rs = { version = "0.3", features = ["directml"] }
+# Parakeet on the graphics card through the engine (DirectML). Cargo unifies
+# the features with the entry in [dependencies].
+voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.2.2", features = ["directml"] }
 # UI Automation pour l'extraction d'URL des navigateurs (Power Mode).
 uiautomation = "0.24"
 keyring = { version = "3", features = ["windows-native"] }

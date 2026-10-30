@@ -1,28 +1,23 @@
 # Configuration Cargo propre a Parla.
 #
-# /FORCE:MULTIPLE : llama-cpp-sys-2 et whisper-rs-sys embarquent tous les deux
-# le runtime ggml (issue ggml-org/llama.cpp#9267, ggml-org/whisper.cpp#1887).
-# La duplication des symboles ggml-quants fait echouer le link Windows. Les
-# fonctions en conflit sont des quantize_row_* bas niveau dont l'ABI est
-# stable entre versions ; le linker garde la premiere definition. Ce flag
-# disparaitra le jour ou l'ecosysteme Rust partagera une lib ggml commune.
-
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
-
-[target.aarch64-pc-windows-msvc]
-rustflags = ["-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
-
-# Parlato : sous Windows, la crate `cmake` utilise le generateur Visual Studio
-# et retire tous les `/O` de CMAKE_C/CXX_FLAGS_RELEASE, si bien que
-# whisper.cpp (whisper-rs-sys) etait compile sans optimisation (/Od) en
-# release. whisper-rs-sys transmet chaque variable d'environnement CMAKE_* a
-# CMake, donc on lui redonne -O2 ici. llama-cpp-sys-2 fixe deja ses propres
-# options (/O2 /Ob2). Mesure le 2026-10-15 : voir CHANGELOG.md.
-# Apres un changement ici : `cargo clean --release -p whisper-rs-sys`.
+# Build settings copied from the engine README ("Build settings an app must
+# copy", voice-engine v0.2.2). Cargo reads .cargo/config.toml only for the
+# workspace it builds, so an app that depends on the engine as a git
+# dependency must carry these lines itself. Keep them equal to the engine's.
+# After a change here: `cargo clean --release -p whisper-rs-sys -p llama-cpp-sys-2`.
 [env]
-CMAKE_C_FLAGS_RELEASE = "-O2 -DNDEBUG"
-CMAKE_CXX_FLAGS_RELEASE = "-O2 -DNDEBUG"
+GGML_NATIVE = { value = "OFF", force = true }            # no "optimize for this CPU"; read by whisper-rs-sys and llama-cpp-sys-2
+GGML_AVX = { value = "ON", force = true }                # the x86 baseline: AVX2 + FMA + F16C + BMI2 (2013 and newer)
+GGML_AVX2 = { value = "ON", force = true }
+GGML_FMA = { value = "ON", force = true }
+GGML_F16C = { value = "ON", force = true }
+GGML_BMI2 = { value = "ON", force = true }
+MACOSX_DEPLOYMENT_TARGET = { value = "11.0", force = true }   # the first macOS for Apple silicon; read by cc, cmake and rustc
+# cmake-rs strips /O from CMAKE_<LANG>_FLAGS_RELEASE under the Visual Studio
+# generator (Windows x64 builds at /Od, 10x slower); -O2 -DNDEBUG is accepted
+# by cl, clang-cl and clang.
+CMAKE_C_FLAGS_RELEASE = { value = "-O2 -DNDEBUG", force = true }
+CMAKE_CXX_FLAGS_RELEASE = { value = "-O2 -DNDEBUG", force = true }
 
 # Parlato : llama.cpp (llama-cpp-sys-2) compile sa copie de cpp-httplib avec
 # OpenSSL s'il le trouve. Parlato ne s'en sert pas (les modeles sont
@@ -32,3 +27,15 @@ CMAKE_CXX_FLAGS_RELEASE = "-O2 -DNDEBUG"
 # transmet a CMake que les variables CMAKE_*, d'ou cette variable-ci : elle
 # empeche find_package(OpenSSL), httplib est alors compile sans HTTPS.
 CMAKE_DISABLE_FIND_PACKAGE_OpenSSL = "TRUE"
+
+# llama-cpp-sys-2 et whisper-rs-sys embarquent tous les deux le runtime ggml
+# (issue ggml-org/llama.cpp#9267, ggml-org/whisper.cpp#1887). La duplication
+# des symboles ggml-quants fait echouer le link Windows, d'ou /FORCE:MULTIPLE
+# (le linker garde la premiere definition). Disparait quand llama.cpp sort de
+# l'app (unit 4 of the engine move). Windows x64 also takes the engine's CPU
+# baseline (llama-cpp-sys-2 turns the target features into GGML_AVX2, ...).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+avx2,+fma,+f16c,+bmi2", "-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]

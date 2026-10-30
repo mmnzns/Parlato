@@ -1177,6 +1177,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "7.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d57d423b3c82e89b9a24ca3091fee61f456a26edbd28d26c65906f4bc1dcd8f"
+dependencies = [
+ "dirs-sys 0.5.0",
+]
+
+[[package]]
 name = "dirs-sys"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1685,6 +1694,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07bbe89c50d7a535e539b8c17bc0b49bdb77747034daa8087407d655f3f7cc1d"
 dependencies = [
  "futures-core",
+ "futures-sink",
 ]
 
 [[package]]
@@ -4076,6 +4086,10 @@ dependencies = [
  "unicode-segmentation",
  "urlencoding",
  "uuid",
+ "voice-engine-client",
+ "voice-engine-models",
+ "voice-engine-protocol",
+ "voice-engine-stt",
  "whisper-rs",
  "windows 0.60.0",
  "xcap",
@@ -4911,6 +4925,7 @@ checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "http",
@@ -7356,6 +7371,50 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "voice-engine-client"
+version = "0.2.2"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+dependencies = [
+ "reqwest 0.12.28",
+ "serde_json",
+ "voice-engine-protocol",
+]
+
+[[package]]
+name = "voice-engine-models"
+version = "0.2.2"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+dependencies = [
+ "dirs 7.0.0",
+ "reqwest 0.12.28",
+ "sha2",
+]
+
+[[package]]
+name = "voice-engine-protocol"
+version = "0.2.2"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+dependencies = [
+ "base64 0.22.1",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "voice-engine-stt"
+version = "0.2.2"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+dependencies = [
+ "ort",
+ "parakeet-rs",
+ "serde_json",
+ "voice-engine-models",
+ "voice-engine-protocol",
+ "whisper-rs",
+ "windows 0.62.2",
+]
 
 [[package]]
 name = "vswhom"
