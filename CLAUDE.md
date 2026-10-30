@@ -14,6 +14,12 @@ This fork is a learning project as much as a product. Changes should be small,
 reviewable, and explainable. Prefer the boring, pattern-following change over the
 clever one.
 
+**Absolute rule (owner, 2026-10-29): Sonnet does the heavy lifting.** If Sonnet
+can handle a piece of development work (writing code, tests, builds, edits,
+searches), hand it to a Sonnet subagent. Opus plans, reviews the result before
+it is committed, and takes only what Sonnet can't handle. The goal is to save
+tokens.
+
 ## Stack
 
 - **Shell:** Tauri v2 (Rust backend, WebView2 frontend)
