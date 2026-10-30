@@ -146,6 +146,17 @@ plist = "1"
 [profile.release.package.tokenizers]
 opt-level = 1
 
+# Parlato : les dependances sont optimisees aussi dans les builds de test
+# (comme Talaan). Sans ca, le build de test plantait au chargement de la
+# detection de voix (2026-10-28) et les modeles tournaient tres lentement.
+# Le code de Parlato lui-meme reste en debug. Meme exception que plus haut
+# pour tokenizers.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev.package.tokenizers]
+opt-level = 1
+
 [features]
 default = ["gpu-detect"]
 gpu-detect = ["dep:nvml-wrapper"]
