@@ -107,7 +107,6 @@
     "recorderStyleInfo": "'Mini' shows a floating pill at the bottom of the screen. 'Notch' drops down from the top like the MacBook Pro notch.",
     "recorderStyleMini": "Mini (floating pill, bottom)",
     "recorderStyleNotch": "Notch (top-anchored)",
-    "liveTranscriptInfo": "Shows your words while you record. Works with NVIDIA Parakeet Unified on this computer and with online services that support live text. The pasted text still comes from the full pass at the end.",
     "sectionGeneral": "General",
     "sectionDictating": "While you dictate",
     "sectionAfterPaste": "After pasting",
@@ -136,8 +135,6 @@
     "muteHint": "Mutes music and videos so they don't end up in your text.",
     "resumeLabel": "Resume audio after",
     "resumeHint": "How long to wait before unmuting once dictation ends.",
-    "liveLabel": "Show words as you speak",
-    "liveHint": "With Parakeet Unified on this computer, or online models that support live text.",
     "recorderPosLabel": "Recorder position",
     "recorderPosHint": "Where the little recording bar appears.",
     "formatLabel": "Tidy up paragraphs",
@@ -429,7 +426,7 @@
     "fileTooLong": "This file is longer than 2 hours. Split it into shorter parts.",
     "interrupted": "Parlato was closed before this dictation finished. Use Transcribe again to try once more.",
     "pasteFailed": "Could not paste into this app. The text is on the clipboard, ready to paste.",
-    "assemblyaiRealtimeOnly": "Universal-3.6 Pro handles this language only live, with \"Show words as you speak\" on. To transcribe this recording, pick another language or model."
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro handles this language only live, and the live connection failed. To transcribe this recording, pick another language or model."
   },
   "prompts": {
     "default": {
@@ -638,7 +635,7 @@
     "englishOnly": "English only",
     "languages": "{{count}} languages",
     "downloaded": "downloaded",
-    "liveWords": "live words",
+    "liveWords": "live",
     "perfTitle": "How fast your models are",
     "perfDesc": "Measured on your own dictations.",
     "faster": "faster than you speak",
@@ -887,7 +884,7 @@
       "notes": "Whisper v3 Turbo on Groq's servers. Very fast."
     },
     "scribe_v2": {
-      "notes": "Shows your words live as you speak."
+      "notes": "Transcribes while you speak, so the text is ready when you stop."
     },
     "scribe_v2_medical": {
       "notes": "Tuned for medical speech and terminology. Transcribes once you finish speaking."
@@ -902,13 +899,13 @@
       "notes": "Transcribes once you finish speaking. Detects the language on its own."
     },
     "voxtral_mini_transcribe_realtime_2602": {
-      "notes": "Shows your words live as you speak."
+      "notes": "Transcribes while you speak, so the text is ready when you stop."
     },
     "stt_async_v5": {
       "notes": "Transcribes once you finish speaking. 60 languages."
     },
     "stt_rt_v5": {
-      "notes": "Shows your words live, one by one, as you speak."
+      "notes": "Transcribes word by word while you speak, so the text is ready when you stop."
     },
     "speechmatics_enhanced": {
       "notes": "Works live or after you speak."
@@ -923,13 +920,13 @@
       "notes": "Live only, and Cartesia's fastest. English only, no automatic language detection."
     },
     "universal_3_6_pro": {
-      "notes": "AssemblyAI's newest model, 32 languages. Shows your words live; without live words it uses Universal-3.5 Pro or Universal-2 depending on the language."
+      "notes": "AssemblyAI's newest model, 32 languages. Transcribes while you speak; when that isn't possible it uses Universal-3.5 Pro or Universal-2 depending on the language."
     },
     "universal_3_5_pro": {
-      "notes": "AssemblyAI's most accurate model. Can show your words live."
+      "notes": "AssemblyAI's most accurate model. Can transcribe while you speak."
     },
     "universal_2": {
-      "notes": "Over 90 languages. Faster than Universal-3.5 Pro, but no live words."
+      "notes": "Over 90 languages. Faster than Universal-3.5 Pro, but only after you speak."
     },
     "qwen2_5_3b_instruct_q4": {
       "notes": "All-rounder with an excellent quality-to-size ratio."

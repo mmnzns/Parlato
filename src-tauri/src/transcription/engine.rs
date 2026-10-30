@@ -37,7 +37,7 @@ use crate::mini_recorder;
 use crate::paste;
 use crate::power_mode;
 use crate::screen_context;
-use crate::transcription::{parakeet_live, pipeline};
+use crate::transcription::pipeline;
 
 /// Dispatch une action hotkey sur le cycle enregistrement complet.
 /// A appeler depuis la boucle dispatch_loop du hotkey manager.
@@ -187,15 +187,8 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
     let started = if streamed {
         manager.mark_recording_state(true);
         true
-    } else if let Err(e) = start_recording_core_with_chunk(
-        app,
-        state,
-        None,
-        // Parlato : apercu en direct si la source est Parakeet Unified.
-        parakeet_live::start(app),
-    ) {
+    } else if let Err(e) = start_recording_core_with_chunk(app, state, None, None) {
         warn!("start_recording via hotkey: {e}");
-        parakeet_live::stop();
         // L'enregistrement n'a pas demarre : desarme les raccourcis Power Mode.
         keyboard_hook::set_power_shortcut_count(0);
         manager.mark_recording_state(false);
@@ -220,7 +213,6 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
     // Streaming actif ?
     let streaming = app.state::<StreamingSessionState>();
     let streaming_handle = streaming.0.lock().take();
-    parakeet_live::stop();
     match stop_recording_core(app, state) {
         Ok(stopped) => {
             let wav_path = PathBuf::from(&stopped.wav_path);
@@ -259,7 +251,6 @@ fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Re
     if let Some((_, Some(history_id))) = taken {
         pipeline::discard_pending_row(app, &history_id);
     }
-    parakeet_live::stop();
     if let Err(e) = cancel_recording_core(app, state) {
         warn!("cancel_recording via hotkey: {e}");
     }
