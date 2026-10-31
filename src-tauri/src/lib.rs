@@ -186,6 +186,9 @@ pub fn run() {
             // L'assistant IA du moteur (IA locale) : le client est cree ici, le
             // modele choisi se charge en arriere-plan.
             enhancement::local_ai::init(&handle);
+            // Premier appel de la VAD (~7 s a froid) : paye ici, sur un fil,
+            // pas pendant la premiere dictee.
+            transcription::vad::spawn_warm_up(&handle);
             match db::Database::open(app.handle()) {
                 Ok(db) => {
                     app.manage(db);
