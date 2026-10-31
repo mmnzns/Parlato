@@ -71,6 +71,7 @@ use commands::llm_models::{
     get_selected_gguf, import_gguf_model, list_gguf_models, llamacpp_backend,
     set_llamacpp_settings, set_selected_gguf,
 };
+use commands::remove_model::remove_model_everywhere;
 use commands::parakeet::{
     cancel_download_parakeet_model, delete_parakeet_model, download_parakeet_model,
     list_parakeet_models, parakeet_execution_provider,
@@ -342,6 +343,7 @@ pub fn run() {
             vad_get_state,
             vad_download,
             vad_delete,
+            remove_model_everywhere,
             vad_is_enabled,
             vad_set_enabled,
             vad_is_ready,

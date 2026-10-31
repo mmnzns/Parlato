@@ -117,10 +117,13 @@ impl VadEngine {
     }
 
     /// Decharge le detecteur s'il vient du dossier `dir`. Avant un Delete.
-    pub fn unload_if_under(&self, dir: &Path) {
-        if self.slot.lock().unload_if_under(dir) {
+    /// Vrai si un detecteur a ete decharge.
+    pub fn unload_if_under(&self, dir: &Path) -> bool {
+        let unloaded = self.slot.lock().unload_if_under(dir);
+        if unloaded {
             info!("Modele VAD decharge");
         }
+        unloaded
     }
 
     /// Un detecteur est-il charge ?

@@ -89,10 +89,13 @@ impl WhisperEngine {
     }
 
     /// Decharge le modele s'il se trouve dans (ou est) `path`. Avant un Delete.
-    pub fn unload_if_under(&self, path: &Path) {
-        if self.slot.unload_if_under(path) {
+    /// Vrai si un modele a ete decharge.
+    pub fn unload_if_under(&self, path: &Path) -> bool {
+        let unloaded = self.slot.unload_if_under(path);
+        if unloaded {
             info!("Modele Whisper decharge");
         }
+        unloaded
     }
 
     /// La carte graphique a-t-elle echoue depuis le lancement ?

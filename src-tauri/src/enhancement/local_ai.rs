@@ -570,6 +570,16 @@ impl LocalAi {
         self.slot.lock().as_ref().is_some_and(|l| l.id == id)
     }
 
+    /// Le contexte (n_ctx) avec lequel `id` est charge, `None` s'il ne l'est
+    /// pas. Pour le recharger tel qu'il etait.
+    pub fn loaded_n_ctx(&self, id: &str) -> Option<u32> {
+        self.slot
+            .lock()
+            .as_ref()
+            .filter(|l| l.id == id)
+            .map(|l| l.n_ctx)
+    }
+
     /// A la fermeture de l'application : arrete l'assistant.
     pub fn shutdown(&self) {
         self.cancel();

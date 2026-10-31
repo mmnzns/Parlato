@@ -82,9 +82,10 @@ impl ParakeetEngine {
         self.slot.unload();
     }
 
-    /// Decharge le modele s'il vient de `dir`. Avant un Delete.
-    pub fn unload_if_under(&self, dir: &Path) {
-        self.slot.unload_if_under(dir);
+    /// Decharge le modele s'il vient de `dir`. Avant un Delete. Vrai si un
+    /// modele a ete decharge.
+    pub fn unload_if_under(&self, dir: &Path) -> bool {
+        self.slot.unload_if_under(dir)
     }
 
     /// Ce qui a servi au dernier chargement : "cpu", "directml" ou
