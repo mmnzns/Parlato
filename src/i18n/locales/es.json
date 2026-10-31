@@ -845,6 +845,15 @@
     "accessTitle": "Permite Parlato en tu Mac",
     "accessDesc": "macOS pregunta antes de que una app use el micrófono o escriba por ti. Parlato necesita ambos: el micrófono para oírte y la Accesibilidad para oír tu atajo y pegar el texto. Nada sale de tu ordenador salvo que elijas un servicio en línea."
   },
+  "removeModel": {
+    "action": "Quitar de este equipo",
+    "confirmTitle": "¿Quitar {{name}} de este equipo?",
+    "bodyShared": "Se quitará de Parlato y de {{apps}}, y liberará {{size}}.",
+    "bodyAlone": "Esto libera {{size}}.",
+    "confirmButton": "Quitar",
+    "inUse": "{{name}} está abierto en otra aplicación. Ciérralo allí primero y vuelve a intentarlo.",
+    "oldCopies": "Quitado. Algunos archivos antiguos estaban en uso y desaparecerán tras reiniciar."
+  },
   "modelText": {
     "imported": "Un modelo que importaste.",
     "whisper_tiny": {

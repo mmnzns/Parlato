@@ -845,6 +845,15 @@
     "accessTitle": "Allow Parlato on your Mac",
     "accessDesc": "macOS asks before an app can use the microphone or type for you. Parlato needs both: the microphone to hear you, Accessibility to hear your shortcut and paste the text. Nothing leaves your computer unless you pick an online service."
   },
+  "removeModel": {
+    "action": "Remove from this computer",
+    "confirmTitle": "Remove {{name}} from this computer?",
+    "bodyShared": "This removes it from Parlato and from {{apps}}, and frees {{size}}.",
+    "bodyAlone": "This frees {{size}}.",
+    "confirmButton": "Remove",
+    "inUse": "{{name}} is open in another app. Close it there first, then try again.",
+    "oldCopies": "Removed. A few old files were in use and will go after a restart."
+  },
   "modelText": {
     "imported": "A model you imported.",
     "whisper_tiny": {

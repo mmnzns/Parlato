@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Check, ChevronRight, Download, Loader2, Trash2, Upload } from "lucide-react";
+import { Check, ChevronRight, Download, HardDrive, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Row } from "@/components/ui/section";
 import { modelNotes } from "@/lib/modelText";
+import { removeFromComputer, removeNote } from "@/lib/removeModel";
 import { cn } from "@/lib/utils";
 import {
   api,
@@ -122,6 +123,25 @@ export function LlmLocalPanel() {
     }
   }
 
+  /** "Remove from this computer": Delete for every app, after a confirmation. */
+  async function removeEverywhere(m: GgufModelState) {
+    setStatus((s) => ({ ...s, [m.id]: "" }));
+    try {
+      const outcome = await removeFromComputer(t, {
+        id: m.id,
+        name: m.display_name,
+        bytes: m.on_disk_bytes ?? m.size_bytes,
+        otherApps: m.other_apps,
+      });
+      if (outcome === "cancelled") return;
+      const note = removeNote(t, outcome, m.display_name);
+      if (note) setStatus((s) => ({ ...s, [m.id]: note.failure ? fail(note.text) : note.text }));
+      await refresh();
+    } catch (e) {
+      setStatus((s) => ({ ...s, [m.id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
+    }
+  }
+
   async function importModel() {
     try {
       await api.importGgufModel();
@@ -223,6 +243,18 @@ export function LlmLocalPanel() {
                 <Button size="sm" variant="ghost" onClick={() => cancelDownload(m.id)}>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   {pct !== null ? `${pct}%` : ""} {t("llmLocal.cancel")}
+                </Button>
+              )}
+              {m.downloaded && !m.imported && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={() => removeEverywhere(m)}
+                  title={t("removeModel.action")}
+                  aria-label={t("removeModel.action")}
+                >
+                  <HardDrive className="h-4 w-4" />
                 </Button>
               )}
               {m.downloaded && m.removable && (

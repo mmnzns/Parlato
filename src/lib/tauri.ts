@@ -51,6 +51,8 @@ export type WhisperModelState = {
   language_codes: string[];
   /** Another app is downloading this model right now (shared model folder). */
   downloading_elsewhere?: boolean;
+  /** Talaan / Ensayo when they also use this model (the Remove confirmation). */
+  other_apps?: string[];
 };
 
 export type DownloadProgress = {
@@ -168,6 +170,7 @@ export type GgufModelState = {
   /** False for an import that lives outside Parlato's folder: Delete leaves it. */
   removable: boolean;
   downloading_elsewhere?: boolean;
+  other_apps?: string[];
 };
 
 export type LlamaCppSettings = {
@@ -324,7 +327,11 @@ export type ParakeetModelState = {
   accuracy: number;
   language_codes: string[];
   downloading_elsewhere?: boolean;
+  other_apps?: string[];
 };
+
+/** What "Remove from this computer" did (see models/remove.rs). */
+export type RemoveResult = "removed" | "old_copies_left" | "in_use";
 
 export const api = {
   ping: () => invoke<string>("ping"),
@@ -486,9 +493,12 @@ export const api = {
       downloaded: boolean;
       path: string | null;
       on_disk_bytes: number | null;
+      other_apps?: string[];
     }>("vad_get_state"),
   vadDownload: () => invoke<string>("vad_download"),
   vadDelete: () => invoke<void>("vad_delete"),
+  removeModelEverywhere: (id: string) =>
+    invoke<RemoveResult>("remove_model_everywhere", { id }),
   vadIsEnabled: () => invoke<boolean>("vad_is_enabled"),
   vadSetEnabled: (enabled: boolean) => invoke<void>("vad_set_enabled", { enabled }),
 

@@ -51,6 +51,7 @@ import {
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { removeFromComputer, removeNote } from "@/lib/removeModel";
 import { modelName } from "@/lib/modelText";
 import { fail, type Status } from "@/lib/status";
 import { isCancelled, translateError } from "@/lib/translateError";
@@ -92,6 +93,7 @@ export function ModelsPage({
   const [parakeetStatus, setParakeetStatus] = useState<Record<string, Status>>(
     {},
   );
+  const [whisperStatus, setWhisperStatus] = useState<Record<string, Status>>({});
 
   // selectedModelId dans une ref pour les callbacks des listeners montes
   // une seule fois (meme intention que l'auto-selection de l'ancien
@@ -243,6 +245,29 @@ export function ModelsPage({
     }
   }
 
+  /** "Remove from this computer": Delete for every app, after a confirmation. */
+  async function removeWhisperEverywhere(id: string) {
+    const m = whisper.find((x) => x.id === id);
+    const name = modelName(t, id, m?.display_name ?? id);
+    setWhisperStatus((s) => ({ ...s, [id]: "" }));
+    try {
+      const outcome = await removeFromComputer(t, {
+        id,
+        name,
+        bytes: m?.on_disk_bytes ?? m?.size_bytes,
+        otherApps: m?.other_apps,
+      });
+      if (outcome === "cancelled") return;
+      const note = removeNote(t, outcome, name);
+      if (note) setWhisperStatus((s) => ({ ...s, [id]: note.failure ? fail(note.text) : note.text }));
+      // Same as Delete: the model in use is gone, so nothing is selected.
+      if (outcome !== "in_use" && selectedRef.current === id) onSelectModel(null);
+      await refresh();
+    } catch (e) {
+      setWhisperErrors((er) => ({ ...er, [id]: String(e) }));
+    }
+  }
+
   async function setDefaultWhisper(id: string) {
     // selected_whisper_model (via App.handleSelectModel) puis bascule du
     // kind : set_transcription_source n'ecrit pas selected_whisper_model,
@@ -284,6 +309,29 @@ export function ModelsPage({
     if (!(await confirmDelete(t("parakeet.confirmDelete", { id })))) return;
     try {
       await api.deleteParakeetModel(id);
+      await refresh();
+    } catch (e) {
+      setParakeetStatus((s) => ({
+        ...s,
+        [id]: fail(t("parakeet.errorPrefix", { message: translateError(t, String(e)) })),
+      }));
+    }
+  }
+
+  async function removeParakeetEverywhere(id: string) {
+    const m = parakeet.find((x) => x.id === id);
+    const name = modelName(t, id, m?.display_name ?? id);
+    setParakeetStatus((s) => ({ ...s, [id]: "" }));
+    try {
+      const outcome = await removeFromComputer(t, {
+        id,
+        name,
+        bytes: m?.on_disk_bytes ?? m?.size_bytes,
+        otherApps: m?.other_apps,
+      });
+      if (outcome === "cancelled") return;
+      const note = removeNote(t, outcome, name);
+      if (note) setParakeetStatus((s) => ({ ...s, [id]: note.failure ? fail(note.text) : note.text }));
       await refresh();
     } catch (e) {
       setParakeetStatus((s) => ({
@@ -408,9 +456,11 @@ export function ModelsPage({
             isCurrent={current}
             progress={whisperProgress[row.model.id] ?? null}
             error={whisperErrors[row.model.id] ?? null}
+            status={whisperStatus[row.model.id] || null}
             onDownload={() => downloadWhisper(row.model.id)}
             onCancelDownload={() => api.cancelDownloadWhisperModel(row.model.id)}
             onDelete={() => deleteWhisper(row.model.id)}
+            onRemoveEverywhere={() => removeWhisperEverywhere(row.model.id)}
             onSetDefault={() => setDefaultWhisper(row.model.id)}
           />
         );
@@ -426,6 +476,7 @@ export function ModelsPage({
             onDownload={() => downloadParakeet(row.model.id)}
             onCancelDownload={() => api.cancelDownloadParakeetModel(row.model.id)}
             onDelete={() => deleteParakeet(row.model.id)}
+            onRemoveEverywhere={() => removeParakeetEverywhere(row.model.id)}
             onSetDefault={() => setDefaultParakeet(row.model.id)}
           />
         );

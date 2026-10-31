@@ -5,7 +5,7 @@
 // Parlato: rendered through the Workbench ModelTile.
 
 import { useTranslation } from "react-i18next";
-import { Download, Loader2, Trash2 } from "lucide-react";
+import { Download, HardDrive, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelTile, TileProgress } from "@/components/models/ModelTile";
 import { modelName, modelNotes } from "@/lib/modelText";
@@ -26,6 +26,8 @@ type Props = {
   onDownload: () => void;
   onCancelDownload: () => void;
   onDelete: () => void;
+  /** "Remove from this computer": Delete for every app. */
+  onRemoveEverywhere: () => void;
   onSetDefault: () => void;
 };
 
@@ -38,6 +40,7 @@ export function ParakeetModelCard({
   onDownload,
   onCancelDownload,
   onDelete,
+  onRemoveEverywhere,
   onSetDefault,
 }: Props) {
   const { t } = useTranslation();
@@ -66,16 +69,28 @@ export function ParakeetModelCard({
       meta={meta}
       trailing={
         m.downloaded ? (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="text-muted-foreground"
-            onClick={onDelete}
-            title={t("speech.delete")}
-            aria-label={t("speech.delete")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={onRemoveEverywhere}
+              title={t("removeModel.action")}
+              aria-label={t("removeModel.action")}
+            >
+              <HardDrive className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={onDelete}
+              title={t("speech.delete")}
+              aria-label={t("speech.delete")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         ) : undefined
       }
       action={
