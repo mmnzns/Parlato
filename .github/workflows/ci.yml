@@ -54,9 +54,9 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      # Same fixed CPU baseline for ggml as release.yml, so a change that
+      # Same fixed CPU baseline for whisper.cpp's ggml as release.yml, so a change that
       # breaks it shows up on pull requests, not at release time.
-      - name: CPU baseline for whisper.cpp and llama.cpp
+      - name: CPU baseline for whisper.cpp
         if: matrix.os == 'windows'
         shell: pwsh
         run: |
@@ -64,8 +64,10 @@ jobs:
           Set-GgmlBaseline x64
           Reset-StaleGgml src-tauri/Cargo.toml x64 dev
 
-      # tauri-build checks that every externalBin file exists. The tests never
-      # start the local AI helper, so an empty placeholder is enough here.
+      # tauri-build checks that every externalBin file exists (tauri.conf.json
+      # lists parlato-llm only; the Vulkan helper is added by the Windows x64
+      # release override). The tests never start the local AI helper, so an
+      # empty placeholder named for the runner's triple is enough here.
       - name: Placeholder for the local AI helper (macOS)
         if: matrix.os == 'macos'
         shell: bash
@@ -84,7 +86,7 @@ jobs:
         working-directory: src-tauri
         run: cargo test --lib
 
-      - name: Check the CPU baseline
+      - name: Check the whisper.cpp CPU baseline
         if: matrix.os == 'windows'
         shell: pwsh
         run: |

@@ -80,6 +80,21 @@ revision `9ffd54a1e1ee413ddf265af9913beaf518d1639b`.
 
 ## AI cleanup models (on this PC)
 
+### Qwen3.5 4B and 9B
+
+Qwen3.5 by Alibaba Cloud (Qwen team), licensed under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). GGUF conversions by Unsloth,
+downloaded at fixed revisions:
+
+- unsloth/Qwen3.5-4B-GGUF `e87f176479d0855a907a41277aca2f8ee7a09523`
+- unsloth/Qwen3.5-9B-GGUF `3885219b6810b007914f3a7950a8d1b469d598a5`
+
+### Models no longer offered
+
+Qwen 2.5 3B, Llama 3.2 3B, Gemma 2 2B and Phi-3.5 mini are no longer offered
+for download. Files people downloaded earlier keep working as imported models,
+so their notices stay below.
+
 | Model | Author | License |
 |---|---|---|
 | Granite 4.2 3B | IBM | Apache-2.0, https://huggingface.co/ibm-granite/granite-4.2-3b |
@@ -115,4 +130,13 @@ Parlato is a fork of Parla by Florian (https://github.com/LitteRabbit-37),
 itself a Windows re-implementation of VoiceInk
 (https://github.com/Beingpax/VoiceInk). Both are GPL-3.0. Speech and language
 models run through whisper.cpp and llama.cpp (MIT), parakeet-rs and ort (MIT
-or Apache-2.0) and ONNX Runtime (MIT).
+or Apache-2.0) and ONNX Runtime (MIT). whisper.cpp runs inside Parlato;
+llama.cpp runs inside the `parlato-llm` helper program that ships with
+Parlato; ONNX Runtime is linked into Parlato.
+
+### voice-engine
+
+Speech and local AI, the model catalog, the shared model folder and the
+downloader come from voice-engine, Copyright (c) Miguel Monzones, licensed
+under the MIT License: https://github.com/mmnzns/voice-engine (the
+`parlato-llm` helper is built from it).
