@@ -1,7 +1,7 @@
 # Configuration Cargo propre a Parla.
 #
 # Build settings copied from the engine README ("Build settings an app must
-# copy", voice-engine v0.3.0). Cargo reads .cargo/config.toml from the folder
+# copy", voice-engine v0.3.1). Cargo reads .cargo/config.toml from the folder
 # it runs in and its parents, only for the workspace it builds, so an app that
 # depends on the engine as a git dependency must carry these lines itself, in
 # a committed file at the repo root (`tauri build` runs cargo from src-tauri

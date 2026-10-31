@@ -1,4 +1,4 @@
-// Parlato : l'IA locale, dans l'assistant IA du moteur (voice-engine v0.3.0).
+// Parlato : l'IA locale, dans l'assistant IA du moteur (voice-engine v0.3.1).
 //
 // Un `LocalAi` possede UN `LlmClient` : le client lance l'assistant
 // (`parlato-llm`, le sidecar Tauri a cote de l'executable), le garde tant que

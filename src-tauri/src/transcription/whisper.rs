@@ -1,4 +1,4 @@
-// Whisper local, sur `voice-engine-stt` (voice-engine v0.3.0) : Metal sur le
+// Whisper local, sur `voice-engine-stt` (voice-engine v0.3.1) : Metal sur le
 // Mac, le processeur sous Windows (pas de Vulkan dans ce processus).
 //
 // Reference VoiceInk : VoiceInk/Transcription/Core/Whisper/LibWhisper.swift
