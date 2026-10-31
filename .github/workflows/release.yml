@@ -27,11 +27,8 @@ jobs:
   # artifacts (latest.json + .sig files). The Tauri updater in the
   # installed app points to this job's latest.json.
   #
-  # gpu-detect is disabled on ARM64 (--no-default-features) because
-  # NVIDIA does not ship nvml.dll for Windows ARM64. All other features
-  # (whisper.cpp, ONNX Runtime, WASAPI audio, etc.) compile natively for both
-  # architectures. llama.cpp is not built here: it lives in the parlato-llm
-  # helper from the "helpers" job.
+  # Everything compiles natively for both architectures. llama.cpp is not
+  # built here: it lives in the parlato-llm helper from the "helpers" job.
   #
   # Windows x64 also ships parlato-llm-vulkan.exe (the graphics card build of
   # the helper): src-tauri/tauri.windows-x64.conf.json, passed with --config,
@@ -51,7 +48,7 @@ jobs:
           - arch: arm64
             runner: windows-11-arm
             rust-target: aarch64-pc-windows-msvc
-            cargo-args: "-- --no-default-features"
+            cargo-args: ""
 
     name: cpu (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}

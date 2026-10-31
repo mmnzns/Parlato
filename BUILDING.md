@@ -90,7 +90,7 @@ rustup target add aarch64-pc-windows-msvc
 $env:CC = "clang-cl"
 $env:CXX = "clang-cl"
 $env:CMAKE_GENERATOR = "Ninja"
-npm run tauri build -- --target aarch64-pc-windows-msvc -- --no-default-features
+npm run tauri build -- --target aarch64-pc-windows-msvc
 ```
 
 This produces:
@@ -98,19 +98,13 @@ This produces:
 - `src-tauri/target/aarch64-pc-windows-msvc/release/parla.exe` - the standalone binary
 - `src-tauri/target/aarch64-pc-windows-msvc/release/bundle/nsis/Parla_x.y.z_arm64-setup.exe` - NSIS installer
 
-`--no-default-features` disables `gpu-detect` (the `nvml-wrapper` crate) because NVIDIA does not ship `nvml.dll` for Windows ARM64. All other functionality (Whisper, Parakeet, local AI, audio capture, etc.) works natively on ARM64. There is no Vulkan helper for ARM64.
+All functionality (Whisper, Parakeet, local AI, audio capture, etc.) works natively on ARM64. There is no Vulkan helper for ARM64, so local AI runs on the processor there.
 
 The CI workflow `.github/workflows/release.yml` builds the ARM64 variant automatically on GitHub's `windows-11-arm` runner.
 
-## Cargo features
+## Graphics card
 
-Parla exposes several Cargo features in `src-tauri/Cargo.toml` that control backend capabilities:
-
-| Feature | Default | Description |
-|---|---|---|
-| `gpu-detect` | yes | Detect an NVIDIA GPU via NVML at startup (hardware label) |
-
-There are no CUDA features any more. On Windows the ONNX Runtime DirectML provider is always compiled in (through `voice-engine-stt/directml`); Parakeet uses it when "Use graphics card" is on. Whisper and local AI use Metal on the Mac, and local AI uses the Vulkan helper on Windows x64.
+There is no `[features]` table any more: one build serves every machine. There are no CUDA features. On Windows the ONNX Runtime DirectML provider is always compiled in (through `voice-engine-stt/directml`); Parakeet uses it when "Use graphics card" is on. Whisper and local AI use Metal on the Mac, and local AI uses the Vulkan helper on Windows x64.
 
 The CI workflow `.github/workflows/release.yml` builds x64 and ARM64 Windows installers and the Mac `.dmg`.
 

@@ -175,35 +175,20 @@ either, and the two texts differ only in a few words (single pass "Parlato",
 windows "Parlat"), so it shows no harm, not the fix itself; Florian's case
 was a 147 s recording.
 
-**Parakeet on the graphics card is a user setting, default off** (2026-10-22).
-(Superseded by engine v0.2.2: one "Use graphics card" setting covers Parakeet, Whisper on
-the Mac and local AI, on by default on the Mac and on a PC with a dedicated card.
-The text below is the 0.14 history; store key and command names may have changed.)
-Store key `parakeet_gpu`, commands `get/set_parakeet_gpu`, switch in
-`SpeechThreadsPanel.tsx` (NVIDIA models page, hidden when the build has no GPU
-provider, so on the Mac). Every Windows build already carries ONNX Runtime with
-DirectML (ort-sys only ships a DirectML build for Windows, x64 and ARM64) and
-uses the DirectML.dll of Windows (System32, Windows 10 1903+; it is not
-bundled, very old Windows 10 builds fall back to the processor), so there is
-still one installer and the auto-updater is untouched. `parakeet-rs`'s
-`directml` feature is on for Windows targets in `Cargo.toml` (now through
-`voice-engine-stt/directml`); the old `directml-onnx` and `cuda-onnx` Cargo
-features are gone. Since engine v0.2.2 the switch is the single "Use graphics
-card" setting (`use_gpu`), see the CHANGELOG. The encoder goes on the GPU, the TDT decoder/joint stays on the
-processor (`JOINT_ON_GPU` in `parakeet.rs`; `parakeet_gpu_smoke` measures
-both). If loading or the first transcription on the GPU fails, Parlato reloads
-on the processor, retries once, remembers the failure until the app restarts
-and shows one recorder-pill notice after that dictation. `parakeet_execution_provider`
-reports what actually ran (`cpu`, `directml`, `cuda`, `cpu-fallback`).
-Benchmark: `PARLATO_PARAKEET_DIR=<dir> PARLATO_WAV=<wav> cargo test --release
---lib parakeet_gpu_smoke -- --ignored --nocapture`. Result on the owner's PC
-(RTX 5070 Ti, 2026-10-22, Parakeet Ultra int8, 77 s dictation, 12 threads,
-release build): processor 1.25 s, GPU encoder 0.52 s (2.4x faster), GPU
-encoder + joint 0.84 s, so `JOINT_ON_GPU` stays false. The GPU text is not
-byte-identical to the processor's (small floating-point differences change a
-few words, for example "Parlat" vs "Parlato"), but equally good. Kept
-default-off: one NVIDIA card is not enough to make it automatic; measure on
-AMD, Intel and Snapdragon first.
+**One "Use graphics card" setting, `use_gpu` (engine v0.2.2).** It replaces the 0.14
+`parakeet_gpu` setting (commands `get/set_use_gpu`, store key `use_gpu`, migration in
+`use_gpu.rs`: `parakeet_gpu == true` becomes `use_gpu = true`, then the old key is removed;
+switch in `SpeechThreadsPanel.tsx`). Default: on for the Mac; on Windows on only when
+`voice_engine_stt::discrete_card()` finds a discrete card, worked out only while the person
+has not chosen. It covers Parakeet TDT (DirectML on Windows), Whisper (Metal, Mac only)
+and local AI (Metal on the Mac, the Vulkan helper on Windows x64). ONNX models run on the
+processor on the Mac. Every Windows build carries ONNX Runtime with DirectML (through
+`voice-engine-stt/directml`) and uses the DirectML.dll of Windows (System32, Windows 10
+1903+; not bundled, very old builds fall back to the processor), so there is still one
+installer and the auto-updater is untouched. If the graphics card fails (`fell_back`),
+Parlato uses the processor, remembers the failure until the app restarts and shows one
+recorder-pill notice. The old 2026-10-22 measurements (RTX 5070 Ti, Parakeet Ultra int8,
+77 s: processor 1.25 s, GPU encoder 0.52 s) are in the CHANGELOG and the 2026-10-22 spec.
 
 **Whisper and local AI on the graphics card (engine v0.2.2).** On the Mac
 Whisper uses Metal and the local AI helper uses Metal. On Windows x64 local AI
@@ -240,7 +225,7 @@ bundles or hosts model files; they download from the original host. Pin
 third-party repositories to a commit (`revision` in the Parakeet catalog).
 
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-883 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
+889 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
 are written with their accents (converted 2026-10-05, commit 3d7925b; Spanish
 questions and exclamations take their opening marks). New strings follow suit,
@@ -388,8 +373,8 @@ Expected issues to solve and record under "Local environment notes":
 - `keyring` only enables `windows-native`. Move it to a Windows target block
   and add `apple-native` under `[target.'cfg(target_os = "macos")'.dependencies]`,
   otherwise API keys are not stored in the Keychain.
-- The default `gpu-detect` feature (NVIDIA `nvml-wrapper`) is meaningless on
-  Mac; build with it off.
+- (Historical: the `gpu-detect` feature and `nvml-wrapper` are gone since engine
+  v0.2.2; hardware and graphics card detection come from the engine.)
 - `tauri.conf.json` bundles `nsis` only. Add a `tauri.macos.conf.json`
   override (Tauri merges it on macOS) with `app` + `dmg` targets and
   `macOSPrivateApi: true` if the recorder pill needs transparency.
@@ -407,8 +392,6 @@ Phase 0 findings (2026-09-30, MacBook, Apple Silicon, macOS 27, Rust 1.98):
 - Duplicate ggml symbols: Apple's linker only warns (`ld: duplicate
   symbol`) and keeps the first copy, same outcome as `/FORCE:MULTIPLE` on
   Windows. No config needed. The warnings are expected.
-- `gpu-detect` compiles on macOS; NVML just fails at runtime and the app
-  runs CPU-only. It logs a long harmless `nvml.dll` debug line.
 - Placeholders that compile but do nothing yet: `active_window_macos.rs`,
   `installed_apps_macos.rs`, `ocr_macos.rs` (swapped in by `#[cfg_attr(...,
   path = ...)]` in each `mod.rs`), the non-Windows `try_extract` in
