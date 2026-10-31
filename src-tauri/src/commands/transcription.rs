@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tracing::info;
 
-use crate::transcription::{model_manager::ModelManager, whisper::{WhisperEngine, WhisperParams}};
+use crate::transcription::whisper::{WhisperEngine, WhisperParams};
 
 pub struct WhisperEngineState(pub Arc<WhisperEngine>);
 
@@ -40,16 +40,18 @@ pub struct TranscribeResponse {
 pub async fn transcribe_wav(
     app: AppHandle,
     engine_state: State<'_, WhisperEngineState>,
-    models_state: State<'_, super::models::ModelManagerState>,
+    models_state: State<'_, crate::models::ModelStoreState>,
     req: TranscribeRequest,
 ) -> Result<TranscribeResponse, String> {
     let engine = engine_state.0.clone();
-    let models: Arc<ModelManager> = models_state.0.clone();
+    let models = models_state.0.clone();
     let _ = app;
 
     let model_path: PathBuf = models
-        .path_if_present(&req.model_id)
+        .path_for_id(&req.model_id)
         .ok_or_else(|| format!("modele non telecharge: {}", req.model_id))?;
+    // Verrou du dossier partage tant que le modele est charge.
+    let handle = models.hold(&req.model_id);
 
     let wav_path = PathBuf::from(&req.wav_path);
     if !wav_path.exists() {
@@ -68,6 +70,7 @@ pub async fn transcribe_wav(
         engine
             .load(&model_path)
             .map_err(|e| e.to_string())?;
+        engine.hold(handle);
         engine
             .transcribe_wav(&wav_path, &params)
             .map_err(|e| e.to_string())

@@ -11,51 +11,22 @@
 // retourne des WhisperVadSegment. On segmente d'abord puis on transcrit chaque
 // segment, identique a l'effet du vad_model_path passe a FullParams cote mac.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
-use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager};
 use tracing::{debug, info, warn};
+use voice_engine_models::ModelHandle;
 use whisper_rs::{WhisperVadContext, WhisperVadContextParams, WhisperVadParams, WhisperVadSegment};
-
-/// Modele VAD Silero converti en GGML (whisper.cpp). Le repo a migre de
-/// ggerganov/whisper.cpp vers ggml-org/whisper-vad fin 2025. La 6.2.0 est
-/// la version recente recommandee par le script download-vad-model.sh.
-/// Parlato : figee sur le commit 9ffd54a (2025-11-17, dernier commit au
-/// 2026-10-16) au lieu de "main".
-pub const VAD_MODEL_URL: &str =
-    "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v6.2.0.bin";
-
-/// Parlato : SHA-256 du fichier (oid LFS Hugging Face), verifie apres le
-/// telechargement.
-pub const VAD_MODEL_SHA256: &str =
-    "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987";
-
-pub const VAD_MODEL_FILENAME: &str = "ggml-silero-v6.2.0.bin";
-pub const VAD_MODEL_SIZE_BYTES: u64 = 906_752; // ~885 Ko (annonce sur HF)
-
-#[derive(Debug, Clone, Serialize)]
-pub struct VadModelState {
-    pub downloaded: bool,
-    pub path: Option<String>,
-    pub on_disk_bytes: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VadDownloadProgress {
-    downloaded: u64,
-    total: u64,
-}
 
 /// Contexte VAD charge (reutilisable entre transcriptions).
 pub struct VadEngine {
     inner: Arc<Mutex<Option<WhisperVadContext>>>,
     loaded_path: Arc<Mutex<Option<PathBuf>>>,
+    /// Parlato : verrou du dossier de modeles partage tant que le modele est charge.
+    handle: Arc<Mutex<Option<ModelHandle>>>,
 }
 
 impl Default for VadEngine {
@@ -63,6 +34,7 @@ impl Default for VadEngine {
         Self {
             inner: Arc::new(Mutex::new(None)),
             loaded_path: Arc::new(Mutex::new(None)),
+            handle: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -73,8 +45,22 @@ impl VadEngine {
     pub fn unload(&self) {
         let had_model = self.inner.lock().take().is_some();
         *self.loaded_path.lock() = None;
+        *self.handle.lock() = None;
         if had_model {
             info!("Modele VAD decharge");
+        }
+    }
+
+    /// Garde `handle` tant que le modele est charge (remplace le precedent).
+    pub fn hold(&self, handle: Option<ModelHandle>) {
+        *self.handle.lock() = handle;
+    }
+
+    /// Decharge le modele s'il se trouve dans `dir`. Avant un Delete.
+    pub fn unload_if_under(&self, dir: &Path) {
+        let loaded = self.loaded_path.lock().clone();
+        if loaded.is_some_and(|l| l.starts_with(dir)) {
+            self.unload();
         }
     }
 
@@ -137,81 +123,6 @@ fn default_vad_params() -> WhisperVadParams {
     params
 }
 
-/// Chemin attendu du modele VAD (un seul par installation).
-pub fn vad_model_path(app: &AppHandle) -> Result<PathBuf> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| anyhow!("app_local_data_dir: {e}"))?;
-    let dir = base.join("Models");
-    fs::create_dir_all(&dir).ok();
-    Ok(dir.join(VAD_MODEL_FILENAME))
-}
-
-pub fn vad_state(app: &AppHandle) -> VadModelState {
-    match vad_model_path(app) {
-        Ok(p) if p.exists() => {
-            let size = p.metadata().ok().map(|m| m.len());
-            VadModelState {
-                downloaded: true,
-                path: Some(p.to_string_lossy().into_owned()),
-                on_disk_bytes: size,
-            }
-        }
-        _ => VadModelState {
-            downloaded: false,
-            path: None,
-            on_disk_bytes: None,
-        },
-    }
-}
-
-/// Telecharge le modele VAD Silero depuis HuggingFace avec progression.
-/// Emet vad:download:progress / vad:download:complete / vad:download:error.
-pub async fn download_vad(app: &AppHandle) -> Result<PathBuf> {
-    let target = vad_model_path(app)?;
-    if target.exists() {
-        return Ok(target);
-    }
-    // Parlato : crate::download garde le .part apres un echec (reprise au
-    // prochain essai). Pas d'annulation pour la VAD (moins de 1 Mo).
-    let tmp = target.with_extension("bin.part");
-    let client = crate::download::client()?;
-    crate::download::Transfer {
-        url: VAD_MODEL_URL,
-        target: &target,
-        part: &tmp,
-        cancel: None,
-        progress_every: std::time::Duration::from_millis(100),
-        sha256: Some(VAD_MODEL_SHA256),
-    }
-    .run(&client, |downloaded, total| {
-        let _ = app.emit(
-            "vad:download:progress",
-            VadDownloadProgress {
-                downloaded,
-                total: total.unwrap_or(VAD_MODEL_SIZE_BYTES),
-            },
-        );
-    })
-    .await?;
-
-    let _ = app.emit(
-        "vad:download:complete",
-        serde_json::json!({ "path": target.to_string_lossy() }),
-    );
-    info!(path = %target.display(), "Modele VAD telecharge");
-    Ok(target)
-}
-
-pub fn delete_vad(app: &AppHandle) -> Result<()> {
-    let p = vad_model_path(app)?;
-    if p.exists() {
-        fs::remove_file(&p)?;
-    }
-    Ok(())
-}
-
 /// Parlato : Silero traite l'audio par fenetres de 32 ms, des graphes minuscules.
 /// Avec tous les threads (16 sur un Ryzen 8 coeurs), la synchronisation coute
 /// bien plus que le calcul : 32,8 s au lieu de 0,5 s pour 49 s d'audio
@@ -258,12 +169,6 @@ pub fn run_vad_on_wav(engine: &VadEngine, wav_path: &Path) -> Result<VadOutput> 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn model_url_is_pinned_with_checksum() {
-        crate::download::assert_pinned(VAD_MODEL_URL, VAD_MODEL_SHA256);
-        assert!(VAD_MODEL_URL.ends_with(VAD_MODEL_FILENAME));
-    }
 
     /// Parlato : temps de la VAD selon le nombre de threads.
     /// `PARLATO_VAD_MODEL=<ggml-silero.bin> PARLATO_WAV=<16 kHz wav>

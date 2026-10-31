@@ -183,10 +183,13 @@ fn build_llamacpp_endpoint(app: &AppHandle) -> Result<Option<String>> {
     use super::providers::llamacpp as llcp;
     let id = llcp::get_selected_gguf(app)
         .ok_or_else(|| anyhow!("aucun modele GGUF selectionne"))?;
-    let mgr_state = app
-        .try_state::<crate::commands::llm_models::GgufModelManagerState>()
-        .ok_or_else(|| anyhow!("gguf manager state absent"))?;
-    let path = mgr_state
+    let store = app
+        .try_state::<crate::models::ModelStoreState>()
+        .ok_or_else(|| anyhow!("model store state absent"))?;
+    // TODO(unit 4): hold a ModelHandle while the model is loaded. The llama.cpp
+    // runtime still takes a path through the endpoint string; the helper
+    // client of unit 4 will load by model id and can keep the handle.
+    let path = store
         .0
         .path_for_id(&id)
         .ok_or_else(|| anyhow!("modele GGUF non telecharge: {id}"))?;

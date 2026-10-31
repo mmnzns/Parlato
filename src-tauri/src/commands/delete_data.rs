@@ -77,13 +77,42 @@ pub fn delete_all_data(app: AppHandle) -> Result<(), String> {
             .status();
     }
 
-    // 4. Folders, after Parlato has exited.
+    // 4. Models in the shared folder (voice-engine): Parlato lets go of each
+    // model it uses; a model another app also uses stays for that app. The
+    // models are unloaded first, because an app that has a model loaded
+    // keeps it from being erased. Never remove a shared model folder by hand.
+    release_models(&app);
+
+    // 5. Folders, after Parlato has exited.
     let folders = data_folders(&app);
     info!(count = folders.len(), "Delete all Parlato data: removing folders after exit");
     spawn_remover(&folders).map_err(|e| e.to_string())?;
 
     app.exit(0);
     Ok(())
+}
+
+/// Unloads every loaded speech model, then `release_all()` on the store.
+fn release_models(app: &AppHandle) {
+    if let Some(e) = app.try_state::<super::transcription::WhisperEngineState>() {
+        e.0.unload();
+    }
+    if let Some(e) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
+        e.0.unload();
+    }
+    if let Some(e) = app.try_state::<super::vad::VadEngineState>() {
+        e.0.unload();
+    }
+    if let Some(rt) = crate::enhancement::service::llama_runtime() {
+        rt.unload();
+    }
+    match app.try_state::<crate::models::ModelStoreState>() {
+        Some(store) => match store.0.shared().release_all() {
+            Ok(()) => info!("Delete all Parlato data: shared models released"),
+            Err(e) => warn!("delete data: releasing shared models: {e}"),
+        },
+        None => warn!("delete data: model store not available"),
+    }
 }
 
 #[cfg(unix)]

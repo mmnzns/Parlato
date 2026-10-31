@@ -11,7 +11,6 @@
 //   - output_filter.rs : strip <thinking>/<think>/<reasoning>
 //   - providers/   : implementations concretes (openai, gemini, groq, ...)
 
-pub mod model_manager;
 pub mod output_filter;
 pub mod prompt_detection;
 pub mod prompts;

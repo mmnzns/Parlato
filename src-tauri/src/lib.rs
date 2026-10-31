@@ -5,13 +5,13 @@
 mod audio;
 mod commands;
 mod db;
-mod download;
 mod enhancement;
 mod gpu;
 mod history;
 mod logging;
 mod hotkeys;
 mod mini_recorder;
+mod models;
 mod notice;
 mod paste;
 mod power_mode;
@@ -33,7 +33,7 @@ use commands::dictionary::{
 };
 use commands::models::{
     cancel_download_whisper_model, delete_whisper_model, download_whisper_model,
-    import_whisper_model, list_whisper_models, ModelManagerState,
+    import_whisper_model, list_whisper_models,
 };
 use commands::recording::{
     cancel_processing, cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
@@ -182,9 +182,9 @@ pub fn run() {
         .manage(transcription::parakeet::ParakeetEngineState::default())
         .manage(power_mode::session::PowerSessionState::default())
         .manage(screen_context::service::ScreenContextState::default())
-        // GgufModelManagerState + ParakeetModelManagerState sont enregistres
-        // dans le setup() ci-dessous car ils ont besoin de l'AppHandle pour
-        // resoudre AppLocalData.
+        // ModelStoreState (dossier de modeles partage du moteur) est enregistre
+        // dans le setup() ci-dessous : il a besoin de l'AppHandle pour
+        // resoudre AppLocalData et lire les reglages.
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -204,15 +204,10 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             commands::settings::apply_dock_icon(&handle);
-            app.manage(ModelManagerState::new(handle.clone()));
-            app.manage(enhancement::model_manager::GgufModelManagerState::new(
-                handle.clone(),
-            ));
-            app.manage(
-                transcription::parakeet_model_manager::ParakeetModelManagerState::new(
-                    handle.clone(),
-                ),
-            );
+            // Dossier de modeles partage (voice-engine) : ouverture, migration
+            // des ids, deplacement des anciens modeles, nettoyage. Avant tout
+            // ce qui peut charger un modele.
+            app.manage(models::ModelStoreState(models::startup::init(&handle)));
             match db::Database::open(app.handle()) {
                 Ok(db) => {
                     app.manage(db);

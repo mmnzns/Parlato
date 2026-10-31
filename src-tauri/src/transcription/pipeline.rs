@@ -33,7 +33,6 @@ use crate::transcription::{
         streaming::{StreamingConfig, StreamingHandle, StreamingRegistry},
         CloudRegistry,
     },
-    model_manager::ModelManager,
     vad,
     whisper::{self as whisper_core, WhisperParams},
 };
@@ -823,20 +822,19 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         if model_id.is_empty() {
             anyhow::bail!("PARLA_ERR:noParakeet");
         }
-        let mgr = app
-            .state::<crate::commands::parakeet::ParakeetModelManagerState>()
-            .0
-            .clone();
-        let model_dir = mgr
+        let store = app.state::<crate::models::ModelStoreState>().0.clone();
+        let model_dir = store
             .path_for_id(model_id)
             .ok_or_else(|| anyhow!("PARLA_ERR:parakeetIncomplete:{model_id}"))?;
         let engine_state = app
             .state::<crate::transcription::parakeet::ParakeetEngineState>()
             .0
             .clone();
-        let kind = crate::transcription::parakeet_model_manager::find_variant(model_id)
-            .map(|v| v.kind)
-            .unwrap_or(crate::transcription::parakeet_model_manager::ParakeetKind::Tdt);
+        let kind = voice_engine_models::catalog::find(model_id)
+            .and_then(|m| crate::transcription::parakeet::ParakeetKind::from_catalog(m.kind))
+            .unwrap_or(crate::transcription::parakeet::ParakeetKind::Tdt);
+        // Verrou du dossier partage tant que le modele est charge.
+        let handle = store.hold(model_id);
         let wav_path_clone = wav_path.clone();
         let language_clone = language.clone();
         let vad = vad_for(&app);
@@ -846,6 +844,7 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         let engine_for_notice = engine_state.clone();
         let text = task::spawn_blocking(move || -> Result<String> {
             engine_state.ensure_loaded(&model_dir, kind, threads, gpu)?;
+            engine_state.hold(handle);
             let used_vad = vad.is_some();
             let mut samples = speech_samples(vad, &wav_path_clone)?;
             if samples.is_empty() {
@@ -894,14 +893,14 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         .state::<crate::commands::transcription::WhisperEngineState>()
         .0
         .clone();
-    let models: Arc<ModelManager> = app
-        .state::<crate::commands::models::ModelManagerState>()
-        .0
-        .clone();
+    let store = app.state::<crate::models::ModelStoreState>().0.clone();
 
-    let model_path = models
-        .path_if_present(&model_id)
+    let model_path = store
+        .path_for_id(&model_id)
         .ok_or_else(|| anyhow!("PARLA_ERR:modelNotDownloaded:{model_id}"))?;
+    // Verrou du dossier partage tant que le modele est charge (rien pour un
+    // modele importe, qui n'est pas dans le dossier partage).
+    let handle = store.hold(&model_id);
 
     // VAD optionnelle (matching VoiceInk IsVADEnabled), cf `speech_samples`.
     let vad = vad_for(&app);
@@ -910,6 +909,7 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
     let start = std::time::Instant::now();
     let text = task::spawn_blocking(move || -> Result<String> {
         engine.load(&model_path)?;
+        engine.hold(handle);
         let samples = speech_samples(vad, &wav_path_clone)?;
         if samples.is_empty() {
             return Ok(String::new());
@@ -939,12 +939,11 @@ fn vad_for(app: &AppHandle) -> Option<(Arc<vad::VadEngine>, PathBuf)> {
     if !is_vad_enabled(app) {
         return None;
     }
-    let state = vad::vad_state(app);
-    if !state.downloaded {
-        return None;
-    }
-    let path = PathBuf::from(state.path?);
+    let store = app.state::<crate::models::ModelStoreState>().0.clone();
+    let path = store.path_for_id(crate::commands::vad::VAD_ID)?;
     let engine = app.state::<crate::commands::vad::VadEngineState>().0.clone();
+    // Verrou du dossier partage tant que le modele VAD est charge.
+    engine.hold(store.hold(crate::commands::vad::VAD_ID));
     Some((engine, path))
 }
 
@@ -1222,7 +1221,7 @@ mod tests {
         engine
             .ensure_loaded(
                 Path::new(&dir),
-                crate::transcription::parakeet_model_manager::ParakeetKind::Tdt,
+                crate::transcription::parakeet::ParakeetKind::Tdt,
                 0,
                 false,
             )

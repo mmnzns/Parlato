@@ -1,53 +1,42 @@
-// Commandes Tauri pour les modeles Parakeet (NVIDIA NeMo via parakeet-rs).
+// Commandes Tauri pour les modeles Parakeet, Parakeet Unified et Nemotron,
+// sur le dossier de modeles partage du moteur (voir crate::models).
 
-use std::sync::Arc;
+use tauri::{command, AppHandle, Manager, State};
 
-use tauri::{command, AppHandle, Manager};
+use crate::models::download::{self, Flavor};
+use crate::models::list::{self, ParakeetModelState};
+use crate::models::ModelStoreState;
 
-pub use crate::transcription::parakeet_model_manager::ParakeetModelManagerState;
-use crate::transcription::parakeet_model_manager::{
-    ParakeetModelManager, ParakeetModelState,
-};
-
-pub fn ensure_state(app: &AppHandle) -> Arc<ParakeetModelManager> {
-    if let Some(s) = app.try_state::<ParakeetModelManagerState>() {
-        return s.0.clone();
-    }
-    let s = ParakeetModelManagerState::new(app.clone());
-    let arc = s.0.clone();
-    app.manage(s);
-    arc
+#[command]
+pub fn list_parakeet_models(state: State<'_, ModelStoreState>) -> Result<Vec<ParakeetModelState>, String> {
+    Ok(list::parakeet_models(&state.0))
 }
 
 #[command]
-pub fn list_parakeet_models(app: AppHandle) -> Result<Vec<ParakeetModelState>, String> {
-    let mgr = ensure_state(&app);
-    mgr.list().map_err(|e| e.to_string())
+pub async fn download_parakeet_model(
+    app: AppHandle,
+    state: State<'_, ModelStoreState>,
+    id: String,
+) -> Result<String, String> {
+    download::run(&app, state.0.clone(), &id, Flavor::Parakeet).await
 }
 
 #[command]
-pub async fn download_parakeet_model(app: AppHandle, id: String) -> Result<String, String> {
-    let mgr = ensure_state(&app);
-    mgr.download(&id)
-        .await
-        .map(|p| p.to_string_lossy().into_owned())
-        .map_err(|e| e.to_string())
+pub fn cancel_download_parakeet_model(state: State<'_, ModelStoreState>, id: String) {
+    state.0.cancel_download(&id);
 }
 
 #[command]
-pub fn cancel_download_parakeet_model(app: AppHandle, id: String) {
-    let mgr = ensure_state(&app);
-    mgr.cancel_download(&id);
-}
-
-#[command]
-pub fn delete_parakeet_model(app: AppHandle, id: String) -> Result<(), String> {
-    let mgr = ensure_state(&app);
+pub fn delete_parakeet_model(
+    app: AppHandle,
+    state: State<'_, ModelStoreState>,
+    id: String,
+) -> Result<(), String> {
     // Decharge le modele si c'est celui qui est actif.
     if let Some(engine) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
-        engine.0.unload();
+        engine.0.unload_if_dir(&state.0.shared().model_dir(&id));
     }
-    mgr.delete(&id).map_err(|e| e.to_string())
+    state.0.release(&id).map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Parlato : ce qui a vraiment servi au dernier chargement du modele :

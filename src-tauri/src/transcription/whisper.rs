@@ -11,6 +11,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use parking_lot::Mutex;
 use tracing::{debug, info};
+use voice_engine_models::ModelHandle;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 /// Parametres d'une session de transcription (modeles utiles pour Phase 1c).
@@ -29,6 +30,10 @@ pub struct WhisperParams {
 pub struct WhisperEngine {
     inner: Arc<Mutex<Option<WhisperContext>>>,
     loaded_path: Arc<Mutex<Option<String>>>,
+    /// Parlato : verrou du dossier de modeles partage tant que le modele est
+    /// charge (le Delete d'une autre application ne peut pas l'effacer).
+    /// Vide pour un modele importe.
+    handle: Arc<Mutex<Option<ModelHandle>>>,
 }
 
 impl Default for WhisperEngine {
@@ -42,6 +47,20 @@ impl WhisperEngine {
         Self {
             inner: Arc::new(Mutex::new(None)),
             loaded_path: Arc::new(Mutex::new(None)),
+            handle: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// Garde `handle` tant que le modele est charge (remplace le precedent).
+    pub fn hold(&self, handle: Option<ModelHandle>) {
+        *self.handle.lock() = handle;
+    }
+
+    /// Decharge le modele s'il se trouve dans (ou est) `path`. Avant un Delete.
+    pub fn unload_if_under(&self, path: &Path) {
+        let loaded = self.loaded_path.lock().clone();
+        if loaded.is_some_and(|l| Path::new(&l).starts_with(path)) {
+            self.unload();
         }
     }
 
@@ -53,6 +72,7 @@ impl WhisperEngine {
     pub fn unload(&self) {
         let had_model = self.inner.lock().take().is_some();
         *self.loaded_path.lock() = None;
+        *self.handle.lock() = None;
         if had_model {
             info!("Modele Whisper decharge");
         }

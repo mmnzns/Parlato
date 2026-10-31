@@ -35,6 +35,7 @@ pub struct TextProcessingSettings {
 #[tauri::command]
 pub fn set_selected_whisper_model(app: AppHandle, id: Option<String>) -> Result<(), String> {
     pipeline::set_selected_model(&app, id.as_deref()).map_err(|e| e.to_string())?;
+    crate::models::mark_used(&app, id.as_deref());
     emit_source_changed(&app);
     Ok(())
 }
@@ -131,7 +132,10 @@ pub fn set_transcription_source(
         }
     }
     match source.parakeet_model_id {
-        Some(v) => store.set("selected_parakeet_model", serde_json::Value::String(v)),
+        Some(v) => {
+            crate::models::mark_used(&app, Some(&v));
+            store.set("selected_parakeet_model", serde_json::Value::String(v))
+        }
         None => {
             store.delete("selected_parakeet_model");
         }

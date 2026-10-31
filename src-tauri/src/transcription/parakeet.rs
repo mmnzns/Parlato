@@ -28,7 +28,31 @@ use parakeet_rs::{
 use parking_lot::Mutex;
 use tracing::{info, warn};
 
-use super::parakeet_model_manager::ParakeetKind;
+use voice_engine_models::{Kind, ModelHandle};
+
+/// Parlato : famille de modele, chaque famille a son type parakeet-rs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParakeetKind {
+    /// Parakeet TDT v2 / v3 / Ultra (`parakeet_rs::ParakeetTDT`).
+    Tdt,
+    /// Parakeet Unified EN (`parakeet_rs::ParakeetUnified`).
+    Unified,
+    /// Nemotron 3.5 ASR multilingue (`parakeet_rs::Nemotron`).
+    Nemotron,
+}
+
+impl ParakeetKind {
+    /// La famille d'un modele du catalogue du moteur (None : pas un modele
+    /// de la famille Parakeet).
+    pub fn from_catalog(kind: Kind) -> Option<Self> {
+        match kind {
+            Kind::Parakeet => Some(Self::Tdt),
+            Kind::ParakeetUnified => Some(Self::Unified),
+            Kind::Nemotron => Some(Self::Nemotron),
+            _ => None,
+        }
+    }
+}
 
 /// Provider GPU de ce build et son nom : DirectML sous Windows (feature
 /// `directml` de parakeet-rs, activee dans Cargo.toml pour Windows), CUDA si le
@@ -110,6 +134,8 @@ pub struct ParakeetEngine {
     gpu_notice_pending: AtomicBool,
     /// Parlato : provider du dernier chargement (cf `reported_provider`).
     last_provider: Mutex<&'static str>,
+    /// Parlato : verrou du dossier de modeles partage tant que le modele est charge.
+    handle: Mutex<Option<ModelHandle>>,
 }
 
 impl ParakeetEngine {
@@ -119,6 +145,20 @@ impl ParakeetEngine {
             gpu_failed: AtomicBool::new(false),
             gpu_notice_pending: AtomicBool::new(false),
             last_provider: Mutex::new("cpu"),
+            handle: Mutex::new(None),
+        }
+    }
+
+    /// Garde `handle` tant que le modele est charge (remplace le precedent).
+    pub fn hold(&self, handle: Option<ModelHandle>) {
+        *self.handle.lock() = handle;
+    }
+
+    /// Decharge le modele s'il vient de `dir`. Avant un Delete.
+    pub fn unload_if_dir(&self, dir: &Path) {
+        let loaded_here = self.current.lock().as_ref().is_some_and(|c| c.path == dir);
+        if loaded_here {
+            self.unload();
         }
     }
 
@@ -268,6 +308,7 @@ impl ParakeetEngine {
     /// modele ou desactive la source.
     pub fn unload(&self) {
         *self.current.lock() = None;
+        *self.handle.lock() = None;
     }
 }
 
