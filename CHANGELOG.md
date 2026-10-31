@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- New local AI models: Qwen 3.5 4B and Qwen 3.5 9B. IBM Granite 4.2 3B stays
+  the default.
+- One **Use graphics card** setting. It is on by default on the Mac, and on
+  Windows when the PC has a dedicated graphics card. It covers Whisper on the
+  Mac, Parakeet on Windows and local AI.
+
+### Changed
+- Your downloaded models now live in one folder that Parlato shares with
+  Talaan and Ensayo, so a model downloaded by one app is not downloaded again
+  by another. Parlato moves your existing models there by itself the first
+  time it starts; nothing is downloaded again.
+- Speech and local AI now run on the engine shared with Talaan and Ensayo.
+- Whisper uses the Mac's graphics chip.
+- Local AI runs in a separate helper program and stays ready between
+  dictations.
+
 ### Removed
+- Qwen 2.5 3B, Llama 3.2 3B, Gemma 2 2B and Phi-3.5 mini are no longer offered
+  for download. Files you already have keep working as imported models.
 - The recorder pill no longer shows your words while you speak, and the
   "Show words as you speak" setting is gone. The pasted text never came from
   that preview, so dictation results are the same. Online models that
