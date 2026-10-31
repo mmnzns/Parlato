@@ -322,11 +322,8 @@ mod tests {
         let list = whisper_models(&store);
         let tiny = list.iter().find(|m| m.id == "whisper-tiny").unwrap();
         assert!(tiny.downloaded);
-        assert!(tiny
-            .path
-            .as_deref()
-            .unwrap()
-            .ends_with("whisper-tiny/ggml-tiny.bin"));
+        // `path` is a String: compare as a Path so Windows backslashes match.
+        assert!(Path::new(tiny.path.as_deref().unwrap()).ends_with("whisper-tiny/ggml-tiny.bin"));
         assert_eq!(tiny.on_disk_bytes, Some(tiny.size_bytes));
         let last = list.last().unwrap();
         assert_eq!(last.id, "imported:custom");
@@ -426,7 +423,7 @@ mod tests {
         install(&store, "vad");
         let s = vad_state(&store);
         assert!(s.downloaded);
-        assert!(s.path.unwrap().ends_with("vad/ggml-silero-v6.2.0.bin"));
+        assert!(Path::new(&s.path.unwrap()).ends_with("vad/ggml-silero-v6.2.0.bin"));
         assert_eq!(s.on_disk_bytes, Some(885_098));
     }
 
