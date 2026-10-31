@@ -81,6 +81,56 @@ impl VadEngine {
     }
 }
 
+/// Parlato : 0,5 s de silence a 16 kHz pour la chauffe.
+const WARM_UP_SAMPLES: usize = SAMPLE_RATE as usize / 2;
+
+/// Faut-il chauffer la VAD au lancement ? Oui quand elle est activee et que
+/// son modele est installe dans le dossier partage.
+pub fn should_warm_up(vad_enabled: bool, model_installed: bool) -> bool {
+    vad_enabled && model_installed
+}
+
+/// Premier appel du moteur apres le lancement : whisper.cpp initialise ses
+/// backends ggml une fois pour le processus (mesure : ~6,9 s au premier appel,
+/// ~72 ms ensuite, sur un clip de 30 s). On le paie ici, sur un fil, avant la
+/// premiere dictee. Retourne la duree de l'appel.
+pub fn warm_up(model_dir: &Path) -> Result<std::time::Duration> {
+    let st = Instant::now();
+    voice_engine_stt::vad::detect(model_dir, &vec![0.0f32; WARM_UP_SAMPLES])
+        .map_err(|e| anyhow!("VAD: {e}"))?;
+    Ok(st.elapsed())
+}
+
+/// Au lancement, apres l'ouverture du dossier de modeles : chauffe la VAD sur
+/// un fil, sans bloquer le demarrage ni une dictee (une dictee qui arrive
+/// pendant la chauffe paie seulement le reste).
+pub fn spawn_warm_up(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let enabled = super::pipeline::is_vad_enabled(app);
+    let store = app.state::<crate::models::ModelStoreState>().0.clone();
+    let dir = match store.shared().status(crate::commands::vad::VAD_ID) {
+        voice_engine_models::Status::Installed { dir, .. } => Some(dir),
+        _ => None,
+    };
+    if !should_warm_up(enabled, dir.is_some()) {
+        return;
+    }
+    let Some(dir) = dir else { return };
+    let spawned = std::thread::Builder::new()
+        .name("vad-warm-up".into())
+        .spawn(move || {
+            // Verrou du dossier partage pendant la chauffe.
+            let _lock = store.hold(crate::commands::vad::VAD_ID);
+            match warm_up(&dir) {
+                Ok(d) => info!(warm_up_ms = d.as_millis() as u64, "VAD chauffee au lancement"),
+                Err(e) => warn!(error = %e, "Chauffe de la VAD echouee"),
+            }
+        });
+    if let Err(e) = spawned {
+        warn!(error = %e, "Chauffe de la VAD : fil non demarre");
+    }
+}
+
 /// Plages de parole en ms -> plages d'echantillons : marge de `SPEECH_PAD_MS`
 /// de chaque cote, bornees a l'audio, plages qui se touchent fusionnees (la
 /// marge ne doit pas dupliquer de l'audio), plages vides retirees.
@@ -144,6 +194,14 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn warm_up_needs_vad_on_and_the_model_installed() {
+        assert!(should_warm_up(true, true));
+        assert!(!should_warm_up(true, false));
+        assert!(!should_warm_up(false, true));
+        assert!(!should_warm_up(false, false));
+    }
+
+    #[test]
     fn empty_and_backwards_spans_are_dropped() {
         assert!(spans_to_sample_ranges(&[], 16_000).is_empty());
         assert!(spans_to_sample_ranges(&[(5000, 5000)], 16_000).is_empty());
@@ -192,5 +250,32 @@ pub(crate) mod tests {
         let ranges = engine.ranges(&dir, &samples).unwrap();
         println!("sample ranges after the 30 ms margin: {}", ranges.len());
         assert!(!ranges.is_empty());
+    }
+
+    /// Parlato : le demarrage a froid de la VAD, dans un processus neuf :
+    /// le premier appel puis le second sur le meme clip, puis (avec
+    /// `PARLATO_WARM=1`) la chauffe de 0,5 s avant le premier appel reel.
+    /// `PARLATO_VAD_MODEL=<ggml-silero.bin> PARLATO_WAV=<16 kHz wav>
+    /// [PARLATO_WARM=1] cargo test --release --lib vad_cold_start_smoke --
+    /// --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn vad_cold_start_smoke() {
+        let model = std::env::var("PARLATO_VAD_MODEL").expect("PARLATO_VAD_MODEL");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let samples = speech::read_wav_as_f32(Path::new(&wav)).unwrap();
+        let (dir, _keep) = vad_dir_for(Path::new(&model));
+        if std::env::var("PARLATO_WARM").is_ok() {
+            println!("warm-up (0.5 s of silence): {} ms", warm_up(&dir).unwrap().as_millis());
+        }
+        for n in 1..=2 {
+            let st = Instant::now();
+            let spans = voice_engine_stt::vad::detect(&dir, &samples).unwrap().len();
+            println!(
+                "call {n} on {:.1} s of audio: {} ms, {spans} spans",
+                samples.len() as f32 / 16000.0,
+                st.elapsed().as_millis()
+            );
+        }
     }
 }

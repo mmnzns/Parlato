@@ -433,7 +433,7 @@ pub fn get_text_formatting_enabled(app: &AppHandle) -> bool {
         .unwrap_or(true)
 }
 
-fn is_vad_enabled(app: &AppHandle) -> bool {
+pub(crate) fn is_vad_enabled(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
         return false;
     };
