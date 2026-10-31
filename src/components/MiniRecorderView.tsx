@@ -37,6 +37,12 @@ import { RecorderRecordButton } from "./mini-recorder/RecorderRecordButton";
 import { useModePopover } from "./mini-recorder/useModePopover";
 import { useRecorderState } from "./mini-recorder/useRecorderState";
 
+// Transparent space (px) between the visible Mini pill and the bottom of its
+// 120 pt window. Keep equal to PILL_BOTTOM_INSET in src-tauri/src/mini_recorder.rs,
+// which uses it to place the window so the visible pill sits a fixed gap above
+// the taskbar/Dock.
+const MINI_PILL_BOTTOM_INSET = 24;
+
 export function MiniRecorderView() {
   const { t } = useTranslation();
   const {
@@ -70,7 +76,7 @@ export function MiniRecorderView() {
   const containerAlign = isNotch ? "items-start" : "items-end";
   const spacingStyle = isNotch
     ? ({ marginTop: 0 } as const)
-    : ({ marginBottom: 24 } as const);
+    : ({ marginBottom: MINI_PILL_BOTTOM_INSET } as const);
   const shape = isNotch
     ? expanded
       ? "rounded-b-[22px] rounded-t-none"

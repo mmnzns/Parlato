@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the words from your dictionary stay out of them when you use Deepgram.
 - The recorder pill now floats a little higher above the taskbar and the Dock,
   so it no longer looks attached to them. On Windows it also follows the
-  taskbar on any edge and the screen where your pointer is.
+  taskbar on any edge and the screen where your pointer is. On the Mac the
+  pill now sits a steady 20 points above the Dock instead of drifting up.
 - Your downloaded models now live in one folder that Parlato shares with
   Talaan and Ensayo, so a model downloaded by one app is not downloaded again
   by another. Parlato moves your existing models there by itself the first
