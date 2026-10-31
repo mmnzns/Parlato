@@ -27,6 +27,11 @@ impl Database {
             Ok(n) => tracing::info!(count = n, "Dictees interrompues marquees en echec"),
             Err(e) => tracing::warn!("fail_interrupted: {e}"),
         }
+        match transcription::scrub_failure_texts(&conn) {
+            Ok(0) => {}
+            Ok(n) => tracing::info!(count = n, "Anciens textes d'erreur remplaces par un code"),
+            Err(e) => tracing::warn!("scrub_failure_texts: {e}"),
+        }
         Ok(Self(Arc::new(Mutex::new(conn))))
     }
 }

@@ -431,7 +431,14 @@
     "downloadStalled": "The download stalled. Try again: it picks up where it stopped.",
     "downloadFailed": "The model could not be downloaded or saved. Try again.",
     "downloadRunning": "This model is already downloading.",
-    "downloadingElsewhere": "Another app (Talaan or Ensayo) is downloading this model right now. Wait for it to finish."
+    "downloadingElsewhere": "Another app (Talaan or Ensayo) is downloading this model right now. Wait for it to finish.",
+    "providerTimeout": "The service took too long to answer. Try again.",
+    "providerNetwork": "Could not reach the service. Check your internet connection and try again.",
+    "providerHttp": "The service refused the request (error {{status}}). Check your key and model, then try again.",
+    "transcriptionFailed": "The transcription failed. Use Transcribe again to try once more.",
+    "cliNotFound": "The command was not found. Check the command line for your AI cleanup.",
+    "cliFailed": "The command stopped with an error (code {{code}}). Check the command line for your AI cleanup.",
+    "cliEmpty": "The command returned nothing. Check the command line for your AI cleanup."
   },
   "prompts": {
     "default": {

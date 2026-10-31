@@ -136,6 +136,24 @@ fn full_prompt(system: &str, user: &str) -> String {
     )
 }
 
+/// Parlato : short translatable code for a failed command, from its exit
+/// code and lowercased stderr. Never carries the command's output.
+fn failure_code(code: i32, stderr_lower: &str, success: bool, stdout_empty: bool) -> Option<String> {
+    if code == 127
+        || stderr_lower.contains("is not recognized")
+        || stderr_lower.contains("command not found")
+    {
+        return Some("PARLA_ERR:cliNotFound".into());
+    }
+    if !success {
+        return Some(format!("PARLA_ERR:cliFailed:{code}"));
+    }
+    if stdout_empty {
+        return Some("PARLA_ERR:cliEmpty".into());
+    }
+    None
+}
+
 #[async_trait]
 impl LLMProvider for LocalCLIProvider {
     fn id(&self) -> &'static str {
@@ -216,27 +234,11 @@ impl LLMProvider for LocalCLIProvider {
 
         let code = output.status.code().unwrap_or(-1);
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-        let low = stderr.to_lowercase();
-        if code == 127 || low.contains("is not recognized") || low.contains("command not found") {
-            return Err(anyhow!(
-                "LocalCLI: commande introuvable (template {}) : {stderr}",
-                req.model
-            ));
-        }
-        if !output.status.success() {
-            return Err(anyhow!(
-                "LocalCLI template {} code {} : {stderr}",
-                req.model,
-                code
-            ));
-        }
-        if stdout.is_empty() {
-            return Err(anyhow!(
-                "LocalCLI template {} : sortie vide (stderr : {stderr})",
-                req.model
-            ));
+        // Parlato : stderr is only inspected, never put in an error or a log: it
+        // can echo the prompt (the dictated text) or other data.
+        let low = String::from_utf8_lossy(&output.stderr).to_lowercase();
+        if let Some(err) = failure_code(code, &low, output.status.success(), stdout.is_empty()) {
+            return Err(anyhow!(err));
         }
         Ok(EnhancementResponse { text: stdout })
     }
@@ -262,5 +264,26 @@ mod tests {
             "my-tool"
         );
         assert!(template_script_for("custom", None, true).is_err());
+    }
+
+    #[test]
+    fn failure_codes_never_carry_command_output() {
+        assert_eq!(
+            failure_code(127, "", false, true).as_deref(),
+            Some("PARLA_ERR:cliNotFound")
+        );
+        assert_eq!(
+            failure_code(1, "zsh: command not found: pi", false, true).as_deref(),
+            Some("PARLA_ERR:cliNotFound")
+        );
+        assert_eq!(
+            failure_code(2, "error: the text i dictated", false, false).as_deref(),
+            Some("PARLA_ERR:cliFailed:2")
+        );
+        assert_eq!(
+            failure_code(0, "the text i dictated", true, true).as_deref(),
+            Some("PARLA_ERR:cliEmpty")
+        );
+        assert_eq!(failure_code(0, "", true, false), None);
     }
 }

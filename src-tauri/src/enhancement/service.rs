@@ -457,7 +457,13 @@ pub async fn enhance_with_override(
             Err(e) => {
                 let msg = e.to_string();
                 let kind = failure_kind(&msg);
-                warn!(attempt, error = %msg, "Enhancement LLM attempt echec");
+                // Parlato : log the short code only; the provider text can hold the
+                // response body or the command output.
+                warn!(
+                    attempt,
+                    code = %crate::transcription::error_code::storable_error_code(&msg),
+                    "Enhancement LLM attempt echec"
+                );
                 last_err = Some(e);
                 if attempt + 1 >= MAX_RETRIES {
                     break;

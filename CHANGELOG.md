@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Mac, Parakeet on Windows and local AI.
 
 ### Changed
+- Failed dictations in History now keep only a short, translated reason. The
+  service's reply and the output of a command-line AI tool are no longer
+  stored, and older failed entries are cleaned the first time Parlato starts.
+- Error messages and logs no longer contain the web address of a request, so
+  the words from your dictionary stay out of them when you use Deepgram.
 - The recorder pill now floats a little higher above the taskbar and the Dock,
   so it no longer looks attached to them. On Windows it also follows the
   taskbar on any edge and the screen where your pointer is.
