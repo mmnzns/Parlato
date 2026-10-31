@@ -11,6 +11,7 @@
 pub mod audio_file;
 pub mod cloud;
 pub mod engine;
+pub mod error_code;
 pub mod langs;
 pub mod parakeet;
 pub mod parakeet_windows;

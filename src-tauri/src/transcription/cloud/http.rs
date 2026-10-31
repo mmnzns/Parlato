@@ -79,6 +79,9 @@ pub fn shared_client() -> reqwest::Client {
 /// Le pipeline peut ensuite detecter "timeout" / "network_error" via le
 /// texte de l'erreur pour decider retry/backoff.
 pub fn map_http_err(e: reqwest::Error) -> anyhow::Error {
+    // Parlato : reqwest puts the full URL in its message. Some URLs carry the
+    // dictionary (Deepgram `keyterm`), so never keep it in the error text.
+    let e = e.without_url();
     if e.is_timeout() {
         return anyhow!("timeout: {e}");
     }

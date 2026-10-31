@@ -5,199 +5,40 @@
 // current speech model (commands::history read_history_audio /
 // retranscribe_history_item).
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Check,
-  ChevronDown,
-  Copy,
-  Download,
-  Loader2,
-  Mic,
-  Pause,
-  Play,
-  RotateCcw,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
-  TriangleAlert,
-} from "lucide-react";
+import { ChevronDown, Loader2, Mic, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Segmented } from "@/components/ui/section";
-import { cn } from "@/lib/utils";
-import { useCopyButton } from "@/hooks/useCopyButton";
-import { translateError } from "@/lib/translateError";
-import { api, type TranscriptionRecord } from "@/lib/tauri";
-import { confirmDelete } from "@/lib/confirmDelete";
-
-/// Si le texte est une erreur formate "Transcription Failed: PARLA_ERR:...",
-/// extrait le code et le traduit. Sinon retourne le texte tel quel.
-function localizeFailureText(t: ReturnType<typeof useTranslation>["t"], raw: string): string {
-  const prefix = "Transcription Failed: ";
-  if (!raw.startsWith(prefix)) return raw;
-  const code = raw.slice(prefix.length);
-  return translateError(t, code);
-}
-
-const PAGE_SIZE = 20;
-
-type Filter = "all" | "ai" | "failed";
-
-function formatClock(secs: number | null): string | null {
-  if (!secs || secs <= 0) return null;
-  const total = Math.round(secs);
-  return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, "0")}`;
-}
-
-function formatSecs(secs: number | null): string | null {
-  if (!secs || secs <= 0) return null;
-  return `${secs.toFixed(1)} s`;
-}
-
-function formatTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return iso;
-  }
-}
-
-function dayKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function dayLabel(iso: string, t: ReturnType<typeof useTranslation>["t"]): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  if (dayKey(iso) === dayKey(today.toISOString())) return t("hist.today");
-  if (dayKey(iso) === dayKey(yesterday.toISOString())) return t("hist.yesterday");
-  return d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
-}
+import type { TranscriptionRecord } from "@/lib/tauri";
+import { HistoryCard } from "@/components/history/HistoryCard";
+import { HistorySelectBar, HistoryToolbar } from "@/components/history/HistoryToolbar";
+import { useHistoryList } from "@/components/history/useHistoryList";
+import { dayKey, dayLabel } from "@/components/history/utils";
 
 export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const { t } = useTranslation();
-  const [items, setItems] = useState<TranscriptionRecord[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
-  const [selectMode, setSelectMode] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [count, setCount] = useState<number | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  // Parlato: where the last export went (shown under the toolbar).
-  const [exported, setExported] = useState<string | null>(null);
-  // Parlato: the history events below are registered once; refs give them
-  // the current search and filter instead of the first render's.
-  const searchRef = useRef(search);
-  const filterRef = useRef(filter);
-  searchRef.current = search;
-  filterRef.current = filter;
-
-  useEffect(() => {
-    refresh();
-
-    const unCreated = listen<string>("history:created", () => refresh());
-    const unUpdated = listen<string>("history:updated", () => refresh());
-    const unCleaned = listen("history:cleaned", () => refresh());
-    return () => {
-      unCreated.then((fn) => fn());
-      unUpdated.then((fn) => fn());
-      unCleaned.then((fn) => fn());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => refresh(), 200);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filter]);
-
-  async function refresh() {
-    setLoading(true);
-    try {
-      const [rows, total] = await Promise.all([
-        api.listHistory({
-          limit: PAGE_SIZE,
-          search: searchRef.current || null,
-          filter: filterRef.current,
-        }),
-        api.countHistory(),
-      ]);
-      setItems(rows);
-      setCount(total);
-      setHasMore(rows.length === PAGE_SIZE);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadMore() {
-    if (items.length === 0) return;
-    const last = items[items.length - 1];
-    setLoading(true);
-    try {
-      const rows = await api.listHistory({
-        limit: PAGE_SIZE,
-        before: last.timestamp,
-        search: searchRef.current || null,
-        filter: filterRef.current,
-      });
-      setItems((prev) => [...prev, ...rows]);
-      setHasMore(rows.length === PAGE_SIZE);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function toggleSelect(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSelectMode() {
-    setSelectMode((on) => !on);
-    setExported(null);
-    setSelected(new Set());
-  }
-
-  async function deleteIds(ids: string[], question: string) {
-    if (ids.length === 0) return;
-    if (!(await confirmDelete(question))) return;
-    for (const id of ids) {
-      try {
-        await api.deleteHistoryItem(id);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    setSelected(new Set());
-    await refresh();
-  }
-
-  async function exportSelected() {
-    const ids = selected.size > 0 ? [...selected] : visible.map((i) => i.id);
-    try {
-      const path = await api.exportHistoryCsv(ids);
-      if (path) setExported(path);
-    } catch (e) {
-      console.error(e);
-    }
-  }
+  const {
+    items,
+    loading,
+    search,
+    setSearch,
+    filter,
+    setFilter,
+    selectMode,
+    selected,
+    setSelected,
+    expanded,
+    setExpanded,
+    count,
+    hasMore,
+    exported,
+    loadMore,
+    toggleSelect,
+    toggleSelectMode,
+    deleteIds,
+    exportSelected,
+  } = useHistoryList();
 
   // Parlato: the filter is applied by the query (all dictations, not only
   // the loaded page).
@@ -218,66 +59,26 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-sm border-[1.5px] border-input bg-card px-3 text-muted-foreground focus-within:border-foreground">
-          <Search className="h-4 w-4 flex-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("hist.search")}
-            aria-label={t("hist.search")}
-            className="h-full w-full min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-          />
-        </label>
-        <Segmented<Filter>
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "all", label: t("hist.filterAll") },
-            { value: "ai", label: t("hist.filterAi") },
-            { value: "failed", label: t("hist.filterFailed") },
-          ]}
-        />
-        <Button size="sm" variant="ghost" onClick={toggleSelectMode} disabled={items.length === 0}>
-          {selectMode ? t("hist.done") : t("hist.select")}
-        </Button>
-      </div>
+      <HistoryToolbar
+        search={search}
+        onSearch={setSearch}
+        filter={filter}
+        onFilter={setFilter}
+        selectMode={selectMode}
+        onToggleSelectMode={toggleSelectMode}
+        hasItems={items.length > 0}
+      />
 
       {selectMode && (
-        <div className="flex flex-wrap items-center gap-2.5 rounded-lg bg-foreground py-2 pr-2 pl-3.5 text-background">
-          <span className="flex-1 text-[13px] font-semibold">
-            {selectedCount > 0 ? t("hist.selected", { count: selectedCount }) : t("hist.noneSelected")}
-          </span>
-          <button
-            type="button"
-            onClick={() => setSelected(new Set(visible.map((i) => i.id)))}
-            className="h-[30px] rounded-sm px-3 text-[13px] font-semibold hover:bg-background/15"
-          >
-            {t("hist.selectAll")}
-          </button>
-          <button
-            type="button"
-            onClick={exportSelected}
-            className="flex h-[30px] items-center gap-1.5 rounded-sm px-3 text-[13px] font-semibold hover:bg-background/15"
-          >
-            <Download className="h-3.5 w-3.5" />
-            {selectedCount > 0
-              ? t("hist.exportSelected", { count: selectedCount })
-              : t("hist.exportShown", { count: visible.length })}
-          </button>
-          <button
-            type="button"
-            disabled={selectedCount === 0}
-            onClick={() =>
-              deleteIds([...selected], t("history.confirmDeleteCount", { count: selectedCount }))
-            }
-            className="flex h-[30px] items-center gap-1.5 rounded-sm bg-destructive px-3 text-[13px] font-semibold text-white disabled:opacity-50"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {t("hist.delete")}
-          </button>
-        </div>
+        <HistorySelectBar
+          selectedCount={selectedCount}
+          shownCount={visible.length}
+          onSelectAll={() => setSelected(new Set(visible.map((i) => i.id)))}
+          onExport={exportSelected}
+          onDelete={() =>
+            deleteIds([...selected], t("history.confirmDeleteCount", { count: selectedCount }))
+          }
+        />
       )}
       {exported && (
         <p role="status" className="truncate text-[13px] text-muted-foreground" title={exported}>
@@ -349,301 +150,5 @@ export function HistoryPanel({ onOpenSettings }: { onOpenSettings?: () => void }
         )}
       </p>
     </div>
-  );
-}
-
-function HistoryCard({
-  item: it,
-  selectMode,
-  checked,
-  onCheck,
-  open,
-  onToggle,
-  onDelete,
-}: {
-  item: TranscriptionRecord;
-  selectMode: boolean;
-  checked: boolean;
-  onCheck: () => void;
-  open: boolean;
-  onToggle: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useTranslation();
-  const [tab, setTab] = useState<"clean" | "raw">("clean");
-  const failed = it.status === "failed";
-  const pending = it.status === "pending";
-  const hasAi = !!it.enhanced_text;
-  const main = it.enhanced_text ?? it.text;
-  const shown = open && hasAi && tab === "raw" ? it.text : main;
-  const clock = formatClock(it.duration_sec);
-
-  const took = [formatSecs(it.transcription_duration_sec), formatSecs(it.enhancement_duration_sec)]
-    .filter(Boolean)
-    .join(" + ");
-  const details: [string, string][] = [
-    [t("hist.detailModel"), it.transcription_model_name ?? "-"],
-    [t("hist.detailAi"), it.ai_enhancement_model_name ?? t("hist.aiOff")],
-    [t("hist.detailStyle"), it.prompt_name ?? "-"],
-    [t("hist.detailTook"), took || "-"],
-  ];
-  if (it.power_mode_name) details.push([t("hist.detailMode"), it.power_mode_name]);
-  if (it.language) details.push([t("hist.detailLanguage"), it.language]);
-
-  return (
-    <div
-      className={cn(
-        "rounded-lg border-[1.5px] bg-card transition-shadow",
-        failed ? "border-destructive/60" : "border-edge",
-        checked && "bg-accent shadow-[var(--sel-shadow)]",
-      )}
-    >
-      <div className="flex items-start gap-4 px-5 pt-5 pb-[22px]">
-        {selectMode && (
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={onCheck}
-            aria-label={t("hist.select")}
-            className="mt-px flex-none"
-          />
-        )}
-        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-xs leading-[18px] text-muted-foreground">
-            {it.power_mode_name && (
-              <span className="flex items-center gap-[7px] font-semibold text-foreground">
-                <span className="h-2 w-2 rounded-full bg-highlight" />
-                {it.power_mode_name}
-              </span>
-            )}
-            <span className="font-mono">{formatTime(it.timestamp)}</span>
-            {clock && (
-              <span className="flex h-6 items-center gap-1.5 rounded-full border-[1.5px] border-input px-2 font-mono">
-                <Mic className="h-3 w-3" />
-                {clock}
-              </span>
-            )}
-            {hasAi && (
-              <span className="flex h-5 items-center gap-1 rounded-full bg-muted px-2 text-[11px] font-medium text-foreground">
-                <Sparkles className="h-3 w-3" />
-                {t("hist.aiBadge")}
-              </span>
-            )}
-            {pending && (
-              <span className="flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {t("hist.pending")}
-              </span>
-            )}
-          </div>
-
-          {failed ? (
-            <span className="flex items-start gap-2 text-[15px] leading-6 font-medium text-destructive">
-              <TriangleAlert className="mt-1 h-4 w-4 flex-none" />
-              <span>
-                {t("hist.failed")}: {localizeFailureText(t, main)}
-              </span>
-            </span>
-          ) : (
-            <p
-              className={cn(
-                "max-w-[68ch] text-[15px] leading-6 text-pretty whitespace-pre-wrap",
-                !open && "line-clamp-3",
-              )}
-            >
-              {shown || t("history.emptyText")}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-none gap-1.5">
-          {!failed && <CopyButton text={shown} />}
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-label={t("hist.details")}
-            aria-expanded={open}
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
-          </button>
-        </div>
-      </div>
-
-      {open && (
-        <div className="mx-5 mb-[22px] flex flex-col gap-3 border-t border-dashed pt-4">
-          {hasAi && (
-            <div className="self-start">
-              <Segmented<"clean" | "raw">
-                value={tab}
-                onChange={setTab}
-                options={[
-                  { value: "clean", label: t("hist.tabClean") },
-                  { value: "raw", label: t("hist.tabRaw") },
-                ]}
-              />
-            </div>
-          )}
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-            {details.map(([k, v]) => (
-              <div key={k} className="flex min-w-0 flex-col gap-0.5">
-                <dt className="text-[11px] leading-[14px] text-muted-foreground">{k}</dt>
-                <dd className="truncate font-mono text-xs font-bold" title={v}>
-                  {v}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <div className="flex flex-wrap items-center gap-2">
-            {it.audio_file_name ? (
-              <>
-                <AudioPlayer id={it.id} />
-                <RetranscribeButton id={it.id} />
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">{t("hist.noAudio")}</span>
-            )}
-            <button
-              type="button"
-              onClick={onDelete}
-              className="ml-auto flex h-7 items-center gap-1.5 rounded-sm px-2.5 text-xs font-semibold text-destructive hover:bg-accent"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {t("hist.delete")}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const drawerButton =
-  "flex h-7 items-center gap-1.5 rounded-sm border-[1.5px] border-edge bg-card px-2.5 text-xs font-semibold hover:bg-accent disabled:opacity-50";
-
-/// Plays the kept recording. The WAV is fetched only on the first press
-/// and released when the drawer closes.
-function AudioPlayer({ id }: { id: string }) {
-  const { t } = useTranslation();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const urlRef = useRef<string | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [length, setLength] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(
-    () => () => {
-      audioRef.current?.pause();
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    },
-    [],
-  );
-
-  async function toggle() {
-    setError(null);
-    let audio = audioRef.current;
-    if (!audio) {
-      setLoading(true);
-      try {
-        const bytes = await api.readHistoryAudio(id);
-        const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
-        urlRef.current = url;
-        audio = new Audio(url);
-        audio.onloadedmetadata = () => setLength(audio!.duration);
-        audio.ontimeupdate = () => setPosition(audio!.currentTime);
-        audio.onended = () => {
-          setPlaying(false);
-          setPosition(0);
-        };
-        audioRef.current = audio;
-      } catch (e) {
-        setError(translateError(t, String(e)));
-        return;
-      } finally {
-        setLoading(false);
-      }
-    }
-    if (audio.paused) {
-      await audio.play();
-      setPlaying(true);
-    } else {
-      audio.pause();
-      setPlaying(false);
-    }
-  }
-
-  const Icon = loading ? Loader2 : playing ? Pause : Play;
-  return (
-    <>
-      <button type="button" onClick={toggle} disabled={loading} className={drawerButton}>
-        <Icon className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-        {playing ? t("hist.pause") : t("hist.play")}
-        {length > 0 && (
-          <span className="font-mono font-normal text-muted-foreground">
-            {formatClock(position) ?? "0:00"} / {formatClock(length)}
-          </span>
-        )}
-      </button>
-      {error && <span className="text-xs text-destructive">{error}</span>}
-    </>
-  );
-}
-
-/// Runs the recording through the current speech model (and AI cleanup if
-/// it is on). The result is a new entry at the top of History.
-function RetranscribeButton({ id }: { id: string }) {
-  const { t } = useTranslation();
-  const [state, setState] = useState<"idle" | "started" | "error">("idle");
-  const [error, setError] = useState<string | null>(null);
-
-  async function run() {
-    setError(null);
-    try {
-      await api.retranscribeHistoryItem(id);
-      setState("started");
-    } catch (e) {
-      setError(translateError(t, String(e)));
-      setState("error");
-    }
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={run}
-        disabled={state === "started"}
-        title={t("hist.againHint")}
-        className={drawerButton}
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
-        {t("hist.again")}
-      </button>
-      {state === "started" && (
-        <span className="text-xs text-muted-foreground">{t("hist.againStarted")}</span>
-      )}
-      {error && <span className="text-xs text-destructive">{error}</span>}
-    </>
-  );
-}
-
-function CopyButton({ text }: { text: string | null | undefined }) {
-  const { t } = useTranslation();
-  const { copied, copy } = useCopyButton();
-  const Icon = copied ? Check : Copy;
-  return (
-    <button
-      type="button"
-      onClick={() => copy(text)}
-      className={cn(
-        "flex h-[30px] items-center gap-1.5 rounded-sm border-[1.5px] border-edge bg-card px-2.5 text-xs font-semibold hover:bg-accent",
-        copied && "text-positive",
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {t("history.copy")}
-    </button>
   );
 }

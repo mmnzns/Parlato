@@ -431,7 +431,14 @@
     "downloadStalled": "Le téléchargement s'est bloqué. Réessayez : il reprend là où il s'est arrêté.",
     "downloadFailed": "Le modèle n'a pas pu être téléchargé ou enregistré. Réessayez.",
     "downloadRunning": "Ce modèle est déjà en cours de téléchargement.",
-    "downloadingElsewhere": "Une autre application (Talaan ou Ensayo) télécharge ce modèle en ce moment. Attendez la fin du téléchargement."
+    "downloadingElsewhere": "Une autre application (Talaan ou Ensayo) télécharge ce modèle en ce moment. Attendez la fin du téléchargement.",
+    "providerTimeout": "Le service a mis trop de temps à répondre. Réessayez.",
+    "providerNetwork": "Impossible de joindre le service. Vérifiez votre connexion internet et réessayez.",
+    "providerHttp": "Le service a refusé la demande (erreur {{status}}). Vérifiez votre clé et le modèle, puis réessayez.",
+    "transcriptionFailed": "La transcription a échoué. Utilisez Transcrire à nouveau pour réessayer.",
+    "cliNotFound": "La commande est introuvable. Vérifiez la ligne de commande de votre nettoyage IA.",
+    "cliFailed": "La commande s'est arrêtée avec une erreur (code {{code}}). Vérifiez la ligne de commande de votre nettoyage IA.",
+    "cliEmpty": "La commande n'a rien renvoyé. Vérifiez la ligne de commande de votre nettoyage IA."
   },
   "prompts": {
     "default": {

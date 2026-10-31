@@ -546,7 +546,7 @@ pub fn finish_streaming(
                 finalize_text(&app, &run, text, duration_ms).await
             }
             Err(e) => {
-                warn!("Streaming echoue, transcription du fichier enregistre: {e}");
+                warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Streaming echoue, transcription du fichier enregistre");
                 run_pipeline(app.clone(), &run, wav_path).await
             }
         };
@@ -598,7 +598,7 @@ async fn finish_dictation(
     let result_kind = result.as_ref().ok().copied();
     let empty = matches!(result, Ok(Outcome::Empty));
     if let Err(e) = result {
-        warn!("Pipeline echec: {e}");
+        warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Pipeline echec");
         mark_failed(app, run, &e.to_string());
         emit_state(
             app,
@@ -686,7 +686,7 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
                 }
             }
             Err(e) => {
-                warn!("Retry pipeline echec: {e}");
+                warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Retry pipeline echec");
                 mark_failed(&app, &run, &e.to_string());
                 if job == Job::Retry {
                     crate::notice::send(&app, crate::notice::Notice::Failed(e.to_string()));
@@ -1161,7 +1161,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
                 }
             }
             Ok(None) => {}
-            Err(e) => warn!("Enhancement LLM echec, fallback texte brut: {e}"),
+            Err(e) => warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Enhancement LLM echec, fallback texte brut"),
         }
     }
     // Parlato : repli carte graphique -> processeur de l'IA locale, a dire une

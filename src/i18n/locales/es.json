@@ -431,7 +431,14 @@
     "downloadStalled": "La descarga se detuvo. Inténtalo de nuevo: continúa donde se quedó.",
     "downloadFailed": "No se pudo descargar o guardar el modelo. Inténtalo de nuevo.",
     "downloadRunning": "Este modelo ya se está descargando.",
-    "downloadingElsewhere": "Otra aplicación (Talaan o Ensayo) está descargando este modelo ahora. Espera a que termine."
+    "downloadingElsewhere": "Otra aplicación (Talaan o Ensayo) está descargando este modelo ahora. Espera a que termine.",
+    "providerTimeout": "El servicio tardó demasiado en responder. Inténtalo de nuevo.",
+    "providerNetwork": "No se pudo contactar con el servicio. Revisa tu conexión a internet e inténtalo de nuevo.",
+    "providerHttp": "El servicio rechazó la solicitud (error {{status}}). Revisa tu clave y el modelo, y vuelve a intentarlo.",
+    "transcriptionFailed": "La transcripción falló. Usa Transcribir de nuevo para intentarlo otra vez.",
+    "cliNotFound": "No se encontró el comando. Revisa la línea de comandos de tu limpieza con IA.",
+    "cliFailed": "El comando terminó con un error (código {{code}}). Revisa la línea de comandos de tu limpieza con IA.",
+    "cliEmpty": "El comando no devolvió nada. Revisa la línea de comandos de tu limpieza con IA."
   },
   "prompts": {
     "default": {
