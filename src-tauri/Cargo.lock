@@ -7310,8 +7310,8 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "voice-engine-client"
-version = "0.2.2"
-source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+version = "0.3.0"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.3.0#d91005dc9e84da87d69e113217f170f416c8ecec"
 dependencies = [
  "reqwest 0.12.28",
  "serde_json",
@@ -7320,8 +7320,8 @@ dependencies = [
 
 [[package]]
 name = "voice-engine-models"
-version = "0.2.2"
-source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+version = "0.3.0"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.3.0#d91005dc9e84da87d69e113217f170f416c8ecec"
 dependencies = [
  "dirs 7.0.0",
  "reqwest 0.12.28",
@@ -7330,8 +7330,8 @@ dependencies = [
 
 [[package]]
 name = "voice-engine-protocol"
-version = "0.2.2"
-source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+version = "0.3.0"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.3.0#d91005dc9e84da87d69e113217f170f416c8ecec"
 dependencies = [
  "base64 0.22.1",
  "serde",
@@ -7340,8 +7340,8 @@ dependencies = [
 
 [[package]]
 name = "voice-engine-stt"
-version = "0.2.2"
-source = "git+https://github.com/mmnzns/voice-engine?tag=v0.2.2#37e9c9a19f040456e19e191e1de87b64cf3146b1"
+version = "0.3.0"
+source = "git+https://github.com/mmnzns/voice-engine?tag=v0.3.0#d91005dc9e84da87d69e113217f170f416c8ecec"
 dependencies = [
  "ort",
  "parakeet-rs",

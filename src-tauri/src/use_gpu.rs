@@ -20,6 +20,7 @@ use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 use tracing::{info, warn};
 use voice_engine_models::Kind;
+use voice_engine_protocol::Fallback;
 
 const STORE_FILE: &str = "parla.settings.json";
 /// Le reglage (bool). Absent tant que la personne n'a pas touche l'interrupteur.
@@ -73,7 +74,8 @@ pub fn runtime_for(kind: Kind) -> Runtime {
 /// reglage (choix ou defaut).
 /// - Reglage coupe : jamais.
 /// - Mac : Whisper (Metal) et l'IA locale. Les modeles ONNX n'ont pas de
-///   chemin carte : le moteur dirait `fell_back`, on ne les demande jamais.
+///   chemin carte : le moteur dirait `NoCardPath`, on ne les demande jamais
+///   (`gpu: false`).
 /// - Windows : Parakeet TDT (DirectML) et l'IA locale (assistant Vulkan s'il
 ///   est la). Whisper reste sur le processeur dans ce processus (cette
 ///   version) ; Unified et Nemotron n'ont pas de chemin carte.
@@ -84,6 +86,17 @@ pub fn wants_card(os: Os, runtime: Runtime, use_gpu: bool) -> bool {
             (os, runtime),
             (Os::Mac, Whisper | LocalAi) | (Os::Windows, ParakeetTdt | LocalAi)
         )
+}
+
+/// Le repli que le moteur rapporte est-il un echec de la carte graphique, a
+/// dire une fois a la personne ? Seulement `CardFailed` et `CardOutOfMemory` :
+/// les autres (`NoCardPath`, `NoCardHelper`, `RememberedFailure`) sont
+/// silencieux, la personne n'a rien a savoir ou a deja ete prevenue.
+pub fn card_failed(fallback: Option<Fallback>) -> bool {
+    matches!(
+        fallback,
+        Some(Fallback::CardFailed | Fallback::CardOutOfMemory)
+    )
 }
 
 /// La regle, pour ce PC et le reglage effectif du moment.
@@ -321,6 +334,16 @@ mod tests {
         for (os, k, want) in table {
             assert_eq!(wants_card(os, k, true), want, "{os:?} {k:?}");
         }
+    }
+
+    #[test]
+    fn only_a_card_failure_is_told_to_the_person() {
+        assert!(card_failed(Some(Fallback::CardFailed)));
+        assert!(card_failed(Some(Fallback::CardOutOfMemory)));
+        assert!(!card_failed(None));
+        assert!(!card_failed(Some(Fallback::NoCardPath)));
+        assert!(!card_failed(Some(Fallback::NoCardHelper)));
+        assert!(!card_failed(Some(Fallback::RememberedFailure)));
     }
 
     #[test]

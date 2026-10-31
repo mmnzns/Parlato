@@ -1,4 +1,4 @@
-// Whisper local, sur `voice-engine-stt` (voice-engine v0.2.2) : Metal sur le
+// Whisper local, sur `voice-engine-stt` (voice-engine v0.3.0) : Metal sur le
 // Mac, le processeur sous Windows (pas de Vulkan dans ce processus).
 //
 // Reference VoiceInk : VoiceInk/Transcription/Core/Whisper/LibWhisper.swift
@@ -13,7 +13,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use tracing::info;
 use voice_engine_models::ModelHandle;
-use voice_engine_stt::{ChunkOptions, Timing};
+use voice_engine_stt::{join_segments, ChunkOptions, Timing};
 
 use super::speech::{self, Source, SpeechSlot};
 
@@ -62,12 +62,7 @@ impl WhisperEngine {
             let transcript = engine
                 .transcribe(samples, &opts)
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-            let texts: Vec<&str> = transcript
-                .segments
-                .iter()
-                .map(|s| s.text.as_str())
-                .collect();
-            Ok(join_segments(&texts))
+            Ok(join_segments(&transcript.segments))
         })
     }
 
@@ -105,6 +100,11 @@ impl WhisperEngine {
         self.slot.gpu_failed()
     }
 
+    /// La personne a rallume la carte graphique : oublie l'echec.
+    pub fn retry_gpu(&self) {
+        self.slot.retry_gpu();
+    }
+
     /// Vrai une seule fois apres un repli carte graphique -> processeur.
     pub fn take_gpu_notice(&self) -> bool {
         self.slot.take_gpu_notice()
@@ -123,56 +123,47 @@ pub fn vocabulary_from_prompt(prompt: &str) -> Vec<String> {
         .collect()
 }
 
-/// Les segments de Whisper (deja nettoyes par le moteur) en un seul texte :
-/// un espace entre deux segments, sauf entre deux caracteres d'une ecriture
-/// qui s'ecrit sans espaces (chinois, japonais).
-pub fn join_segments(segments: &[&str]) -> String {
-    let mut out = String::new();
-    for text in segments.iter().map(|s| s.trim()).filter(|s| !s.is_empty()) {
-        if let (Some(last), Some(first)) = (out.chars().last(), text.chars().next()) {
-            if !(unspaced_script(last) || unspaced_script(first)) {
-                out.push(' ');
-            }
-        }
-        out.push_str(text);
-    }
-    out
-}
-
-/// Ecritures sans espace entre les mots : han, hiragana, katakana et la
-/// ponctuation pleine chasse qui va avec.
-fn unspaced_script(c: char) -> bool {
-    matches!(c,
-        '\u{3000}'..='\u{303F}'   // ponctuation CJK
-        | '\u{3040}'..='\u{30FF}' // hiragana, katakana
-        | '\u{3400}'..='\u{4DBF}' // han (extension A)
-        | '\u{4E00}'..='\u{9FFF}' // han
-        | '\u{FF00}'..='\u{FFEF}' // pleine chasse
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use voice_engine_stt::whisper_engine::WhisperEngine as EngineWhisper;
-    use voice_engine_stt::LoadOptions;
+    use voice_engine_stt::{LoadOptions, Segment};
+
+    fn segment(text: &str, starts_word: bool) -> Segment {
+        Segment {
+            start_ms: 0,
+            end_ms: 0,
+            text: text.into(),
+            words: vec![],
+            starts_word,
+        }
+    }
 
     #[test]
-    fn segments_are_joined_with_single_spaces() {
+    fn segments_are_joined_by_the_engine_with_single_spaces() {
         assert_eq!(join_segments(&[]), "");
-        assert_eq!(join_segments(&["Hello there."]), "Hello there.");
         assert_eq!(
-            join_segments(&["Hello there.", "  How are you? ", "", "Fine."]),
+            join_segments(&[segment("Hello there.", true)]),
+            "Hello there."
+        );
+        assert_eq!(
+            join_segments(&[
+                segment("Hello there.", true),
+                segment("How are you?", true),
+                segment("", true),
+                segment("Fine.", true),
+            ]),
             "Hello there. How are you? Fine."
         );
     }
 
     #[test]
-    fn chinese_and_japanese_segments_are_not_spaced() {
-        assert_eq!(join_segments(&["你好。", "再见。"]), "你好。再见。");
-        assert_eq!(join_segments(&["今日は", "晴れです"]), "今日は晴れです");
-        // A Latin word next to Han keeps no extra space either side of the script change.
-        assert_eq!(join_segments(&["ok", "你好"]), "ok你好");
+    fn segments_that_do_not_start_a_word_are_not_spaced() {
+        // Whisper in Chinese or Japanese: the raw segment text had no leading space.
+        assert_eq!(
+            join_segments(&[segment("你好。", true), segment("再见。", false)]),
+            "你好。再见。"
+        );
     }
 
     #[test]
@@ -227,7 +218,7 @@ mod tests {
                 "threads={threads:>2}: load {} ms, backend {}, fell_back {}",
                 t0.elapsed().as_millis(),
                 backend.backend,
-                backend.fell_back
+                backend.fell_back()
             );
             let opts = ChunkOptions {
                 language: Some("en".into()),

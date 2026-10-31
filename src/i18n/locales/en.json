@@ -694,7 +694,7 @@
     "gpuCard": "Graphics card found: {{name}}.",
     "gpuNoCard": "No graphics card found, the processor is used.",
     "gpuChecking": "Looking for a graphics card…",
-    "gpuFailed": "The graphics card did not work, so the processor is being used until Parlato restarts.",
+    "gpuFailed": "The graphics card did not work, so the processor is being used. Turn this switch off and on again to try the card again.",
     "keepAliveLabel": "Keep models ready",
     "keepAliveDesc": "How long the models stay in memory after a dictation, so the next one starts faster. Unloading right away frees memory sooner.",
     "keepAliveNever": "Unload right away",

@@ -10,7 +10,7 @@
 //
 // Parlato : la carte graphique (DirectML sous Windows, Parakeet TDT
 // seulement, reglage `use_gpu`) est lue a l'execution. Si le moteur dit
-// qu'elle n'a pas servi (`fell_back`), le processeur sert jusqu'a la fermeture
+// qu'elle n'a pas servi (`CardFailed`), le processeur sert jusqu'a la fermeture
 // de l'application et la bulle le dit une fois (cf speech.rs).
 
 use std::path::Path;
@@ -98,6 +98,11 @@ impl ParakeetEngine {
         self.slot.gpu_failed()
     }
 
+    /// La personne a rallume la carte graphique : oublie l'echec.
+    pub fn retry_gpu(&self) {
+        self.slot.retry_gpu();
+    }
+
     /// Vrai une seule fois apres un repli carte graphique -> processeur : la
     /// bulle doit le dire a l'utilisateur.
     pub fn take_gpu_notice(&self) -> bool {
@@ -181,12 +186,14 @@ mod tests {
                     end_ms: 900,
                     text: "Hello,".into(),
                     words: vec![word("Hello,", 500, 900)],
+                    starts_word: true,
                 },
                 Segment {
                     start_ms: 1000,
                     end_ms: 1400,
                     text: "world.".into(),
                     words: vec![word("world.", 1000, 1400)],
+                    starts_word: true,
                 },
             ],
             language: None,
@@ -229,6 +236,7 @@ mod tests {
                         end_ms: w.end_ms,
                         text: w.text.clone(),
                         words: vec![w.clone()],
+                        starts_word: true,
                     })
                     .collect(),
                 language: None,
@@ -240,7 +248,7 @@ mod tests {
             voice_engine_stt::SpeechBackend {
                 backend: "cpu".into(),
                 device: None,
-                fell_back: false,
+                fallback: None,
             }
         }
     }
@@ -317,7 +325,7 @@ mod tests {
             t1.elapsed().as_secs_f32(),
             words_in(&text),
             backend.backend,
-            backend.fell_back
+            backend.fell_back()
         );
         assert!(!text.trim().is_empty());
     }
@@ -374,7 +382,7 @@ mod tests {
 
     /// Parlato : Parakeet sur le processeur puis sur la carte graphique
     /// (DirectML sous Windows ; sur le Mac le moteur n'a pas de chemin carte
-    /// pour ONNX et rapporte `fell_back`). Charge chaque variante, mesure un
+    /// pour ONNX et rapporte `NoCardPath`). Charge chaque variante, mesure un
     /// passage de chauffe puis trois passages, et compare les textes (egalite
     /// seulement) :
     /// `PARLATO_PARAKEET_DIR=<tdt dir> PARLATO_WAV=<wav 16 kHz>
@@ -427,7 +435,7 @@ mod tests {
                 println!(
                     "{name}: backend {}, fell_back {}, chargement {load_ms} ms, chauffe {} ms, passages {:?} ms, meilleur {best} ms ({:.1}x temps reel), {} mots",
                     backend.backend,
-                    backend.fell_back,
+                    backend.fell_back(),
                     times[0],
                     &times[1..],
                     secs * 1000.0 / *best as f32,
