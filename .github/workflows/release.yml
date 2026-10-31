@@ -132,6 +132,7 @@ jobs:
       # so everyone sees what changed. A tag without its section fails here.
       - name: Release notes from CHANGELOG.md
         id: notes
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
@@ -170,8 +171,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Parlato ${{ github.ref_name }}"
+          # Only a tag push creates a (draft) release. A manual run
+          # (workflow_dispatch) leaves both empty: tauri-action then only
+          # builds and signs, and the upload-artifact steps keep the files.
+          tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          releaseName: ${{ github.event_name == 'push' && format('Parlato {0}', github.ref_name) || '' }}
           releaseBody: |
             ## What's new
 
@@ -325,8 +329,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Parlato ${{ github.ref_name }}"
+          # Only a tag push creates a (draft) release. A manual run
+          # (workflow_dispatch) leaves both empty: tauri-action then only
+          # builds and signs, and the upload-artifact steps keep the files.
+          tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          releaseName: ${{ github.event_name == 'push' && format('Parlato {0}', github.ref_name) || '' }}
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin
@@ -355,7 +362,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: parlato-macos-arm64
-          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
 
       - name: Upload macOS helper record
