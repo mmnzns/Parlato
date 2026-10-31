@@ -86,7 +86,7 @@ The upstream `BUILDING.md` is incomplete. This machine additionally needed:
 Also note: VS Build Tools here are **2026 (v18)**, not the 2022 (v17) upstream
 specifies. The build works. CUDA is not used by this app — see Guardrails.
 
-**The local AI helper must exist before the app builds** (engine v0.2.2).
+**The local AI helper must exist before the app builds** (engine v0.3.0).
 `tauri.conf.json` lists `binaries/parlato-llm` in `bundle.externalBin`, and
 `tauri-build` fails if `src-tauri/binaries/parlato-llm-<triple>[.exe]` is
 missing. On the Mac run `scripts/fetch-helpers.sh` once (it builds the engine's
@@ -98,7 +98,7 @@ CI creates empty placeholder files instead.
 **Windows release builds of whisper.cpp need `-O2` (fixed 2026-10-15).** With
 the Visual Studio generator the `cmake` crate strips every `/O` flag from
 `CMAKE_C/CXX_FLAGS_RELEASE`, so `whisper-rs-sys` compiled at `/Od` in release.
-`src-tauri/.cargo/config.toml` `[env]` puts `-O2 -DNDEBUG` back (the sys crate
+the repo-root `.cargo/config.toml` `[env]` puts `-O2 -DNDEBUG` back (the sys crate
 forwards `CMAKE_*` env vars to CMake). To check: `CMAKE_CXX_FLAGS_RELEASE` in
 `target/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt`. After
 changing it: `cargo clean --release -p whisper-rs-sys`. The block is the
@@ -138,8 +138,9 @@ downloader come from https://github.com/mmnzns/voice-engine, pinned by tag in sr
 - Never edit engine code from this repository. If the engine needs a change, open an issue on mmnzns/voice-engine.
 - Move to a new engine tag only on purpose, on a branch, after the tests and a manual check pass. Then update this
   app's column in the change log.
-- A local `src-tauri/.cargo/config.toml` [patch] pointing at ~/Developer/voice-engine is for trying changes only.
-  Never commit it; releases build against the tag.
+- The build settings live in the committed repo-root .cargo/config.toml. A local [patch] pointing at
+  ~/Developer/voice-engine is for trying changes only: put it in ~/.cargo/config.toml or pass --config, never in a
+  committed file; releases build against the tag.
 
 Code flows one way only: from the engine into Parlato, never from Parlato (GPL, derived from Parla and VoiceInk)
 into the engine, Talaan or Ensayo, which are the owner's own work. Parlato-only plans go on the "Parlato Journey"
@@ -175,7 +176,7 @@ either, and the two texts differ only in a few words (single pass "Parlato",
 windows "Parlat"), so it shows no harm, not the fix itself; Florian's case
 was a 147 s recording.
 
-**One "Use graphics card" setting, `use_gpu` (engine v0.2.2).** It replaces the 0.14
+**One "Use graphics card" setting, `use_gpu` (engine v0.3.0).** It replaces the 0.14
 `parakeet_gpu` setting (commands `get/set_use_gpu`, store key `use_gpu`, migration in
 `use_gpu.rs`: `parakeet_gpu == true` becomes `use_gpu = true`, then the old key is removed;
 switch in `SpeechThreadsPanel.tsx`). Default: on for the Mac; on Windows on only when
@@ -185,12 +186,14 @@ and local AI (Metal on the Mac, the Vulkan helper on Windows x64). ONNX models r
 processor on the Mac. Every Windows build carries ONNX Runtime with DirectML (through
 `voice-engine-stt/directml`) and uses the DirectML.dll of Windows (System32, Windows 10
 1903+; not bundled, very old builds fall back to the processor), so there is still one
-installer and the auto-updater is untouched. If the graphics card fails (`fell_back`),
-Parlato uses the processor, remembers the failure until the app restarts and shows one
-recorder-pill notice. The old 2026-10-22 measurements (RTX 5070 Ti, Parakeet Ultra int8,
+installer and the auto-updater is untouched. If the graphics card fails (the engine's
+`fallback` is `CardFailed` or `CardOutOfMemory`, see `use_gpu::card_failed`), Parlato uses the processor, remembers the
+failure until the person turns "Use graphics card" off and on again (that calls `retry_gpu()` on the AI client and
+clears the speech engines' flag; a restart also clears it) and shows one recorder-pill notice. Any other fallback
+(`NoCardPath`, `NoCardHelper`, `RememberedFailure`) is silent. The old 2026-10-22 measurements (RTX 5070 Ti, Parakeet Ultra int8,
 77 s: processor 1.25 s, GPU encoder 0.52 s) are in the CHANGELOG and the 2026-10-22 spec.
 
-**Whisper and local AI on the graphics card (engine v0.2.2).** On the Mac
+**Whisper and local AI on the graphics card (engine v0.3.0).** On the Mac
 Whisper uses Metal and the local AI helper uses Metal. On Windows x64 local AI
 uses the Vulkan helper `parlato-llm-vulkan.exe` (next to the app exe, only when
 the user's "Use graphics card" setting is on); Whisper stays on the processor
@@ -205,13 +208,19 @@ shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
 non-alphanumerics replaced by `_`), falling back to the catalog text. When
 porting a new model from upstream, add its en/fr/es `modelText` entry too.
 
-**Model folders (engine v0.2.2).** Downloaded models live in one folder shared
+**Model folders (engine v0.3.0).** Downloaded models live in one folder shared
 with Talaan and Ensayo, `%LOCALAPPDATA%/Craft Concepts Digital/Models` (Mac:
 `~/Library/Application Support/Craft Concepts Digital/Models`), managed by `voice-engine-models`. The old folders
 (`Models/`, `ParakeetModels/`, `LlmModels/` under the app's data folder) are only
 read once, at first start, when the files are moved into the shared folder;
 imports stay in `LlmModels/` and `Models/imported/`. Never delete the shared
 folder (the uninstaller does not).
+
+**The engine move to v0.3.0** (2026-10-31, branch `engine-v0.2.2`, plan
+`docs/superpowers/plans/2026-10-30-engine-v0.2.2.md`): `EngineError::Crashed { .. }`, `fallback: Option<Fallback>`
+instead of `fell_back`, `join_segments` for Whisper text (`starts_word`), `complete_within` for the 60 s generation
+limit, `retry_gpu()`. Not adopted: `vad::detect_with` (Parlato's own 30 ms margin matches the engine's padding but
+clamps in samples, not ms), `loaded_model()` (Parlato's `Loaded` slot tracks more than the path), `plain_format`.
 
 **Do not bump the engine tag casually.** The llama.cpp and whisper.cpp versions
 come from the engine's `Cargo.lock` at the tag, so a tag move changes both.

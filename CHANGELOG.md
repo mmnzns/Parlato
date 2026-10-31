@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Whisper uses the Mac's graphics chip.
 - Local AI runs in a separate helper program and stays ready between
   dictations.
+- Updated the shared engine to version 0.3.0. Text from Whisper is joined
+  with the engine's own rule for spaces between sentences. The "Graphics card
+  failed, used processor" notice now appears only when the graphics card
+  really failed, not when a model simply has no graphics card support.
+- Turning "Use graphics card" off and on again tries the card again without
+  restarting Parlato.
+- A local AI answer that takes longer than a minute is still stopped and your
+  raw text is pasted; the minute now starts once the model is loaded.
+- Local AI models you import without a chat template now work instead of
+  being refused.
 
 ### Removed
 - Qwen 2.5 3B, Llama 3.2 3B, Gemma 2 2B and Phi-3.5 mini are no longer offered

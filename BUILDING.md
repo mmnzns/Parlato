@@ -18,15 +18,15 @@ No CUDA and no NVIDIA toolkit is needed or supported. The graphics card is used 
 
 ## The shared engine and the local AI helper
 
-Speech models, the model catalog and downloader, and the local AI helper come from [voice-engine](https://github.com/mmnzns/voice-engine), pinned by tag (`v0.2.2`) in `src-tauri/Cargo.toml`. Cargo downloads the engine crates itself; nothing to do for the speech part.
+Speech models, the model catalog and downloader, and the local AI helper come from [voice-engine](https://github.com/mmnzns/voice-engine), pinned by tag (`v0.3.0`) in `src-tauri/Cargo.toml`. Cargo downloads the engine crates itself; nothing to do for the speech part.
 
 Local AI runs in a separate program, the `parlato-llm` helper, which Tauri bundles as a sidecar (`bundle.externalBin` in `tauri.conf.json`). **Tauri refuses to build until `src-tauri/binaries/parlato-llm-<target triple>[.exe]` exists.** The folder is git-ignored.
 
 - **Mac (Apple silicon):** run `scripts/fetch-helpers.sh` once. It clones the engine at the pinned tag into `~/.cache/parlato/` and builds the helper there (several minutes the first time because llama.cpp is compiled; needs `jq` and `cmake`). Set `ENGINE_REF` to use another tag.
-- **Windows:** the engine's `scripts/build-helpers.ps1 -Target x86_64-pc-windows-msvc -OutDir <folder> -EngineRef v0.2.2 -Helpers llm -LlmName parlato-llm` (from a clone of the engine at that tag) builds it; copy the result into `src-tauri/binaries/`. Releases do this in CI. For `cargo test --lib` alone an empty placeholder file with the right name is enough.
-- **Releases:** `.github/workflows/release.yml` calls the engine's reusable workflow (`build-helpers.yml@v0.2.2`, `helpers: llm,llm-vulkan`, `llm-name: parlato-llm`), downloads `helpers-<triple>` into `src-tauri/binaries`, and the Windows x64 job passes `src-tauri/tauri.windows-x64.conf.json` (`--config`) so `parlato-llm-vulkan` is bundled too. Windows ARM64 and the Mac ship `parlato-llm` only.
+- **Windows:** the engine's `scripts/build-helpers.ps1 -Target x86_64-pc-windows-msvc -OutDir <folder> -EngineRef v0.3.0 -Helpers llm -LlmName parlato-llm` (from a clone of the engine at that tag) builds it; copy the result into `src-tauri/binaries/`. Releases do this in CI. For `cargo test --lib` alone an empty placeholder file with the right name is enough.
+- **Releases:** `.github/workflows/release.yml` calls the engine's reusable workflow (`build-helpers.yml@v0.3.0`, `helpers: llm,llm-vulkan`, `llm-name: parlato-llm`), downloads `helpers-<triple>` into `src-tauri/binaries`, and the Windows x64 job passes `src-tauri/tauri.windows-x64.conf.json` (`--config`) so `parlato-llm-vulkan` is bundled too. Windows ARM64 and the Mac ship `parlato-llm` only.
 
-`src-tauri/.cargo/config.toml` carries the engine's build settings (fixed CPU baseline, macOS 11 minimum, `-O2` for whisper.cpp). Keep it equal to the engine's "Build settings an app must copy"; Cargo does not read the engine's own file when it builds Parlato.
+The repo-root `.cargo/config.toml` carries the engine's build settings (fixed CPU baseline, macOS 11 minimum, `-O2` for whisper.cpp). Keep it equal to the engine's "Build settings an app must copy"; Cargo does not read the engine's own file when it builds Parlato. It sits at the repo root because Cargo reads `.cargo/config.toml` from the folder it runs in and its parents (`tauri build` runs Cargo from `src-tauri`, so it finds it). Keep `lto = false` in the release profile (with LTO the Mac link fails). To try an engine change, put a `[patch."https://github.com/mmnzns/voice-engine"]` block in `~/.cargo/config.toml` or pass it with `cargo --config`, never in the committed file.
 
 ## Clone the repo
 
@@ -62,7 +62,7 @@ This produces:
 - `src-tauri/target/release/parla.exe` - the standalone binary
 - `src-tauri/target/release/bundle/nsis/Parla_x.y.z_x64-setup.exe` - NSIS installer (the only bundle target we ship; it prompts for data removal on uninstall and lets the user opt out of the desktop shortcut)
 
-`src-tauri/.cargo/config.toml` already sets the CPU baseline and `-O2`. The CI jobs also set the ggml baseline in the environment (x86-64-v3: AVX2, no AVX-512) and check the result. If you will share the build, do the same locally:
+`.cargo/config.toml` at the repo root already sets the CPU baseline and `-O2`. The CI jobs also set the ggml baseline in the environment (x86-64-v3: AVX2, no AVX-512) and check the result. If you will share the build, do the same locally:
 
 ```powershell
 . .\scripts\cpu-baseline.ps1
@@ -131,7 +131,7 @@ This prints a public key and a private key. Set the public key in `src-tauri/tau
 
 - **rustc STATUS_ACCESS_VIOLATION on tokenizers**: already mitigated via `[profile.release.package.tokenizers] opt-level = 1` in `Cargo.toml`. If you still hit it, update your rustc version.
 - **`tauri-build` says a binary is missing** (`binaries/parlato-llm-<triple>`): build the local AI helper, see "The shared engine and the local AI helper".
-- **Slow whisper.cpp in a release build:** check `CMAKE_CXX_FLAGS_RELEASE` in `target/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt` has `-O2`; if you changed `.cargo/config.toml`, run `cargo clean --release -p whisper-rs-sys`.
+- **Slow whisper.cpp in a release build:** check `CMAKE_CXX_FLAGS_RELEASE` in `target/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt` has `-O2`; if you changed the repo-root `.cargo/config.toml`, run `cargo clean --release -p whisper-rs-sys`.
 
 ## Project layout
 
