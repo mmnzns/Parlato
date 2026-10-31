@@ -25,183 +25,39 @@
 //     (NSPopover chez VoiceInk, fenetre "recorder-popover" ici) : la bulle
 //     n'est plus redimensionnee.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { emit, listen } from "@tauri-apps/api/event";
-import { LayoutGrid, Sparkles, X } from "lucide-react";
-import {
-  api,
-  type AudioMeter,
-  type PowerModeConfig,
-  type PowerSession,
-  type RecorderNotice,
-} from "@/lib/tauri";
+import { LayoutGrid, X } from "lucide-react";
+import { api } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
 import { cn, modeBadge } from "@/lib/utils";
-
-/// Duree d'affichage de l'astuce Echap = fenetre du double-Echap (1.5 s).
-const ESCAPE_HINT_MS = 1500;
-/// Delai de grace avant fermeture du popover (VoiceInk 0.25 s).
-const POPOVER_GRACE_MS = 250;
-const BARS = 15;
-
-// Parlato: "failed" (shows the reason), "empty" (nothing heard) and
-// "notice" (a short message for copy / retry shortcuts) before the pill
-// closes, instead of vanishing without a word.
-type Stage =
-  | "idle"
-  | "recording"
-  | "transcribing"
-  | "enhancing"
-  | "failed"
-  | "empty"
-  | "notice";
-
-type PipelineEvent = {
-  state: "transcribing" | "enhancing" | "pasting" | "done" | "failed";
-  message: string | null;
-  text: string | null;
-  duration_ms: number | null;
-  job: "dictation" | "file" | "retry";
-};
-
-type PopoverHoverEvent = { hovering: boolean };
+import { AudioVisualizer, StaticVisualizer } from "./mini-recorder/AudioVisualizer";
+import { FailureText } from "./mini-recorder/FailureText";
+import { ProcessingStatusDisplay } from "./mini-recorder/ProcessingStatusDisplay";
+import { RecorderRecordButton } from "./mini-recorder/RecorderRecordButton";
+import { useModePopover } from "./mini-recorder/useModePopover";
+import { useRecorderState } from "./mini-recorder/useRecorderState";
 
 export function MiniRecorderView() {
   const { t } = useTranslation();
-  const [stage, setStage] = useState<Stage>("recording");
-  const [meterDb, setMeterDb] = useState<number>(-160);
-  const [escapeHint, setEscapeHint] = useState(false);
-  const [powerSession, setPowerSession] = useState<PowerSession | null>(null);
-  const [powerConfigs, setPowerConfigs] = useState<PowerModeConfig[]>([]);
-  const [style, setStyle] = useState<"mini" | "notch">("mini");
-  // Parlato: reason shown in the "failed" stage, label of the "notice" stage.
-  const [failure, setFailure] = useState<string>("");
-  const [notice, setNotice] = useState<RecorderNotice | null>(null);
-
-  // Popover Mode : survol du bouton (cette fenetre) + survol du popover
-  // (remonte par l'autre fenetre via "recorder:popover-hover").
-  const [hoverButton, setHoverButton] = useState(false);
-  const [hoverPopover, setHoverPopover] = useState(false);
-  const popoverOpenRef = useRef(false);
-  const closeTimerRef = useRef<number | null>(null);
-  const modeButtonRef = useRef<HTMLButtonElement>(null);
-  const pillRef = useRef<HTMLDivElement>(null);
-
-  const openPopover = useCallback(async () => {
-    const btn = modeButtonRef.current;
-    const pill = pillRef.current;
-    if (!btn || !pill) return;
-    const p = pill.getBoundingClientRect();
-    popoverOpenRef.current = true;
-    try {
-      await emit("recorder:popover-refresh", {});
-      // Parlato: the picker is centred on the pill, not on the button.
-      await api.openRecorderPopover(p.left + p.width / 2, p.top, p.bottom);
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
-  const closePopover = useCallback(() => {
-    popoverOpenRef.current = false;
-    api.closeRecorderPopover().catch(console.error);
-  }, []);
-
-  const wantPopover = hoverButton || hoverPopover;
-  useEffect(() => {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-    if (wantPopover) {
-      if (!popoverOpenRef.current) openPopover();
-    } else if (popoverOpenRef.current) {
-      closeTimerRef.current = window.setTimeout(closePopover, POPOVER_GRACE_MS);
-    }
-    return () => {
-      if (closeTimerRef.current !== null) {
-        window.clearTimeout(closeTimerRef.current);
-        closeTimerRef.current = null;
-      }
-    };
-  }, [wantPopover, openPopover, closePopover]);
-
-  useEffect(() => {
-    // Charge une fois au mount - la fenetre mini-recorder est recreee a
-    // chaque start donc pas besoin de re-fetch frequent.
-    Promise.all([api.listPowerConfigs(), api.getRecorderStyle()])
-      .then(([pcs, rs]) => {
-        setPowerConfigs(pcs);
-        setStyle(rs === "notch" ? "notch" : "mini");
-      })
-      .catch(console.error);
-
-    const showNotice = (n: RecorderNotice | null) => {
-      if (!n) return;
-      setNotice(n);
-      setStage("notice");
-    };
-    api.takeRecorderNotice().then(showNotice).catch(console.error);
-
-    let hintTimer: number | null = null;
-    const unlistens = [
-      listen("recording:stopped", () => {
-        setStage("transcribing");
-        setEscapeHint(false);
-      }),
-      listen("recording:cancelled", () => setStage("idle")),
-      listen<PipelineEvent>("pipeline:state", (e) => {
-        const p = e.payload;
-        // Parlato: only this dictation's events, not a file being
-        // transcribed in the background.
-        if (p.job !== "dictation") return;
-        if (p.state === "transcribing") setStage("transcribing");
-        else if (p.state === "enhancing") setStage("enhancing");
-        else if (p.state === "failed") {
-          setFailure(p.message ?? "");
-          setStage("failed");
-        } else if (p.state === "done" && !p.text) setStage("empty");
-        // pasting / done -> VoiceInk dismiss directement sans afficher de
-        // badge. On laisse le stage precedent jusqu'au close.
-      }),
-      listen("recorder:notice", () => {
-        api.takeRecorderNotice().then(showNotice).catch(console.error);
-      }),
-      listen("recorder:escape-hint", () => {
-        setEscapeHint(true);
-        if (hintTimer !== null) window.clearTimeout(hintTimer);
-        hintTimer = window.setTimeout(() => setEscapeHint(false), ESCAPE_HINT_MS);
-      }),
-      listen<PowerSession | null>("power_mode:active", (e) => {
-        setPowerSession(e.payload);
-      }),
-      listen<PopoverHoverEvent>("recorder:popover-hover", (e) => {
-        setHoverPopover(!!e.payload?.hovering);
-      }),
-    ];
-    return () => {
-      if (hintTimer !== null) window.clearTimeout(hintTimer);
-      Promise.all(unlistens).then((arr) => arr.forEach((fn) => fn()));
-    };
-  }, []);
-
-  // Polling du meter pendant l'enregistrement uniquement.
-  useEffect(() => {
-    if (stage !== "recording") return;
-    let raf = 0;
-    const tick = async () => {
-      try {
-        const m: AudioMeter = await api.getAudioMeter();
-        setMeterDb(m.peak_db);
-      } catch {
-        // ignore
-      }
-      raf = window.requestAnimationFrame(tick);
-    };
-    raf = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(raf);
-  }, [stage]);
+  const {
+    setHoverButton,
+    setHoverPopover,
+    popoverOpenRef,
+    modeButtonRef,
+    pillRef,
+    openPopover,
+    closePopover,
+  } = useModePopover();
+  const {
+    stage,
+    meterDb,
+    escapeHint,
+    powerSession,
+    powerConfigs,
+    style,
+    failure,
+    notice,
+  } = useRecorderState(setHoverPopover);
 
   const failureText = stage === "failed" ? translateError(t, failure) : "";
   const expanded = stage === "failed" || stage === "notice";
@@ -355,184 +211,6 @@ export function MiniRecorderView() {
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-// -- RecordButton (gauche) : VoiceInk RecorderRecordButton -----------------
-
-// Parlato: Workbench palette (docs/design/v1, recorder pill): grey when
-// ready, lime while listening, translucent while processing.
-const RECORD_COLORS = {
-  ready: { surface: "#3A3A3F", border: "#4A4A50", mark: "#C7C7CC" },
-  recording: {
-    surface: "#B5E61D",
-    border: "#B5E61D",
-    mark: "#141416",
-  },
-  processing: {
-    surface: "rgba(255, 255, 255, 0.13)",
-    border: "rgba(255, 255, 255, 0.18)",
-    mark: "rgba(255, 255, 255, 0.86)",
-  },
-} as const;
-
-function RecorderRecordButton({
-  stage,
-  onClick,
-}: {
-  stage: Stage;
-  onClick: () => void;
-}) {
-  const { t } = useTranslation();
-  const visual =
-    stage === "recording"
-      ? "recording"
-      : stage === "transcribing" || stage === "enhancing"
-        ? "processing"
-        : "ready";
-  const colors = RECORD_COLORS[visual];
-  const disabled = visual === "processing";
-  const title =
-    visual === "recording"
-      ? t("miniRecorder.stopRecording")
-      : visual === "ready"
-        ? t("miniRecorder.startRecording")
-        : t("miniRecorder.processing");
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className="ml-2.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors duration-150 disabled:cursor-default"
-      style={{
-        background: colors.surface,
-        boxShadow: `inset 0 0 0 0.6px ${colors.border}`,
-      }}
-    >
-      {stage === "enhancing" ? (
-        <Sparkles className="h-3 w-3 text-[#B5E61D]" />
-      ) : (
-        <span
-          className="block h-[7px] w-[7px] rounded-[2.2px]"
-          style={{ background: colors.mark }}
-        />
-      )}
-    </button>
-  );
-}
-
-// -- Audio visualizer (15 bars, wave + center boost) -----------------------
-
-function AudioVisualizer({ meterDb }: { meterDb: number }) {
-  // Normalisation -60dB..0dB -> 0..1 (aligne VoiceInk Recorder.swift)
-  const power = normalizePower(meterDb);
-  // Curve perceptuelle ^0.7 (VoiceInk AudioVisualizerView amplitude clamp).
-  const amplitude = Math.pow(power, 0.7);
-
-  const startTime = useRef<number>(performance.now());
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let raf = 0;
-    const loop = () => {
-      setTick(performance.now() - startTime.current);
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const bars = useMemo(() => {
-    const t = tick / 1000;
-    return Array.from({ length: BARS }, (_, i) => {
-      const phase = i * 0.4;
-      const wave = Math.sin(t * 8 + phase) * 0.5 + 0.5;
-      const distanceFromCenter = Math.abs(i - (BARS - 1) / 2) / ((BARS - 1) / 2);
-      const centerBoost = 1.0 - distanceFromCenter * 0.4;
-      const height = 4 + amplitude * wave * centerBoost * 24;
-      return Math.max(4, Math.min(28, height));
-    });
-  }, [tick, amplitude]);
-
-  return (
-    <div className="flex h-7 items-center gap-[2px]">
-      {bars.map((h, i) => (
-        <span
-          key={i}
-          className="w-[3px] rounded-[1.5px] bg-[#B5E61D]"
-          style={{ height: `${h}px` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function StaticVisualizer() {
-  return (
-    <div className="flex h-7 items-center gap-[2px]">
-      {Array.from({ length: BARS }).map((_, i) => (
-        <span
-          key={i}
-          className="w-[3px] rounded-[1.5px] bg-white/45"
-          style={{ height: "4px" }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function normalizePower(db: number): number {
-  if (!isFinite(db) || db <= -60) return 0;
-  const clamped = Math.max(-60, Math.min(0, db));
-  return (clamped + 60) / 60;
-}
-
-// -- Processing display ("Transcribing" / "Enhancing" + 5 dots) ------------
-
-function ProcessingStatusDisplay({
-  label,
-  intervalMs,
-}: {
-  label: string;
-  intervalMs: number;
-}) {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setStep((s) => (s + 1) % 6), intervalMs);
-    return () => window.clearInterval(id);
-  }, [intervalMs]);
-  return (
-    <div className="flex items-center gap-2 whitespace-nowrap text-[11px] font-medium text-white">
-      <span>{label}</span>
-      <span className="flex items-center gap-[3px]">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "h-[3px] w-[3px] rounded-full transition-opacity",
-              i < step ? "bg-white" : "bg-white/30",
-            )}
-          />
-        ))}
-      </span>
-    </div>
-  );
-}
-
-// -- FailureText (Parlato) ----------------------------------------------------
-//
-// Why the dictation was not pasted, translated, in a 54 px band above the
-// control bar. The recording stays in History for Transcribe again.
-
-function FailureText({ text }: { text: string }) {
-  return (
-    <div
-      role="alert"
-      className="line-clamp-3 h-[54px] overflow-hidden px-4 py-1.5 text-left text-[12px] leading-snug text-white/85"
-    >
-      {text}
     </div>
   );
 }
