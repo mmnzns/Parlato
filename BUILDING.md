@@ -11,13 +11,22 @@ This document describes how to build Parla from source on Windows.
 - **[Node.js 20+](https://nodejs.org/)** and `npm`
 - **Microsoft Visual Studio 2022 Build Tools** with the "Desktop development with C++" workload (or Visual Studio Community/Professional/Enterprise)
 - **WebView2 Runtime** (preinstalled on Windows 11, installed automatically by the Parla installer)
+- **CMake** and **LLVM** (`LIBCLANG_PATH` set to its `bin` folder): whisper.cpp is compiled from source and `whisper-rs-sys` runs `bindgen`.
+- **Git**, for the shared engine (see below).
 
-### Optional (for GPU acceleration)
+No CUDA and no NVIDIA toolkit is needed or supported. The graphics card is used through Vulkan (local AI helper, Windows x64), DirectML (Parakeet, Windows) and Metal (Mac), all in the normal build.
 
-- **NVIDIA CUDA Toolkit 12.x** with the "Visual Studio Integration" sub-component enabled.
-- An NVIDIA GPU with recent drivers.
+## The shared engine and the local AI helper
 
-CUDA is OFF by default so a plain `npm run tauri build` produces a CPU-only binary with no NVIDIA dependency. Enable GPU acceleration with `--features cuda` - full recipe in the [CUDA build](#cuda-build) section below.
+Speech models, the model catalog and downloader, and the local AI helper come from [voice-engine](https://github.com/mmnzns/voice-engine), pinned by tag (`v0.3.2`) in `src-tauri/Cargo.toml`. Cargo downloads the engine crates itself; nothing to do for the speech part.
+
+Local AI runs in a separate program, the `parlato-llm` helper, which Tauri bundles as a sidecar (`bundle.externalBin` in `tauri.conf.json`). **Tauri refuses to build until `src-tauri/binaries/parlato-llm-<target triple>[.exe]` exists.** The folder is git-ignored.
+
+- **Mac (Apple silicon):** run `scripts/fetch-helpers.sh` once. It clones the engine at the pinned tag into `~/.cache/parlato/` and builds the helper there (several minutes the first time because llama.cpp is compiled; needs `jq` and `cmake`). Set `ENGINE_REF` to use another tag.
+- **Windows:** the engine's `scripts/build-helpers.ps1 -Target x86_64-pc-windows-msvc -OutDir <folder> -EngineRef v0.3.2 -Helpers llm -LlmName parlato-llm` (from a clone of the engine at that tag) builds it; copy the result into `src-tauri/binaries/`. Releases do this in CI. For `cargo test --lib` alone an empty placeholder file with the right name is enough.
+- **Releases:** `.github/workflows/release.yml` calls the engine's reusable workflow (`build-helpers.yml@v0.3.2`, `helpers: llm,llm-vulkan`, `llm-name: parlato-llm`), downloads `helpers-<triple>` into `src-tauri/binaries`, and the Windows x64 job passes `src-tauri/tauri.windows-x64.conf.json` (`--config`) so `parlato-llm-vulkan` is bundled too. Windows ARM64 and the Mac ship `parlato-llm` only.
+
+The repo-root `.cargo/config.toml` carries the engine's build settings (fixed CPU baseline, macOS 11 minimum, `-O2` for whisper.cpp). Keep it equal to the engine's "Build settings an app must copy"; Cargo does not read the engine's own file when it builds Parlato. It sits at the repo root because Cargo reads `.cargo/config.toml` from the folder it runs in and its parents (`tauri build` runs Cargo from `src-tauri`, so it finds it). Keep `lto = false` in the release profile (with LTO the Mac link fails). To try an engine change, put a `[patch."https://github.com/mmnzns/voice-engine"]` block in `~/.cargo/config.toml` or pass it with `cargo --config`, never in the committed file.
 
 ## Clone the repo
 
@@ -40,7 +49,7 @@ Run the app in hot-reload dev mode (Vite dev server + Tauri dev):
 npm run tauri dev
 ```
 
-The first launch builds the Rust backend which can take a few minutes (whisper.cpp and llama.cpp are compiled from source via their `-sys` crates).
+The first launch builds the Rust backend which can take a few minutes (whisper.cpp is compiled from source through `whisper-rs-sys`). Build the local AI helper first (previous section).
 
 ## Release build
 
@@ -53,7 +62,7 @@ This produces:
 - `src-tauri/target/release/parla.exe` - the standalone binary
 - `src-tauri/target/release/bundle/nsis/Parla_x.y.z_x64-setup.exe` - NSIS installer (the only bundle target we ship; it prompts for data removal on uninstall and lets the user opt out of the desktop shortcut)
 
-By default whisper.cpp is compiled for the CPU of the PC that builds it, so the installer may crash with "illegal instruction" on other PCs. If you will share the build, set the same CPU baseline as the official releases first (x86-64-v3: AVX2, no AVX-512):
+`.cargo/config.toml` at the repo root already sets the CPU baseline and `-O2`. The CI jobs also set the ggml baseline in the environment (x86-64-v3: AVX2, no AVX-512) and check the result. If you will share the build, do the same locally:
 
 ```powershell
 . .\scripts\cpu-baseline.ps1
@@ -63,7 +72,7 @@ npm run tauri build
 Assert-GgmlBaseline src-tauri/Cargo.toml x64 release
 ```
 
-For an ARM64 build pass `arm64` and add `aarch64-pc-windows-msvc` as a last argument to the three functions.
+For an ARM64 build pass `arm64` and add `aarch64-pc-windows-msvc` as a last argument to the three functions. `Assert-GgmlBaseline` also fails a release build when the whisper.cpp cache has no `-O2`. (The helper's llama.cpp baseline is checked by the engine's workflow.) For a Windows x64 release build also pass `--config src-tauri/tauri.windows-x64.conf.json` so the Vulkan helper is bundled.
 
 ## ARM64 build
 
@@ -71,7 +80,7 @@ To build Parla natively for Windows on ARM (Snapdragon X, etc.):
 
 ### Prerequisites for ARM64
 
-- **Clang/LLVM tools**: In the Visual Studio Installer, under \"Desktop development with C++\", ensure \"C++ Clang Compiler for Windows\" and \"MSBuild support for LLVM toolset\" are checked. The ggml library (used by whisper.cpp and llama.cpp) does not support MSVC on ARM64 — it requires Clang.
+- **Clang/LLVM tools**: In the Visual Studio Installer, under \"Desktop development with C++\", ensure \"C++ Clang Compiler for Windows\" and \"MSBuild support for LLVM toolset\" are checked. The ggml library (used by whisper.cpp, and by llama.cpp in the helper) does not support MSVC on ARM64 — it requires Clang.
 - **Ninja**: Install via `choco install ninja`, or ensure it is available from the Visual Studio installation.
 
 ### Build
@@ -81,7 +90,7 @@ rustup target add aarch64-pc-windows-msvc
 $env:CC = "clang-cl"
 $env:CXX = "clang-cl"
 $env:CMAKE_GENERATOR = "Ninja"
-npm run tauri build -- --target aarch64-pc-windows-msvc -- --no-default-features
+npm run tauri build -- --target aarch64-pc-windows-msvc
 ```
 
 This produces:
@@ -89,61 +98,15 @@ This produces:
 - `src-tauri/target/aarch64-pc-windows-msvc/release/parla.exe` - the standalone binary
 - `src-tauri/target/aarch64-pc-windows-msvc/release/bundle/nsis/Parla_x.y.z_arm64-setup.exe` - NSIS installer
 
-`--no-default-features` disables `gpu-detect` (the `nvml-wrapper` crate) because NVIDIA does not ship `nvml.dll` for Windows ARM64. All other functionality (Whisper, Parakeet, llama.cpp, audio capture, etc.) works natively on ARM64.
+All functionality (Whisper, Parakeet, local AI, audio capture, etc.) works natively on ARM64. There is no Vulkan helper for ARM64, so local AI runs on the processor there.
 
 The CI workflow `.github/workflows/release.yml` builds the ARM64 variant automatically on GitHub's `windows-11-arm` runner.
 
-## Cargo features
+## Graphics card
 
-Parla exposes several Cargo features in `src-tauri/Cargo.toml` that control backend capabilities:
+There is no `[features]` table any more: one build serves every machine. There are no CUDA features. On Windows the ONNX Runtime DirectML provider is always compiled in (through `voice-engine-stt/directml`); Parakeet uses it when "Use graphics card" is on. Whisper and local AI use Metal on the Mac, and local AI uses the Vulkan helper on Windows x64.
 
-| Feature | Default | Description |
-|---|---|---|
-| `gpu-detect` | yes | Detect NVIDIA GPU via NVML at startup (log only) |
-| `cuda` | no | Meta-feature enabling `cuda-whisper` + `cuda-llama` + `cuda-onnx` all at once |
-| `cuda-whisper` | no | Compile `whisper.cpp` with CUDA support |
-| `cuda-llama` | no | Compile `llama.cpp` with CUDA support |
-| `cuda-onnx` | no | Enable the ONNX Runtime CUDA Execution Provider for Parakeet |
-
-On Windows the ONNX Runtime DirectML provider is always compiled in. Parakeet uses it when "Use the graphics card" is switched on (Speech model page); there is no Cargo feature for it.
-
-The CI workflow `.github/workflows/release.yml` builds CPU variants for both x64 and ARM64. The GitHub public `windows-latest` runner (4 cores, 16 GB RAM, 14 GB disk) cannot fit the CUDA build of whisper.cpp + llama.cpp + ggml-cuda within the 6 hour job limit - nvcc and MSBuild oversubscribe the machine and swap-thrash until the job dies. If you need CUDA, build it yourself from source with the recipe below.
-
-## CUDA build
-
-Produces `Parla_x.y.z_x64-setup.exe` (same filename as CPU but linked against CUDA 12 runtime DLLs).
-
-### Prerequisites for CUDA
-
-- An NVIDIA GPU with up-to-date drivers.
-- **NVIDIA CUDA Toolkit 12.x** (12.6 or 12.9 both work ; 13.x also compiles but requires very recent NVIDIA drivers at install time). Installer : https://developer.nvidia.com/cuda-downloads. During install, tick the "Visual Studio Integration" sub-component - without it CMake will not find the CUDA toolset.
-- **Visual Studio 2022** with the "Desktop development with C++" workload (Build Tools, Community, Professional or Enterprise all work).
-- Confirm `nvcc --version` runs from a fresh terminal.
-
-### Build
-
-```bash
-git clone https://github.com/LitteRabbit-37/Parla.git
-cd Parla
-npm install
-npm run tauri build -- --features cuda
-```
-
-Expected wall time : **10 to 30 minutes** depending on your CPU (`llama-cpp-sys-2` and `whisper-rs-sys` spawn `nvcc` on every `.cu` file in ggml-cuda). Your GPU is not used during compilation - nvcc runs on CPU and generates PTX / SASS. The GPU only gets exercised at runtime when Parla transcribes.
-
-### Result
-
-```
-src-tauri\target\release\bundle\nsis\Parla_0.1.0_x64-setup.exe
-```
-
-Install it and the Parla binary you run links against the CUDA runtime at startup. If you launch this installer on a machine without an NVIDIA GPU (or without the CUDA runtime DLLs in PATH) the process will fail to start because the loader cannot resolve `cudart64_12.dll`. The CPU variant has no such dependency.
-
-### Notes
-
-- The CUDA variant currently does not receive the auto-updater. Tauri's updater points to a single `latest.json` which maps to the CPU installer. A future release could add a second endpoint for CUDA builds ; open an issue if that matters to you.
-- If your CUDA build fails at CMake with "No CUDA toolset found", the Visual Studio Integration sub-package is missing. Re-run the CUDA installer and tick "Visual Studio Integration" under CUDA / Development.
-- To skip whisper-rs specifically (e.g. to build a Parakeet-only CUDA variant), use `--features cuda-llama,cuda-onnx` instead of the meta-feature `cuda`.
+The CI workflow `.github/workflows/release.yml` builds x64 and ARM64 Windows installers and the Mac `.dmg`.
 
 ## Tests
 
@@ -167,9 +130,8 @@ This prints a public key and a private key. Set the public key in `src-tauri/tau
 ## Troubleshooting
 
 - **rustc STATUS_ACCESS_VIOLATION on tokenizers**: already mitigated via `[profile.release.package.tokenizers] opt-level = 1` in `Cargo.toml`. If you still hit it, update your rustc version.
-- **ggml symbol collision** between `whisper-rs-sys` and `llama-cpp-sys-2`: handled by `.cargo/config.toml` with `/FORCE:MULTIPLE` on MSVC link. Nothing to do.
-- **`VAD download 404`**: the default VAD URL is `https://huggingface.co/ggml-org/whisper-vad` - if HuggingFace is unreachable, skip VAD from the `VAD` panel and retry later.
-- **`CUDA` not detected** even though you have a GPU: ensure `nvml.dll` is reachable (usually in `C:\Windows\System32\nvml.dll`) and the NVIDIA driver is recent enough.
+- **`tauri-build` says a binary is missing** (`binaries/parlato-llm-<triple>`): build the local AI helper, see "The shared engine and the local AI helper".
+- **Slow whisper.cpp in a release build:** check `CMAKE_CXX_FLAGS_RELEASE` in `target/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt` has `-O2`; if you changed the repo-root `.cargo/config.toml`, run `cargo clean --release -p whisper-rs-sys`.
 
 ## Project layout
 

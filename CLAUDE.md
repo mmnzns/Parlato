@@ -24,8 +24,12 @@ tokens.
 
 - **Shell:** Tauri v2 (Rust backend, WebView2 frontend)
 - **Frontend:** React 19, TypeScript, Vite, Tailwind v4, shadcn/ui
-- **Transcription:** whisper.cpp (`whisper-rs`), Parakeet/ONNX (`parakeet-rs`)
-- **LLM enhancement:** llama.cpp (`llama-cpp-2`), Ollama, plus cloud providers
+- **Transcription:** whisper.cpp and Parakeet/ONNX through the shared engine
+  (`voice-engine-stt`, in process; it pulls in `whisper-rs` and `parakeet-rs`,
+  which are not direct dependencies of this app)
+- **LLM enhancement:** local models through the engine's AI helper (llama.cpp
+  runs in the `parlato-llm` sidecar, driven by `voice-engine-client`), Ollama,
+  plus cloud providers
 - **Audio:** WASAPI via `cpal`, resampling via `rubato`
 - **Storage:** SQLite (history), Tauri store (`parla.settings.json`) for settings,
   Windows Credential Manager for API keys — never write keys to disk
@@ -72,28 +76,41 @@ Run the type-check and Rust tests before committing anything non-trivial.
 
 The upstream `BUILDING.md` is incomplete. This machine additionally needed:
 
-- **CMake** — `whisper-rs`, `llama-cpp-2` and `parakeet-rs` compile C++ via the
-  `cmake` crate. Not listed upstream.
+- **CMake** — `whisper-rs-sys` (through `voice-engine-stt`) compiles C++ via the
+  `cmake` crate, and `scripts/fetch-helpers.sh` builds llama.cpp for the helper.
+  Not listed upstream.
 - **LLVM / libclang** — `whisper-rs-sys` runs `bindgen`, which needs `libclang.dll`.
   Not listed upstream. `LIBCLANG_PATH` is set to `C:\Program Files\LLVM\bin`.
   Without it the build dies at `whisper-rs-sys` with "Unable to find libclang".
 
 Also note: VS Build Tools here are **2026 (v18)**, not the 2022 (v17) upstream
-specifies. The CPU build works. CUDA is a separate matter — see Guardrails.
+specifies. The build works. CUDA is not used by this app — see Guardrails.
+
+**The local AI helper must exist before the app builds** (engine v0.3.2).
+`tauri.conf.json` lists `binaries/parlato-llm` in `bundle.externalBin`, and
+`tauri-build` fails if `src-tauri/binaries/parlato-llm-<triple>[.exe]` is
+missing. On the Mac run `scripts/fetch-helpers.sh` once (it builds the engine's
+helper at the pinned tag; the folder is git-ignored). Releases get the helpers
+from the engine's reusable workflow (`release.yml`, job `helpers`); the Windows
+x64 job adds `parlato-llm-vulkan` with `src-tauri/tauri.windows-x64.conf.json`.
+CI creates empty placeholder files instead.
 
 **Windows release builds of whisper.cpp need `-O2` (fixed 2026-10-15).** With
 the Visual Studio generator the `cmake` crate strips every `/O` flag from
 `CMAKE_C/CXX_FLAGS_RELEASE`, so `whisper-rs-sys` compiled at `/Od` in release.
-`src-tauri/.cargo/config.toml` `[env]` puts `-O2 -DNDEBUG` back (both sys crates
-forward `CMAKE_*` env vars to CMake). To check: `CMAKE_CXX_FLAGS_RELEASE` in
+the repo-root `.cargo/config.toml` `[env]` puts `-O2 -DNDEBUG` back (the sys crate
+forwards `CMAKE_*` env vars to CMake). To check: `CMAKE_CXX_FLAGS_RELEASE` in
 `target/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt`. After
-changing it: `cargo clean --release -p whisper-rs-sys -p llama-cpp-sys-2`.
+changing it: `cargo clean --release -p whisper-rs-sys`. The block is the
+engine's "Build settings an app must copy" and must stay equal to it.
+`scripts/cpu-baseline.ps1` fails a release when the cache has no `-O2`.
 
 **Windows releases build ggml for a fixed CPU, not the runner's (fixed
 2026-10-16).** whisper.cpp defaults to `GGML_NATIVE=ON`, so `whisper-rs-sys`
 compiled for the building machine's CPU (AVX-512 on this Ryzen and on some
 GitHub runners), which crashes with "illegal instruction" on most Intel PCs.
-`scripts/cpu-baseline.ps1` sets `GGML_NATIVE=OFF` plus x86-64-v3 (AVX2, no
+`scripts/cpu-baseline.ps1` (whisper.cpp only; the helper's llama.cpp is
+checked by the engine's workflow) sets `GGML_NATIVE=OFF` plus x86-64-v3 (AVX2, no
 AVX-512) on x64 and plain armv8-a on ARM64; `release.yml` and `ci.yml` call it
 and fail if a CMake cache has NATIVE or AVX-512 on. It is Windows only, not
 `.cargo/config.toml` (`[env]` can't be scoped to a target and the Mac must stay
@@ -109,6 +126,26 @@ while debug Rust links the debug one. Release builds are fine (same test
 passes, installed releases load VAD normally). To test dictation by hand,
 use a release build (`npm run tauri build`), or turn voice detection off in
 the dev build.
+
+## Shared engine (voice-engine)
+
+The local AI helper, the helper protocol, speech model runtimes, the model catalog, the shared model folder and the
+downloader come from https://github.com/mmnzns/voice-engine, pinned by tag in src-tauri/Cargo.toml.
+
+- Sonnet does the heavy lifting, no exceptions: hand every piece of development work Sonnet can handle to Sonnet
+  subagents. Opus only plans, briefs, reviews and decides.
+- Before working on AI, speech or models, read the engine change log on the Notion page "Voice Apps Engine Sync".
+- Never edit engine code from this repository. If the engine needs a change, open an issue on mmnzns/voice-engine.
+- Move to a new engine tag only on purpose, on a branch, after the tests and a manual check pass. Then update this
+  app's column in the change log.
+- The build settings live in the committed repo-root .cargo/config.toml. A local [patch] pointing at
+  ~/Developer/voice-engine is for trying changes only: put it in ~/.cargo/config.toml or pass --config, never in a
+  committed file; releases build against the tag.
+
+Code flows one way only: from the engine into Parlato, never from Parlato (GPL, derived from Parla and VoiceInk)
+into the engine, Talaan or Ensayo, which are the owner's own work. Parlato-only plans go on the "Parlato Journey"
+page (https://app.notion.com/p/3eb4dc1744e1815ca2d2efa19ab6552f); the engine change log is
+https://app.notion.com/p/4074dc1744e18017a92ffe0752e2282d.
 
 ## Conventions (from CONTRIBUTING.md — follow these)
 
@@ -139,40 +176,31 @@ either, and the two texts differ only in a few words (single pass "Parlato",
 windows "Parlat"), so it shows no harm, not the fix itself; Florian's case
 was a 147 s recording.
 
-**Parakeet on the graphics card is a user setting, default off** (2026-10-22).
-Store key `parakeet_gpu`, commands `get/set_parakeet_gpu`, switch in
-`SpeechThreadsPanel.tsx` (NVIDIA models page, hidden when the build has no GPU
-provider, so on the Mac). Every Windows build already carries ONNX Runtime with
-DirectML (ort-sys only ships a DirectML build for Windows, x64 and ARM64) and
-uses the DirectML.dll of Windows (System32, Windows 10 1903+; it is not
-bundled, very old Windows 10 builds fall back to the processor), so there is
-still one installer and the auto-updater is untouched. `parakeet-rs`'s
-`directml` feature is on for Windows targets in `Cargo.toml`; the old
-`directml-onnx` Cargo feature is gone, `cuda-onnx` still works for source
-builds. The encoder goes on the GPU, the TDT decoder/joint stays on the
-processor (`JOINT_ON_GPU` in `parakeet.rs`; `parakeet_gpu_smoke` measures
-both). If loading or the first transcription on the GPU fails, Parlato reloads
-on the processor, retries once, remembers the failure until the app restarts
-and shows one recorder-pill notice after that dictation. `parakeet_execution_provider`
-reports what actually ran (`cpu`, `directml`, `cuda`, `cpu-fallback`).
-Benchmark: `PARLATO_PARAKEET_DIR=<dir> PARLATO_WAV=<wav> cargo test --release
---lib parakeet_gpu_smoke -- --ignored --nocapture`. Result on the owner's PC
-(RTX 5070 Ti, 2026-10-22, Parakeet Ultra int8, 77 s dictation, 12 threads,
-release build): processor 1.25 s, GPU encoder 0.52 s (2.4x faster), GPU
-encoder + joint 0.84 s, so `JOINT_ON_GPU` stays false. The GPU text is not
-byte-identical to the processor's (small floating-point differences change a
-few words, for example "Parlat" vs "Parlato"), but equally good. Kept
-default-off: one NVIDIA card is not enough to make it automatic; measure on
-AMD, Intel and Snapdragon first.
+**One "Use graphics card" setting, `use_gpu` (engine v0.3.2).** It replaces the 0.14
+`parakeet_gpu` setting (commands `get/set_use_gpu`, store key `use_gpu`, migration in
+`use_gpu.rs`: `parakeet_gpu == true` becomes `use_gpu = true`, then the old key is removed;
+switch in `SpeechThreadsPanel.tsx`). Default: on for the Mac; on Windows on only when
+`voice_engine_stt::discrete_card()` finds a discrete card, worked out only while the person
+has not chosen. It covers Parakeet TDT (DirectML on Windows), Whisper (Metal, Mac only)
+and local AI (Metal on the Mac, the Vulkan helper on Windows x64). ONNX models run on the
+processor on the Mac. Every Windows build carries ONNX Runtime with DirectML (through
+`voice-engine-stt/directml`) and uses the DirectML.dll of Windows (System32, Windows 10
+1903+; not bundled, very old builds fall back to the processor), so there is still one
+installer and the auto-updater is untouched. If the graphics card fails (the engine's
+`fallback` is `CardFailed` or `CardOutOfMemory`, see `use_gpu::card_failed`), Parlato uses the processor, remembers the
+failure until the person turns "Use graphics card" off and on again (that calls `retry_gpu()` on the AI client and
+clears the speech engines' flag; a restart also clears it) and shows one recorder-pill notice. Any other fallback
+(`NoCardPath`, `NoCardHelper`, `RememberedFailure`) is silent. The old 2026-10-22 measurements (RTX 5070 Ti, Parakeet Ultra int8,
+77 s: processor 1.25 s, GPU encoder 0.52 s) are in the CHANGELOG and the 2026-10-22 spec.
 
-**Whisper and local AI on the GPU are harder than Parakeet** (reviewed
-2026-10-22, not done). `whisper-rs-sys` and `llama-cpp-sys-2` each carry a
-ggml copy (see "Do not bump `llama-cpp-2` on its own"), so a GPU back end has
-to be changed in both together. A Vulkan build makes the exe hard-require
-`vulkan-1.dll`, whisper's ggml copy starts Vulkan even when
-`GGML_DISABLE_VULKAN` is set, and Windows ARM64 is uncertain. It needs its own
-research spike. CUDA needs a separate installer outside the updater, so it
-stays out of releases.
+**Whisper and local AI on the graphics card (engine v0.3.2).** On the Mac
+Whisper uses Metal and the local AI helper uses Metal. On Windows x64 local AI
+uses the Vulkan helper `parlato-llm-vulkan.exe` (next to the app exe, only when
+the user's "Use graphics card" setting is on); Whisper stays on the processor
+in process (no Vulkan speech helper in this release); Parakeet uses DirectML.
+Windows ARM64 has no Vulkan helper. Because llama.cpp lives in the helper, the
+Vulkan runtime (`vulkan-1.dll`) is only needed by that helper, never by the app
+itself. CUDA stays out of releases.
 
 **Model names and descriptions shown in the UI come from the locale files.**
 The Rust catalogs keep upstream's French `display_name` / `notes`; the UI
@@ -180,28 +208,48 @@ shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
 non-alphanumerics replaced by `_`), falling back to the catalog text. When
 porting a new model from upstream, add its en/fr/es `modelText` entry too.
 
-**One shared engine for Parlato, Talaan and Ensayo (planned 2026-10-28).**
-The owner's local AI helper, model catalog and model finder, built for
-Talaan and already copied into Ensayo, is becoming one shared engine that
-Parlato will also use. The plan and the engine change log live in Notion:
-"Voice Apps Engine Sync"
-(https://app.notion.com/p/4074dc1744e18017a92ffe0752e2282d). Parlato-only
-plans go on the "Parlato Journey" page instead
-(https://app.notion.com/p/3eb4dc1744e1815ca2d2efa19ab6552f). Read the change
-log before any work on local AI, model downloads or GPU, and add a row for
-any engine change. Code flows one way only: from the engine into Parlato,
-never from Parlato (GPL, derived from Parla and VoiceInk) into the engine,
-Talaan or Ensayo, which are the owner's own work.
+**Model folders (engine v0.3.2).** Downloaded models live in one folder shared
+with Talaan and Ensayo, `%LOCALAPPDATA%/Craft Concepts Digital/Models` (Mac:
+`~/Library/Application Support/Craft Concepts Digital/Models`), managed by `voice-engine-models`. The old folders
+(`Models/`, `ParakeetModels/`, `LlmModels/` under the app's data folder) are only
+read once, at first start, when the files are moved into the shared folder;
+imports stay in `LlmModels/` and `Models/imported/`. Never delete the shared
+folder (the uninstaller does not).
 
-**Do not bump `llama-cpp-2` on its own.** `whisper-rs-sys` and
-`llama-cpp-sys-2` each bundle their own copy of ggml, linked together with
-`/FORCE:MULTIPLE` (`src-tauri/.cargo/config.toml`), so only one copy of each
-symbol survives. Tested 2026-09-29: llama-cpp-2 0.1.157 makes every GGUF abort
-in ggml (`GGML_ASSERT ... FLASH_ATTN_EXT`); 0.1.143 works. Newer LLM families
-(Qwen 3.5, Gemma 4) need a newer llama.cpp and so wait on a matching
-whisper.cpp / ggml. Always run the ignored smoke tests
-(`llamacpp_smoke`, `parakeet_smoke`) against real model files after touching
-an inference crate. Parakeet uses ONNX Runtime and is not affected.
+**The engine move to v0.3.2** (2026-10-31, branch `engine-v0.2.2`, plan
+`docs/superpowers/plans/2026-10-30-engine-v0.2.2.md`). From v0.3.0: `EngineError::Crashed { .. }`, `fallback: Option<Fallback>`
+instead of `fell_back`, `join_segments` for Whisper text (`starts_word`), `complete_within` for the 60 s generation
+limit, `retry_gpu()`. From v0.3.1:
+- **`vad::VadDetector`** (`transcription/vad.rs`). The voice detector is loaded once and stays loaded behind a `Mutex`
+  in `VadEngine`, with the `ModelHandle` for `vad`; it is dropped by the keep-alive delay, by the Delete of the vad
+  model and by Delete all data (all call `unload` / `unload_if_under` before the store releases the model). The launch
+  warm-up (`spawn_warm_up`) loads it and tries it on 0.5 s of silence. Voice detection off: nothing is loaded. The
+  30 ms margin and the spans are unchanged.
+- **`driver_version`** in `gpu_key` (`local_ai::gpu_key`): on Windows `parlato-<version> | <card name> | driver
+  <version>`, with `unknown` for a missing card or driver; the Mac keeps `parlato-<version>`. Note that the config
+  has `gpu_failures: None`, so the engine keeps no failure file and the key has no effect yet; it starts to matter
+  the day a `gpu_failures` path is set.
+Not adopted: `vad::detect_with` (Parlato's own 30 ms margin matches the engine's padding but
+clamps in samples, not ms), `loaded_model()` (Parlato's `Loaded` slot tracks more than the path), `plain_format`.
+
+**"Remove from this computer"** (2026-10-31) sits next to Delete on every installed catalog model (Whisper and Parakeet
+cards, the local AI rows, the voice detection panel); imports have only Delete, because their files are not in the
+shared folder. Delete is still `release(id)`, this app only. Remove asks first (naming Talaan / Ensayo from
+`Status::Installed { users, .. }`, `other_apps` in the list payloads), then `commands/remove_model.rs` unloads the
+model here (same order as Delete), calls `SharedStore::remove_everywhere` on a blocking thread (`models/remove.rs`)
+and answers `removed`, `old_copies_left` or `in_use`. `in_use` (another app has it open or is downloading it) changes
+nothing and Parlato reloads the model as it was. A removed selected local AI model is deselected like Delete does;
+the Whisper card clears the selection in the UI like its Delete.
+
+**The Windows installer's "app is running" box** is Tauri's `appRunningOkKill` string. `bundle.windows.nsis.customLanguageFiles`
+points English at `src-tauri/installer-languages/English.nsh`, a full copy of Tauri 2.10.1's file with that one line
+changed (a custom file replaces the built-in one). The installer ships English only (`languages`). After upgrading
+`@tauri-apps/cli`, copy its `English.nsh` again and redo that line. `installer-hooks.nsh` is separate and unchanged.
+
+**Do not bump the engine tag casually.** The llama.cpp and whisper.cpp versions
+come from the engine's `Cargo.lock` at the tag, so a tag move changes both.
+Always run the ignored smoke tests against real model files after a move.
+Parakeet uses ONNX Runtime (static, via `voice-engine-stt`).
 
 **Every downloadable model is credited in `THIRD_PARTY_NOTICES.md`.** Adding a
 model means adding its author, licence and any required notice there (and the
@@ -210,7 +258,7 @@ bundles or hosts model files; they download from the original host. Pin
 third-party repositories to a commit (`revision` in the Parakeet catalog).
 
 **i18n is a three-file change.** `src/i18n/locales/` holds en/es/fr, currently
-874 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
+896 keys each (including the `macOverrides` block) and exactly in sync. Any user-facing string means editing all three.
 Adding a key to only `en.json` is a silent bug in two languages. French and Spanish
 are written with their accents (converted 2026-10-05, commit 3d7925b; Spanish
 questions and exclamations take their opening marks). New strings follow suit,
@@ -352,14 +400,14 @@ main product and must never regress because of Mac work.
 **Phase 0: build it on the Mac as-is.** No features. Mac prerequisites: Xcode
 Command Line Tools, Rust, Node, CMake (libclang ships with the Xcode tools).
 Expected issues to solve and record under "Local environment notes":
-- `.cargo/config.toml` only handles the duplicate ggml symbols
-  (`/FORCE:MULTIPLE`) for MSVC. Check whether Apple's linker rejects the same
-  duplicates between `whisper-rs-sys` and `llama-cpp-sys-2`.
+- (Historical: `.cargo/config.toml` once handled duplicate ggml symbols with
+  `/FORCE:MULTIPLE`. Since engine v0.2.2 llama.cpp is not in the app, so the
+  duplicates and the flag are gone.)
 - `keyring` only enables `windows-native`. Move it to a Windows target block
   and add `apple-native` under `[target.'cfg(target_os = "macos")'.dependencies]`,
   otherwise API keys are not stored in the Keychain.
-- The default `gpu-detect` feature (NVIDIA `nvml-wrapper`) is meaningless on
-  Mac; build with it off.
+- (Historical: the `gpu-detect` feature and `nvml-wrapper` are gone since engine
+  v0.2.2; hardware and graphics card detection come from the engine.)
 - `tauri.conf.json` bundles `nsis` only. Add a `tauri.macos.conf.json`
   override (Tauri merges it on macOS) with `app` + `dmg` targets and
   `macOSPrivateApi: true` if the recorder pill needs transparency.
@@ -377,8 +425,6 @@ Phase 0 findings (2026-09-30, MacBook, Apple Silicon, macOS 27, Rust 1.98):
 - Duplicate ggml symbols: Apple's linker only warns (`ld: duplicate
   symbol`) and keeps the first copy, same outcome as `/FORCE:MULTIPLE` on
   Windows. No config needed. The warnings are expected.
-- `gpu-detect` compiles on macOS; NVML just fails at runtime and the app
-  runs CPU-only. It logs a long harmless `nvml.dll` debug line.
 - Placeholders that compile but do nothing yet: `active_window_macos.rs`,
   `installed_apps_macos.rs`, `ocr_macos.rs` (swapped in by `#[cfg_attr(...,
   path = ...)]` in each `mod.rs`), the non-Windows `try_extract` in
@@ -437,7 +483,7 @@ Phase 1 status (2026-09-30, after a full review):
   `~/Library/Logs/com.craftconceptsdigital.parlato/` or
   `%LOCALAPPDATA%\com.craftconceptsdigital.parlato\logs\`; Settings > Log file
   opens the folder. Logs hold lengths and timings, never dictated text.
-- Not done yet: Metal (Phase 3, whisper and llama together), non-activating
+- Not done yet then (Metal is done since engine v0.2.2): non-activating
   NSPanel pill above full-screen apps, Fn/Globe key, OCR and app pairing
   (Phase 4). On non-QWERTY Macs a custom letter combo fires correctly but its
   label shows the US key name.
@@ -454,6 +500,12 @@ Phase 1 status (2026-09-30, after a full review):
   tested: an older-numbered build must update and keep its permissions.
 
 Phase 2 status (2026-09-30):
+- The local AI helper (`parlato-llm`, an `externalBin` sidecar in
+  `Parlato.app/Contents/MacOS`) is signed by Tauri's bundler with the same
+  identity and hardened runtime, inside out before the app (checked in
+  tauri-bundler `macos/app.rs` and `sign.rs`; `release.yml` verifies it with
+  `codesign -dv` and fails without `runtime` in its flags). It gets the app's
+  `Entitlements.plist` too.
 - Certificate: "Parlato Code Signing", self-signed root, Code Signing
   extended key usage, valid to 2036-09-27, in the owner's login keychain on
   the MacBook. Created by the owner in Keychain Access (Certificate
@@ -554,8 +606,8 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
 - Recorder pill visible above full-screen apps and on every Space.
 - Menu bar icon (template image) and a "Hide Dock icon" option (the tray
   code already mentions it as macOS-only).
-- Metal acceleration for whisper.cpp and llama.cpp. Rerun the ignored
-  `llamacpp_smoke` / `parakeet_smoke` tests afterwards.
+- Metal acceleration for whisper.cpp and llama.cpp: done with engine v0.2.2
+  (Whisper in process, local AI in the helper).
 
 **Phase 4: later, only if wanted.**
 - Power modes: frontmost app via NSWorkspace (done); installed apps list
@@ -585,8 +637,8 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
 - **GPU use is allowed, on conditions** (owner decision, 2026-10-22; it
   replaces the old "CPU-only" rule). It must keep one installer per platform
   and the auto-updater, be a user choice with a fallback to the processor,
-  and never stop the app from starting on a PC without that GPU. CUDA builds
-  stay out of releases: do not add CUDA features to the release build. The GPU
+  and never stop the app from starting on a PC without that GPU. CUDA is not
+  used at all (the `cuda*` features were removed in engine v0.2.2): do not add it. The GPU
   here is Blackwell (needs CUDA 12.8+) and the VS version is v18 while CUDA
   integrates with v17, two independent failure points. CUDA is its own future
   task. The Parakeet DirectML switch (see "Things that are easy to get wrong")

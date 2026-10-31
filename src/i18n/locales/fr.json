@@ -107,7 +107,6 @@
     "recorderStyleInfo": "'Mini' affiche une pilule flottante en bas de l'écran. 'Notch' descend du haut comme l'encoche du MacBook Pro.",
     "recorderStyleMini": "Mini (pilule flottante, bas)",
     "recorderStyleNotch": "Notch (ancrée en haut)",
-    "liveTranscriptInfo": "Affiche vos mots pendant l'enregistrement. Fonctionne avec NVIDIA Parakeet Unified sur cet ordinateur et avec les services en ligne qui gèrent le texte en direct. Le texte collé vient toujours de la passe complète à la fin.",
     "sectionGeneral": "Général",
     "sectionDictating": "Pendant la dictée",
     "sectionAfterPaste": "Après le collage",
@@ -136,8 +135,6 @@
     "muteHint": "Coupe la musique et les vidéos pour qu'elles ne finissent pas dans votre texte.",
     "resumeLabel": "Reprendre le son après",
     "resumeHint": "Délai avant de rétablir le son une fois la dictée terminée.",
-    "liveLabel": "Afficher les mots pendant que vous parlez",
-    "liveHint": "Avec Parakeet Unified sur cet ordinateur, ou les modèles en ligne qui gèrent le texte en direct.",
     "recorderPosLabel": "Position de l'enregistreur",
     "recorderPosHint": "Où apparaît la petite barre d'enregistrement.",
     "formatLabel": "Mettre en forme les paragraphes",
@@ -238,9 +235,6 @@
     "confirmDelete": "Supprimer le modèle Parakeet {{id}} ?"
   },
   "llmLocal": {
-    "cudaBuild": "Build avec support CUDA",
-    "nGpuLayers": "N GPU layers",
-    "nGpuLayersHelp": "0 = processeur seul, 1000 = tout sur la carte graphique (si l'accélération GPU est active)",
     "contextSize": "Taille du contexte",
     "maxTokens": "Longueur maximale de la réponse (tokens)",
     "imported": "importé",
@@ -429,7 +423,15 @@
     "fileTooLong": "Ce fichier dépasse 2 heures. Coupez-le en parties plus courtes.",
     "interrupted": "Parlato a été fermé avant la fin de cette dictée. Utilisez « Retranscrire » pour réessayer.",
     "pasteFailed": "Impossible de coller dans cette application. Le texte est dans le presse-papiers, prêt à être collé.",
-    "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, avec « Afficher les mots pendant que vous parlez » activé. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle."
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, et la connexion en direct a échoué. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle.",
+    "downloadOffline": "Pas de connexion au serveur de téléchargement. Vérifiez votre connexion internet et réessayez.",
+    "downloadRefused": "Le serveur de téléchargement a refusé la demande (erreur {{status}}). Réessayez plus tard.",
+    "downloadDiskFull": "Le disque est plein. Libérez de l'espace et réessayez.",
+    "downloadChecksum": "Le fichier téléchargé ne correspond pas à ce qui était attendu ; il a été supprimé. Téléchargez-le à nouveau.",
+    "downloadStalled": "Le téléchargement s'est bloqué. Réessayez : il reprend là où il s'est arrêté.",
+    "downloadFailed": "Le modèle n'a pas pu être téléchargé ou enregistré. Réessayez.",
+    "downloadRunning": "Ce modèle est déjà en cours de téléchargement.",
+    "downloadingElsewhere": "Une autre application (Talaan ou Ensayo) télécharge ce modèle en ce moment. Attendez la fin du téléchargement."
   },
   "prompts": {
     "default": {
@@ -605,6 +607,8 @@
     "builtinTitle": "Modèles intégrés",
     "builtinDesc": "Téléchargez un modèle pour nettoyer le texte sur cet ordinateur. Rien ne quitte votre ordinateur.",
     "runsOnCpu": "Tourne sur votre processeur.",
+    "runsOnGpu": "Tourne sur la carte graphique ({{backend}}).",
+    "gpuSetting": "Le réglage « Utiliser la carte graphique » se trouve dans Modèles, sous Vitesse et mémoire.",
     "import": "Importer un fichier GGUF",
     "use": "Utiliser",
     "inUse": "Utilisé",
@@ -638,7 +642,7 @@
     "englishOnly": "Anglais seulement",
     "languages": "{{count}} langues",
     "downloaded": "téléchargé",
-    "liveWords": "mots en direct",
+    "liveWords": "en direct",
     "perfTitle": "Vitesse de vos modèles",
     "perfDesc": "Mesurée sur vos propres dictées.",
     "faster": "plus rapide que votre voix",
@@ -653,7 +657,8 @@
     "importDesc": "Utilisez votre propre fichier .bin.",
     "browse": "Parcourir",
     "keyNote": "Vérifiée auprès du fournisseur, puis stockée dans le coffre de mots de passe de l'ordinateur.",
-    "hwGpu": "votre ordinateur · {{device}} · tourne sur le processeur",
+    "hwGpu": "votre ordinateur · {{device}} · utilise la carte graphique",
+    "hwGpuMac": "votre ordinateur · utilise la carte graphique",
     "hwCpu": "votre ordinateur · tourne sur le processeur",
     "companies": "Entreprises",
     "groupLocal": "sur cet ordinateur, gratuit et privé",
@@ -676,9 +681,13 @@
     "threadsDesc": "Le nombre de parties du processeur que le modèle vocal utilise en même temps. Automatique est le choix le plus rapide sur la plupart des ordinateurs.",
     "threadsAuto": "Automatique ({{count}})",
     "threadsReset": "Utiliser les réglages recommandés",
-    "gpuLabel": "Utiliser la carte graphique (expérimental)",
-    "gpuDesc": "Peut être plus rapide avec une carte graphique puissante. Si cela ne fonctionne pas, Parlato utilise le processeur.",
-    "gpuFailed": "La carte graphique n'a pas fonctionné : le processeur est utilisé jusqu'au prochain redémarrage de Parlato.",
+    "gpuLabel": "Utiliser la carte graphique",
+    "gpuDescMac": "Fait tourner Whisper et l'IA intégrée sur la puce graphique de ce Mac. Si cela ne fonctionne pas, Parlato utilise le processeur.",
+    "gpuDescWindows": "Fait tourner Parakeet et l'IA intégrée sur la carte graphique. Si cela ne fonctionne pas, Parlato utilise le processeur.",
+    "gpuCard": "Carte graphique trouvée : {{name}}.",
+    "gpuNoCard": "Aucune carte graphique trouvée, le processeur est utilisé.",
+    "gpuChecking": "Recherche d'une carte graphique…",
+    "gpuFailed": "La carte graphique n'a pas fonctionné : le processeur est utilisé. Désactivez puis réactivez ce réglage pour réessayer la carte.",
     "keepAliveLabel": "Garder les modèles prêts",
     "keepAliveDesc": "Durée pendant laquelle les modèles restent en mémoire après une dictée, pour que la suivante démarre plus vite. Les libérer tout de suite rend la mémoire plus tôt.",
     "keepAliveNever": "Libérer tout de suite",
@@ -687,7 +696,8 @@
     "keepAliveHours_one": "{{count}} heure",
     "keepAliveHours_other": "{{count}} heures",
     "keepAliveRecommended": "{{label}} (recommandé)",
-    "confirmDeleteModel": "Supprimer {{name}} ? Il faudra le télécharger à nouveau pour l'utiliser."
+    "confirmDeleteModel": "Supprimer {{name}} ? Il faudra le télécharger à nouveau pour l'utiliser.",
+    "downloadingElsewhere": "Téléchargement dans une autre appli"
   },
   "tf": {
     "dropTitle": "Déposez un fichier audio ou vidéo ici",
@@ -835,51 +845,62 @@
     "accessTitle": "Autorisez Parlato sur votre Mac",
     "accessDesc": "macOS demande avant qu'une app utilise le micro ou tape pour vous. Parlato a besoin des deux : le micro pour vous entendre, l'Accessibilité pour entendre votre raccourci et coller le texte. Rien ne quitte votre ordinateur sauf si vous choisissez un service en ligne."
   },
+  "removeModel": {
+    "action": "Retirer de cet ordinateur",
+    "confirmTitle": "Retirer {{name}} de cet ordinateur ?",
+    "bodyShared": "Il sera retiré de Parlato et de {{apps}}, et cela libère {{size}}.",
+    "bodyAlone": "Cela libère {{size}}.",
+    "confirmButton": "Retirer",
+    "inUse": "{{name}} est ouvert dans une autre application. Fermez-le d'abord là-bas, puis réessayez.",
+    "oldCopies": "Retiré. Quelques anciens fichiers étaient utilisés et disparaîtront après un redémarrage."
+  },
   "modelText": {
     "imported": "Un modèle que vous avez importé.",
-    "ggml_tiny": {
+    "whisper_tiny": {
       "name": "Tiny (multilingue)",
       "notes": "Très rapide, précision limitée. Pratique pour faire un essai."
     },
-    "ggml_tiny_en": {
+    "whisper_tiny_en": {
       "name": "Tiny (anglais)",
       "notes": "Anglais uniquement. Un peu plus précis que Tiny multilingue en anglais."
     },
-    "ggml_base": {
+    "whisper_base": {
       "name": "Base (multilingue)",
       "notes": "Bon équilibre entre taille et précision sur un processeur ordinaire."
     },
-    "ggml_base_en": {
+    "whisper_base_en": {
       "name": "Base (anglais)",
       "notes": "Anglais uniquement. Plus précis que Base multilingue en anglais."
     },
-    "ggml_large_v2": {
-      "name": "Large v2 (multilingue)",
+    "whisper_large_v2_full": {
+      "name": "Large v2 (taille complète)",
       "notes": "Très précis, mais demande beaucoup de mémoire."
     },
-    "ggml_large_v3": {
-      "name": "Large v3 (multilingue)",
+    "whisper_large_v3_full": {
+      "name": "Large v3 (taille complète)",
       "notes": "Dernière génération et le plus précis. Exigeant pour le processeur."
     },
-    "ggml_large_v3_turbo": {
+    "whisper_turbo_full": {
+      "name": "Large v3 Turbo (taille complète)",
       "notes": "Large v3 optimisé pour la vitesse. Idéal avec une carte graphique."
     },
-    "ggml_large_v3_turbo_q5_0": {
+    "whisper_turbo": {
+      "name": "Large v3 Turbo (compressé)",
       "notes": "Compressé. Très bonne qualité pour sa taille sur un processeur ordinaire."
     },
-    "parakeet_tdt_0_6b_v2": {
+    "parakeet_v2_full": {
       "name": "Parakeet TDT 0.6B v2 (anglais, F16)",
       "notes": "Le modèle de référence. Anglais uniquement. Environ 2,5 Go à télécharger."
     },
-    "parakeet_tdt_0_6b_v2_int8": {
+    "parakeet_v2": {
       "name": "Parakeet TDT 0.6B v2 (anglais, int8)",
       "notes": "Version compressée. Environ 680 Mo. Anglais uniquement."
     },
-    "parakeet_tdt_0_6b_v3": {
+    "parakeet_v3_full": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, F16)",
       "notes": "L'anglais et 24 autres langues européennes, et il détecte celle que vous parlez. Environ 2,5 Go."
     },
-    "parakeet_tdt_0_6b_v3_int8": {
+    "parakeet_v3": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, int8)",
       "notes": "L'anglais et 24 autres langues européennes, et il détecte celle que vous parlez. Environ 680 Mo."
     },
@@ -887,7 +908,7 @@
       "notes": "Whisper v3 Turbo sur les serveurs de Groq. Très rapide."
     },
     "scribe_v2": {
-      "notes": "Affiche vos mots en direct pendant que vous parlez."
+      "notes": "Transcrit pendant que vous parlez : le texte est prêt dès que vous arrêtez."
     },
     "scribe_v2_medical": {
       "notes": "Optimisé pour le vocabulaire et la terminologie médicale. Transcrit une fois que vous avez fini de parler."
@@ -902,13 +923,13 @@
       "notes": "Transcrit une fois que vous avez fini de parler. Détecte la langue tout seul."
     },
     "voxtral_mini_transcribe_realtime_2602": {
-      "notes": "Affiche vos mots en direct pendant que vous parlez."
+      "notes": "Transcrit pendant que vous parlez : le texte est prêt dès que vous arrêtez."
     },
     "stt_async_v5": {
       "notes": "Transcrit une fois que vous avez fini de parler. 60 langues."
     },
     "stt_rt_v5": {
-      "notes": "Affiche vos mots en direct, un par un, pendant que vous parlez."
+      "notes": "Transcrit mot par mot pendant que vous parlez : le texte est prêt dès que vous arrêtez."
     },
     "speechmatics_enhanced": {
       "notes": "Fonctionne en direct ou après que vous avez parlé."
@@ -923,64 +944,65 @@
       "notes": "En direct uniquement, le plus rapide de Cartesia. Anglais uniquement, sans détection automatique de la langue."
     },
     "universal_3_6_pro": {
-      "notes": "Le modèle le plus récent d'AssemblyAI, 32 langues. Affiche vos mots en direct ; sans le direct, il utilise Universal-3.5 Pro ou Universal-2 selon la langue."
+      "notes": "Le modèle le plus récent d'AssemblyAI, 32 langues. Transcrit pendant que vous parlez ; sinon, il utilise Universal-3.5 Pro ou Universal-2 selon la langue."
     },
     "universal_3_5_pro": {
-      "notes": "Le modèle le plus précis d'AssemblyAI. Peut afficher vos mots en direct."
+      "notes": "Le modèle le plus précis d'AssemblyAI. Peut transcrire pendant que vous parlez."
     },
     "universal_2": {
-      "notes": "Plus de 90 langues. Plus rapide que Universal-3.5 Pro, mais sans mots en direct."
+      "notes": "Plus de 90 langues. Plus rapide que Universal-3.5 Pro, mais seulement après que vous avez parlé."
     },
-    "qwen2_5_3b_instruct_q4": {
-      "notes": "Polyvalent, excellent rapport qualité / taille."
-    },
-    "llama_3_2_3b_instruct_q4": {
-      "notes": "À l'aise avec les textes longs."
-    },
-    "gemma_2_2b_it_q4": {
-      "notes": "Léger et rapide sur un processeur ordinaire."
-    },
-    "phi_3_5_mini_instruct_q4": {
-      "notes": "Fort en raisonnement et pour suivre les consignes."
-    },
-    "ggml_small": {
+    "whisper_small": {
       "name": "Small (multilingue)",
       "notes": "Bon équilibre entre précision et vitesse sur un processeur ordinaire."
     },
-    "ggml_small_en": {
+    "whisper_small_en": {
       "name": "Small (anglais)",
       "notes": "Anglais uniquement. Plus précis que Small multilingue en anglais."
     },
-    "ggml_medium": {
+    "whisper_medium": {
       "name": "Medium (multilingue)",
       "notes": "Très précis, mais plus lent que Large v3 Turbo."
     },
-    "ggml_medium_en": {
+    "whisper_medium_en": {
       "name": "Medium (anglais)",
       "notes": "Anglais uniquement. Très précis en anglais."
     },
-    "ggml_large_v3_q5_0": {
-      "name": "Large v3 (Q5_0)",
+    "whisper_large_v3": {
+      "name": "Large v3 (compressé)",
       "notes": "Large v3 compressé. Presque la même précision pour un tiers de la taille."
     },
-    "granite_4_2_3b_q4": {
+    "granite_4_2_3b": {
+      "name": "Granite 4.2 3B",
       "notes": "Le plus récent petit modèle d'IBM. Précis et fidèle à ce que vous avez dit."
     },
-    "parakeet_unified_en_0_6b": {
+    "parakeet_unified_en_full": {
       "name": "Parakeet Unified EN 0.6B (anglais, F16)",
       "notes": "Le modèle anglais le plus récent et le plus précis de NVIDIA. Environ 2,5 Go. Distribué par NVIDIA Corporation sous la NVIDIA Open Model License."
     },
-    "parakeet_unified_en_0_6b_int8": {
+    "parakeet_unified_en": {
       "name": "Parakeet Unified EN 0.6B (anglais, int8)",
       "notes": "Le modèle anglais le plus récent de NVIDIA, compressé à environ 660 Mo avec les mêmes résultats dans nos tests. Distribué par NVIDIA Corporation sous la NVIDIA Open Model License."
     },
-    "nemotron_3_5_asr_streaming_0_6b": {
+    "nemotron_3_5": {
       "name": "Nemotron 3.5 ASR 0.6B (multilingue)",
       "notes": "Le modèle vocal le plus récent de NVIDIA : 35 langues, dont le chinois, le japonais, le coréen, l'hindi et l'arabe, et il détecte celle que vous parlez. Environ 2.6 Go. Fourni par NVIDIA sous la licence OpenMDW-1.1."
     },
-    "parakeet_ultra_0_6b_int8": {
+    "parakeet_ultra": {
       "name": "Parakeet Ultra 0.6B (multilingue, int8)",
       "notes": "Le Parakeet v3 de NVIDIA, réentraîné par Moondream pour faire moins d'erreurs, surtout hors anglais et dans le bruit. L'anglais et 24 autres langues européennes, et il détecte celle que vous parlez. Environ 670 Mo."
+    },
+    "whisper_large_v2": {
+      "name": "Large v2 (compressé)",
+      "notes": "Large v2 compressé. Très précis, avec un téléchargement bien plus léger."
+    },
+    "qwen3_5_4b": {
+      "name": "Qwen3.5 4B",
+      "notes": "Un petit modèle rapide, même sur un ordinateur portable."
+    },
+    "qwen3_5_9b": {
+      "name": "Qwen3.5 9B",
+      "notes": "Plus grand et un peu plus minutieux. Demande 16 Go de mémoire et prend environ deux fois plus de temps."
     }
   },
   "mac": {

@@ -35,6 +35,7 @@ pub struct TextProcessingSettings {
 #[tauri::command]
 pub fn set_selected_whisper_model(app: AppHandle, id: Option<String>) -> Result<(), String> {
     pipeline::set_selected_model(&app, id.as_deref()).map_err(|e| e.to_string())?;
+    crate::models::mark_used(&app, id.as_deref());
     emit_source_changed(&app);
     Ok(())
 }
@@ -131,7 +132,10 @@ pub fn set_transcription_source(
         }
     }
     match source.parakeet_model_id {
-        Some(v) => store.set("selected_parakeet_model", serde_json::Value::String(v)),
+        Some(v) => {
+            crate::models::mark_used(&app, Some(&v));
+            store.set("selected_parakeet_model", serde_json::Value::String(v))
+        }
         None => {
             store.delete("selected_parakeet_model");
         }
@@ -309,8 +313,8 @@ pub struct SpeechThreads {
 pub fn get_speech_threads(app: AppHandle) -> SpeechThreads {
     SpeechThreads {
         value: pipeline::get_speech_threads(&app),
-        auto: crate::transcription::whisper::auto_threads() as usize,
-        max: crate::transcription::whisper::max_threads() as usize,
+        auto: crate::transcription::speech::auto_threads() as usize,
+        max: crate::transcription::speech::max_threads() as usize,
     }
 }
 
@@ -319,36 +323,77 @@ pub fn set_speech_threads(app: AppHandle, threads: usize) -> Result<(), String> 
     pipeline::set_speech_threads(&app, threads).map_err(|e| e.to_string())
 }
 
-// -- Parakeet on the graphics card (Parlato) -------------------------------
+// -- Use the graphics card (Parlato) ---------------------------------------
 
 #[derive(serde::Serialize)]
-pub struct ParakeetGpu {
-    /// Choix enregistre (faux par defaut).
+pub struct UseGpu {
+    /// La valeur effective : le choix de la personne, sinon le defaut.
     pub enabled: bool,
-    /// Ce build sait utiliser la carte graphique (Windows, ou CUDA).
-    pub available: bool,
-    /// La carte graphique a echoue depuis le lancement : le processeur sert.
+    /// D'ou vient la valeur : "mac", "discrete_card", "no_card", "checking"
+    /// (la recherche de carte tourne) ou "set_by_person".
+    pub default_reason: &'static str,
+    /// Windows : la carte graphique dediee trouvee, par son nom.
+    pub card_name: Option<String>,
+    /// "macos", "windows" ou "other" : ce que le reglage couvre ici.
+    pub platform: &'static str,
+    /// La carte graphique a echoue depuis le lancement (parole ou IA locale) :
+    /// le processeur sert jusqu'au prochain redemarrage.
     pub failed: bool,
-    /// Ce qui a tourne au dernier chargement : "cpu", "directml", "cuda" ou
-    /// "cpu-fallback".
-    pub provider: String,
 }
 
 #[tauri::command]
-pub fn get_parakeet_gpu(app: AppHandle) -> ParakeetGpu {
-    let engine = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>();
-    ParakeetGpu {
-        enabled: pipeline::get_parakeet_gpu(&app),
-        available: crate::transcription::parakeet::gpu_available(),
-        failed: engine.as_ref().map(|e| e.0.gpu_failed()).unwrap_or(false),
-        provider: engine.map(|e| e.0.provider()).unwrap_or("cpu").to_string(),
+pub fn get_use_gpu(app: AppHandle) -> UseGpu {
+    let (enabled, reason, card_name) = crate::use_gpu::snapshot();
+    let speech_failed = |slot: Option<bool>| slot.unwrap_or(false);
+    let failed = speech_failed(
+        app.try_state::<crate::transcription::parakeet::ParakeetEngineState>()
+            .map(|e| e.0.gpu_failed()),
+    ) || speech_failed(
+        app.try_state::<crate::commands::transcription::WhisperEngineState>()
+            .map(|e| e.0.gpu_failed()),
+    ) || crate::enhancement::local_ai::local_ai()
+        .map(|ai| ai.gpu_failed())
+        .unwrap_or(false);
+    UseGpu {
+        enabled,
+        default_reason: reason.as_str(),
+        card_name,
+        platform: match crate::use_gpu::Os::current() {
+            crate::use_gpu::Os::Mac => "macos",
+            crate::use_gpu::Os::Windows => "windows",
+            crate::use_gpu::Os::Other => "other",
+        },
+        failed,
     }
 }
 
-/// Le modele se recharge a la prochaine utilisation (comme pour les threads).
+/// Les modeles de parole et d'IA charges sont decharges : le prochain
+/// chargement prend la nouvelle valeur. Rallumer la carte graphique efface
+/// aussi l'echec de cette session (parole et IA locale) : rien n'est
+/// redemarre, le prochain chargement essaie la carte.
 #[tauri::command]
-pub fn set_parakeet_gpu(app: AppHandle, enabled: bool) -> Result<(), String> {
-    pipeline::set_parakeet_gpu(&app, enabled).map_err(|e| e.to_string())
+pub fn set_use_gpu(app: AppHandle, enabled: bool) -> Result<(), String> {
+    crate::use_gpu::set(&app, enabled).map_err(|e| e.to_string())?;
+    if enabled {
+        retry_gpu(&app);
+    }
+    pipeline::unload_inference_models(&app);
+    Ok(())
+}
+
+/// "Try again" de la carte graphique sur chaque moteur vivant : les deux
+/// moteurs de parole (dans ce processus) et le client de l'IA locale
+/// (`LlmClient::retry_gpu`).
+fn retry_gpu(app: &AppHandle) {
+    if let Some(st) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
+        st.0.retry_gpu();
+    }
+    if let Some(st) = app.try_state::<crate::commands::transcription::WhisperEngineState>() {
+        st.0.retry_gpu();
+    }
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        ai.retry_gpu_in_background();
+    }
 }
 
 /// Parlato : duree (s) pendant laquelle les modeles restent charges apres
@@ -404,27 +449,6 @@ pub fn get_sound_feedback_enabled(app: AppHandle) -> bool {
 #[tauri::command]
 pub fn set_sound_feedback_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
     crate::audio::feedback::set_enabled(&app, enabled).map_err(|e| e.to_string())
-}
-
-// -- Live text display in the recorder pill (VoiceInk ShowLiveTranscript) ---
-
-const KEY_SHOW_LIVE_TRANSCRIPT: &str = "show_live_transcript";
-
-/// Reference VoiceInk AppDefaults `RecorderDisplaySettingsKeys
-/// .showLiveTranscript` = "ShowLiveTranscript", defaut true.
-#[tauri::command]
-pub fn get_show_live_transcript(app: AppHandle) -> bool {
-    app.store(STORE_FILE)
-        .ok()
-        .and_then(|s| s.get(KEY_SHOW_LIVE_TRANSCRIPT).and_then(|v| v.as_bool()))
-        .unwrap_or(true)
-}
-
-#[tauri::command]
-pub fn set_show_live_transcript(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
-    store.set(KEY_SHOW_LIVE_TRANSCRIPT, serde_json::Value::Bool(enabled));
-    store.save().map_err(|e| e.to_string())
 }
 
 // -- Cloud transcription timeout (VoiceInk CloudTranscriptionSettings) ------

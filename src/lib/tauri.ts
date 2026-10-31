@@ -1,10 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export type GpuInfo = {
-  has_nvidia: boolean;
-  device_name: string | null;
-  driver_version: string | null;
-  cuda_version: string | null;
+/** The "Use graphics card" setting for speech and local AI together.
+ *  `default_reason` says where `enabled` comes from: the Mac default, a
+ *  discrete card found, no card, the card search still running, or the person. */
+export type UseGpu = {
+  enabled: boolean;
+  default_reason: "mac" | "discrete_card" | "no_card" | "checking" | "set_by_person";
+  card_name: string | null;
+  platform: "macos" | "windows" | "other";
+  /** The card failed since launch: the processor is used until a restart. */
+  failed: boolean;
 };
 
 export type AudioDeviceInfo = {
@@ -44,6 +49,10 @@ export type WhisperModelState = {
   accuracy: number;
   /** Codes ISO supportes ; "auto" en tete = auto-detect. */
   language_codes: string[];
+  /** Another app is downloading this model right now (shared model folder). */
+  downloading_elsewhere?: boolean;
+  /** Talaan / Ensayo when they also use this model (the Remove confirmation). */
+  other_apps?: string[];
 };
 
 export type DownloadProgress = {
@@ -158,10 +167,13 @@ export type GgufModelState = {
   on_disk_bytes: number | null;
   path: string | null;
   imported: boolean;
+  /** False for an import that lives outside Parlato's folder: Delete leaves it. */
+  removable: boolean;
+  downloading_elsewhere?: boolean;
+  other_apps?: string[];
 };
 
 export type LlamaCppSettings = {
-  n_gpu_layers: number;
   context_size: number;
   max_tokens: number;
 };
@@ -314,11 +326,15 @@ export type ParakeetModelState = {
   speed: number;
   accuracy: number;
   language_codes: string[];
+  downloading_elsewhere?: boolean;
+  other_apps?: string[];
 };
+
+/** What "Remove from this computer" did (see models/remove.rs). */
+export type RemoveResult = "removed" | "old_copies_left" | "in_use";
 
 export const api = {
   ping: () => invoke<string>("ping"),
-  getGpuInfo: () => invoke<GpuInfo>("get_gpu_info"),
 
   listAudioDevices: () => invoke<AudioDeviceInfo[]>("list_audio_devices"),
   startRecording: (deviceName: string | null) =>
@@ -356,14 +372,10 @@ export const api = {
   getSpeechThreads: () =>
     invoke<{ value: number; auto: number; max: number }>("get_speech_threads"),
   setSpeechThreads: (threads: number) => invoke<void>("set_speech_threads", { threads }),
-  /** Parlato: Parakeet on the graphics card. `available` is false on builds
-   *  without a GPU provider (Mac); `failed` after a fall back to the
-   *  processor; `provider` is what ran at the last load. */
-  getParakeetGpu: () =>
-    invoke<{ enabled: boolean; available: boolean; failed: boolean; provider: string }>(
-      "get_parakeet_gpu",
-    ),
-  setParakeetGpu: (enabled: boolean) => invoke<void>("set_parakeet_gpu", { enabled }),
+  /** Parlato: one "Use graphics card" switch for speech and local AI. Setting
+   *  it unloads the loaded models; the next load uses the new value. */
+  getUseGpu: () => invoke<UseGpu>("get_use_gpu"),
+  setUseGpu: (enabled: boolean) => invoke<void>("set_use_gpu", { enabled }),
   /** Parlato: seconds the models stay loaded after a dictation (0 = unload). */
   getModelKeepAlive: () =>
     invoke<{ value: number; recommended: number }>("get_model_keep_alive"),
@@ -481,9 +493,12 @@ export const api = {
       downloaded: boolean;
       path: string | null;
       on_disk_bytes: number | null;
+      other_apps?: string[];
     }>("vad_get_state"),
   vadDownload: () => invoke<string>("vad_download"),
   vadDelete: () => invoke<void>("vad_delete"),
+  removeModelEverywhere: (id: string) =>
+    invoke<RemoveResult>("remove_model_everywhere", { id }),
   vadIsEnabled: () => invoke<boolean>("vad_is_enabled"),
   vadSetEnabled: (enabled: boolean) => invoke<void>("vad_set_enabled", { enabled }),
 
@@ -545,7 +560,8 @@ export const api = {
     invoke<LlamaCppSettings>("get_llamacpp_settings"),
   setLlamacppSettings: (args: LlamaCppSettings) =>
     invoke<void>("set_llamacpp_settings", args),
-  llamacppCudaEnabled: () => invoke<boolean>("llamacpp_cuda_enabled"),
+  /** Where the local AI runs (or will run): "metal", "vulkan" or "cpu". */
+  llamacppBackend: () => invoke<string>("llamacpp_backend"),
 
   listParakeetModels: () =>
     invoke<ParakeetModelState[]>("list_parakeet_models"),
@@ -649,11 +665,6 @@ export const api = {
   resetHotkeyConfig: () => invoke<HotkeyConfig>("reset_hotkey_config"),
   listHotkeyOptions: () => invoke<HotkeyOptionInfo[]>("list_hotkey_options"),
   resetEscapeHint: () => invoke<void>("reset_escape_hint"),
-
-  // Live text display in the recorder pill (VoiceInk ShowLiveTranscript).
-  getShowLiveTranscript: () => invoke<boolean>("get_show_live_transcript"),
-  setShowLiveTranscript: (enabled: boolean) =>
-    invoke<void>("set_show_live_transcript", { enabled }),
 
   // Cloud batch transcription timeout, seconds (VoiceInk CloudTranscriptionSettings).
   getCloudTranscriptionTimeout: () =>

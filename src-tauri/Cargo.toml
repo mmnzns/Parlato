@@ -59,25 +59,8 @@ unicode-segmentation = "1"
 rusqlite = { version = "0.33", features = ["bundled"] }
 chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
 
-# Transcription Whisper locale
-whisper-rs = { version = "0.16", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "multipart", "json"] }
 futures-util = "0.3"
-# Parlato : empreinte SHA-256 des modeles telecharges (deja dans l'arbre via
-# les dependances de Tauri, aucune nouvelle crate).
-sha2 = "0.10"
-
-# LLM enhancement embarque (llama.cpp).
-# Build CPU par defaut ; CUDA optionnelle via la feature parla "cuda-llama".
-llama-cpp-2 = "0.1"
-
-# Transcription Parakeet (NVIDIA NeMo TDT) via ONNX Runtime.
-# Les defaults de parakeet-rs activent "cpu" + "ort-defaults" (qui embarque
-# onnxruntime via download-binaries). Acceleration GPU activable via les
-# feature Parla "cuda-onnx" (NVIDIA, build depuis les sources). Sous Windows,
-# DirectML est compile dans tous les builds (voir plus bas) et se choisit a
-# l'execution par le reglage "parakeet_gpu".
-parakeet-rs = "0.3"
 
 # Capture de fenetre active (Phase 7 screen context).
 xcap = "0.9"
@@ -90,14 +73,25 @@ keyring = "3"
 urlencoding = "2"
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 
-# Detection GPU NVIDIA (CUDA runtime presence)
-nvml-wrapper = { version = "0.11", optional = true }
+# Shared engine (voice-engine, MIT): models, speech, local AI client. Every
+# engine crate stays on the same tag. Code flows from the engine into Parlato
+# only, never the other way (see CLAUDE.md "One shared engine").
+voice-engine-protocol = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
+voice-engine-client = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
+voice-engine-models = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
+voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
+
+[dev-dependencies]
+# Tests of the model store use temp folders, never the real shared folder.
+tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
-# Parlato : DirectML pour Parakeet (reglage "carte graphique"). ONNX Runtime est
-# deja telecharge avec DirectML sur Windows ; la feature ajoute seulement le
-# provider cote parakeet-rs. Cargo unit les features avec la ligne ci-dessus.
-parakeet-rs = { version = "0.3", features = ["directml"] }
+# Parakeet on the graphics card through the engine (DirectML), chosen at run
+# time by the `use_gpu` setting (and asked for the card at startup,
+# `discrete_card`). Cargo unifies the features with the
+# entry in [dependencies]. Whisper and Parakeet themselves (whisper-rs,
+# parakeet-rs) come in through voice-engine-stt, not directly.
+voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2", features = ["directml"] }
 # UI Automation pour l'extraction d'URL des navigateurs (Power Mode).
 uiautomation = "0.24"
 keyring = { version = "3", features = ["windows-native"] }
@@ -157,16 +151,4 @@ opt-level = 3
 [profile.dev.package.tokenizers]
 opt-level = 1
 
-[features]
-default = ["gpu-detect"]
-gpu-detect = ["dep:nvml-wrapper"]
 
-# Meta-feature that enables NVIDIA acceleration everywhere. Used by the CUDA
-# build variant in the release workflow. Do NOT enable this by default - the
-# resulting binary requires CUDA 12 runtime DLLs to start and will crash on
-# machines without an NVIDIA driver.
-cuda = ["cuda-whisper", "cuda-llama", "cuda-onnx"]
-
-cuda-whisper = ["whisper-rs/cuda"]
-cuda-llama = ["llama-cpp-2/cuda"]
-cuda-onnx = ["parakeet-rs/cuda"]

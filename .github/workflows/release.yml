@@ -10,15 +10,31 @@ permissions:
   contents: write
 
 jobs:
+  # Parlato's local AI helper (parlato-llm, plus parlato-llm-vulkan on Windows
+  # x64), built by the shared engine's reusable workflow at the same tag the
+  # app's Cargo.toml pins. One artifact per target, "helpers-<triple>", with
+  # the helper files, SHA256SUMS and build-info.txt. The app jobs below
+  # download it into src-tauri/binaries, where Tauri finds the externalBin
+  # sidecars. Keep the two tags (@v0.3.2, engine-ref) equal to Cargo.toml's.
+  helpers:
+    uses: mmnzns/voice-engine/.github/workflows/build-helpers.yml@v0.3.2
+    with:
+      engine-ref: v0.3.2
+      helpers: llm,llm-vulkan
+      llm-name: parlato-llm
+
   # CPU variants (x64 + ARM64). Produces signed installers + updater
   # artifacts (latest.json + .sig files). The Tauri updater in the
   # installed app points to this job's latest.json.
   #
-  # gpu-detect is disabled on ARM64 (--no-default-features) because
-  # NVIDIA does not ship nvml.dll for Windows ARM64. All other features
-  # (whisper.cpp, llama.cpp, ONNX Runtime, WASAPI audio, etc.) compile
-  # natively for both architectures.
+  # Everything compiles natively for both architectures. llama.cpp is not
+  # built here: it lives in the parlato-llm helper from the "helpers" job.
+  #
+  # Windows x64 also ships parlato-llm-vulkan.exe (the graphics card build of
+  # the helper): src-tauri/tauri.windows-x64.conf.json, passed with --config,
+  # lists both helpers in externalBin. ARM64 lists parlato-llm only.
   cpu:
+    needs: helpers
     strategy:
       fail-fast: false
       matrix:
@@ -26,11 +42,13 @@ jobs:
           - arch: x64
             runner: windows-latest
             rust-target: x86_64-pc-windows-msvc
-            cargo-args: ""
+            # --config merges over tauri.conf.json (JSON merge patch: the
+            # externalBin array is replaced, so the file lists both helpers).
+            cargo-args: "--config src-tauri/tauri.windows-x64.conf.json"
           - arch: arm64
             runner: windows-11-arm
             rust-target: aarch64-pc-windows-msvc
-            cargo-args: "-- --no-default-features"
+            cargo-args: ""
 
     name: cpu (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -53,6 +71,23 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
           key: cpu-${{ matrix.arch }}
+
+      - name: Download the local AI helpers
+        uses: actions/download-artifact@v4
+        with:
+          name: helpers-${{ matrix.rust-target }}
+          path: src-tauri/binaries
+
+      # Tauri only bundles the externalBin files. Keep the engine's record
+      # files (checksums of the unsigned helpers, versions used) as an
+      # uploaded artifact instead of leaving them in src-tauri/binaries.
+      - name: Set the helper record files aside
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p helpers-record
+          mv src-tauri/binaries/SHA256SUMS src-tauri/binaries/build-info.txt helpers-record/
+          ls -l src-tauri/binaries
 
       - name: Install npm dependencies
         run: npm ci
@@ -84,8 +119,9 @@ jobs:
       # this runner's CPU (AVX-512 on some runners), and the installer would
       # then crash with "illegal instruction" on most Intel PCs. Build ggml
       # for a fixed baseline instead (scripts/cpu-baseline.ps1), and clean the
-      # -sys crates when the Rust cache holds a build made without it.
-      - name: CPU baseline for whisper.cpp and llama.cpp
+      # -sys crate when the Rust cache holds a build made without it. The
+      # helper's llama.cpp baseline is checked by the engine's workflow.
+      - name: CPU baseline for whisper.cpp
         shell: pwsh
         run: |
           . ./scripts/cpu-baseline.ps1
@@ -96,6 +132,7 @@ jobs:
       # so everyone sees what changed. A tag without its section fails here.
       - name: Release notes from CHANGELOG.md
         id: notes
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
@@ -134,8 +171,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Parlato ${{ github.ref_name }}"
+          # Only a tag push creates a (draft) release. A manual run
+          # (workflow_dispatch) leaves both empty: tauri-action then only
+          # builds and signs, and the upload-artifact steps keep the files.
+          tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          releaseName: ${{ github.event_name == 'push' && format('Parlato {0}', github.ref_name) || '' }}
           releaseBody: |
             ## What's new
 
@@ -157,9 +197,9 @@ jobs:
           prerelease: false
           args: --target ${{ matrix.rust-target }} ${{ matrix.cargo-args }}
 
-      # Fails the release if whisper.cpp or llama.cpp was built for this
-      # runner's CPU or with AVX-512 (the draft release stays unpublished).
-      - name: Check the CPU baseline
+      # Fails the release if whisper.cpp was built for this runner's CPU, with
+      # AVX-512, or without -O2 (the draft release stays unpublished).
+      - name: Check the whisper.cpp CPU baseline
         shell: pwsh
         run: |
           . ./scripts/cpu-baseline.ps1
@@ -170,6 +210,13 @@ jobs:
         with:
           name: parlato-${{ matrix.arch }}-installer
           path: src-tauri/target/${{ matrix.rust-target }}/release/bundle/nsis/
+          if-no-files-found: error
+
+      - name: Upload ${{ matrix.arch }} helper record
+        uses: actions/upload-artifact@v4
+        with:
+          name: parlato-${{ matrix.arch }}-helpers-record
+          path: helpers-record/
           if-no-files-found: error
 
   # Parlato : macOS build (Apple silicon). Produces the .dmg plus the
@@ -191,7 +238,7 @@ jobs:
     # After the Windows jobs: they create the draft release with its
     # description, and running after them avoids two jobs writing
     # latest.json at the same time. tauri-action adds the Mac entry to it.
-    needs: cpu
+    needs: [cpu, helpers]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -212,6 +259,27 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
           key: macos-arm64
+
+      - name: Download the local AI helpers
+        uses: actions/download-artifact@v4
+        with:
+          name: helpers-aarch64-apple-darwin
+          path: src-tauri/binaries
+
+      # Tauri only bundles the externalBin files. Keep the engine's record
+      # files (checksums of the unsigned helpers, versions used) as an
+      # uploaded artifact instead of leaving them in src-tauri/binaries.
+      - name: Set the helper record files aside
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p helpers-record
+          mv src-tauri/binaries/SHA256SUMS src-tauri/binaries/build-info.txt helpers-record/
+          ls -l src-tauri/binaries
+
+      # A downloaded artifact does not keep the executable bit.
+      - name: Make the helper executable
+        run: chmod +x src-tauri/binaries/parlato-llm-aarch64-apple-darwin
 
       - name: Install npm dependencies
         run: npm ci
@@ -261,8 +329,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Parlato ${{ github.ref_name }}"
+          # Only a tag push creates a (draft) release. A manual run
+          # (workflow_dispatch) leaves both empty: tauri-action then only
+          # builds and signs, and the upload-artifact steps keep the files.
+          tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          releaseName: ${{ github.event_name == 'push' && format('Parlato {0}', github.ref_name) || '' }}
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin
@@ -272,19 +343,38 @@ jobs:
           APP="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Parlato.app"
           codesign --verify --deep --strict --verbose=2 "$APP"
           codesign -dv "$APP" 2>&1 | grep -E "Authority|Identifier|flags"
+          # The bundler signs externalBin files with the app identity and the
+          # hardened runtime before it signs the app. Check the local AI
+          # helper itself: it must be signed, with the same authority, and
+          # carry the hardened runtime flag.
+          HELPER="$APP/Contents/MacOS/parlato-llm"
+          test -f "$HELPER"
+          codesign --verify --strict --verbose=2 "$HELPER"
+          codesign -dv "$HELPER" 2>&1 | tee helper-sig.txt | grep -E "Authority|Identifier|flags"
+          grep -Eq "flags=0x[0-9a-f]+\(.*runtime" helper-sig.txt \
+            || { echo "::error::parlato-llm is not signed with the hardened runtime"; exit 1; }
+          if ! diff <(codesign -dv "$APP" 2>&1 | grep "^Authority" | head -1) \
+                    <(grep "^Authority" helper-sig.txt | head -1) > /dev/null; then
+            echo "::error::parlato-llm is signed with a different identity than the app"; exit 1
+          fi
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: parlato-macos-arm64
-          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
 
-  # NOTE : GitHub's public windows-latest runner (4 cores, 16 GB, 14 GB
-  # disk) is too small to compile whisper.cpp CUDA + llama.cpp CUDA +
-  # ggml-cuda within the 6h job limit - nvcc + MSBuild oversubscribe the
-  # machine and swap-thrash until the job dies. We ship CPU only from
-  # CI and users who want CUDA build from source on their own GPU box
-  # (cf BUILDING.md section "CUDA build"). If you ever add a self-hosted
-  # runner or bump to GitHub Team's larger runners, the recipe to add
-  # back a cuda job is in the git history (tag v0.1.0 initial attempt).
+      - name: Upload macOS helper record
+        uses: actions/upload-artifact@v4
+        with:
+          name: parlato-macos-arm64-helpers-record
+          path: helpers-record/
+          if-no-files-found: error
+
+  # NOTE: CUDA builds are not part of Parlato anymore. The graphics card is
+  # used through Metal (Mac), Vulkan (the parlato-llm-vulkan helper) and
+  # DirectML (Parakeet), all in the normal installer.

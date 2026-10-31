@@ -2,15 +2,15 @@
 //
 // Reference VoiceInk Features/Recording/Views/MiniRecorderView.swift +
 // Components/RecorderComponents.swift + AudioVisualizerView.swift :
-//   VStack [LiveTranscriptView 56pt (pendant l'enregistrement, si texte)]
+//   VStack [FailureText 54px (Parlato, si echec)]
 //          [Divider]
 //          HStack [RecordButton 21pt] Spacer [StatusDisplay] Spacer [ModeButton 22pt]
 //   control bar 40pt epingle bas, background Color.black opaque,
-//   largeur 184 (compact) / 300 (texte en direct), corner radius 20 / 14.
+//   largeur 184 (compact) / 300 (message), corner radius 20 / 14.
 //   15 bars audio avec wave + center boost, 60 FPS.
 //   Processing: "Transcribing" / "Enhancing" + 5 dots animes.
-//   Texte en direct : reglage ShowLiveTranscript (defaut true), affiche
-//   uniquement pendant recordingState == .recording (commit 42f7ec8).
+//   Parlato : pas de texte en direct (LiveTranscriptView de VoiceInk retire
+//   en 0.15.0, jamais utile pendant une dictee).
 //   Astuce Echap : "Press Esc again to cancel" au premier Echap, une seule
 //   fois (RecorderPanelShortcutManager.showEscapeConfirmationHintIfNeeded).
 //
@@ -65,24 +65,12 @@ type PipelineEvent = {
   job: "dictation" | "file" | "retry";
 };
 
-type StreamingEvent =
-  | { kind: "session_started" }
-  | { kind: "partial"; text: string }
-  | { kind: "committed"; text: string }
-  | { kind: "error"; message: string };
-
 type PopoverHoverEvent = { hovering: boolean };
 
 export function MiniRecorderView() {
   const { t } = useTranslation();
   const [stage, setStage] = useState<Stage>("recording");
   const [meterDb, setMeterDb] = useState<number>(-160);
-  // Texte en direct : les providers streaming envoient a chaque event le
-  // transcript cumule (segments confirmes + hypothese), on affiche donc
-  // toujours le dernier recu (VoiceInk StreamingTranscriptionService
-  // committed + partial).
-  const [liveText, setLiveText] = useState<string>("");
-  const [showLiveTranscript, setShowLiveTranscript] = useState(true);
   const [escapeHint, setEscapeHint] = useState(false);
   const [powerSession, setPowerSession] = useState<PowerSession | null>(null);
   const [powerConfigs, setPowerConfigs] = useState<PowerModeConfig[]>([]);
@@ -142,15 +130,10 @@ export function MiniRecorderView() {
   useEffect(() => {
     // Charge une fois au mount - la fenetre mini-recorder est recreee a
     // chaque start donc pas besoin de re-fetch frequent.
-    Promise.all([
-      api.listPowerConfigs(),
-      api.getRecorderStyle(),
-      api.getShowLiveTranscript(),
-    ])
-      .then(([pcs, rs, live]) => {
+    Promise.all([api.listPowerConfigs(), api.getRecorderStyle()])
+      .then(([pcs, rs]) => {
         setPowerConfigs(pcs);
         setStyle(rs === "notch" ? "notch" : "mini");
-        setShowLiveTranscript(live);
       })
       .catch(console.error);
 
@@ -184,12 +167,6 @@ export function MiniRecorderView() {
       }),
       listen("recorder:notice", () => {
         api.takeRecorderNotice().then(showNotice).catch(console.error);
-      }),
-      listen<StreamingEvent>("streaming:event", (e) => {
-        const s = e.payload;
-        if (s.kind === "partial" || s.kind === "committed") {
-          setLiveText((prev) => (prev === s.text ? prev : s.text));
-        }
       }),
       listen("recorder:escape-hint", () => {
         setEscapeHint(true);
@@ -226,13 +203,8 @@ export function MiniRecorderView() {
     return () => window.cancelAnimationFrame(raf);
   }, [stage]);
 
-  // VoiceInk hasLiveTranscript : showLiveTranscript && state == .recording
-  // && !partialTranscript.isEmpty. Le texte disparait a l'arret, remplace
-  // par le badge "Transcribing".
-  const hasLiveText =
-    showLiveTranscript && stage === "recording" && liveText.trim().length > 0;
   const failureText = stage === "failed" ? translateError(t, failure) : "";
-  const expanded = hasLiveText || stage === "failed" || stage === "notice";
+  const expanded = stage === "failed" || stage === "notice";
   const isNotch = style === "notch";
   const hasEnabledConfigs = powerConfigs.some((c) => c.is_enabled);
 
@@ -278,12 +250,6 @@ export function MiniRecorderView() {
         )}
         style={spacingStyle}
       >
-        {hasLiveText && !isNotch && (
-          <>
-            <LiveTranscript text={liveText} />
-            <div className="h-px bg-white/15" />
-          </>
-        )}
         {failureText && !isNotch && (
           <>
             <FailureText text={failureText} />
@@ -382,12 +348,6 @@ export function MiniRecorderView() {
             )}
           </button>
         </div>
-        {hasLiveText && isNotch && (
-          <>
-            <div className="h-px bg-white/15" />
-            <LiveTranscript text={liveText} />
-          </>
-        )}
         {failureText && isNotch && (
           <>
             <div className="h-px bg-white/15" />
@@ -563,44 +523,14 @@ function ProcessingStatusDisplay({
 
 // -- FailureText (Parlato) ----------------------------------------------------
 //
-// Why the dictation was not pasted, translated, in the same 54 px band as
-// the live transcript. The recording stays in History for Transcribe again.
+// Why the dictation was not pasted, translated, in a 54 px band above the
+// control bar. The recording stays in History for Transcribe again.
 
 function FailureText({ text }: { text: string }) {
   return (
     <div
       role="alert"
       className="line-clamp-3 h-[54px] overflow-hidden px-4 py-1.5 text-left text-[12px] leading-snug text-white/85"
-    >
-      {text}
-    </div>
-  );
-}
-
-// -- LiveTranscript (VoiceInk LiveTranscriptView) ---------------------------
-//
-// Zone de 54 px (VoiceInk 56 pt, reduite d'un rien pour tenir dans la
-// fenetre de 120 px avec la marge basse de 24 px), texte 12 pt blanc 80 %,
-// masque degrade en haut, defilement automatique vers le bas a chaque mise
-// a jour, sans animation pour que les glyphes ne glissent pas.
-
-function LiveTranscript({ text }: { text: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.scrollTop = ref.current.scrollHeight;
-    }
-  }, [text]);
-  return (
-    <div
-      ref={ref}
-      className="h-[54px] overflow-hidden px-4 py-1.5 text-left text-[12px] leading-snug text-white/80"
-      style={{
-        maskImage:
-          "linear-gradient(to bottom, transparent 0%, black 18%, black 100%)",
-        WebkitMaskImage:
-          "linear-gradient(to bottom, transparent 0%, black 18%, black 100%)",
-      }}
     >
       {text}
     </div>

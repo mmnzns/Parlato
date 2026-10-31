@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Check, ChevronRight, Download, Loader2, Trash2, Upload } from "lucide-react";
+import { Check, ChevronRight, Download, HardDrive, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Row } from "@/components/ui/section";
 import { modelNotes } from "@/lib/modelText";
+import { removeFromComputer, removeNote } from "@/lib/removeModel";
 import { cn } from "@/lib/utils";
 import {
   api,
@@ -14,7 +15,7 @@ import {
 import { confirmDelete } from "@/lib/confirmDelete";
 import { formatBytes } from "@/lib/format";
 import { fail, isFailure, statusText, type Status } from "@/lib/status";
-import { isCancelled } from "@/lib/translateError";
+import { isCancelled, translateError } from "@/lib/translateError";
 
 type DownloadProgress = { id: string; downloaded: number; total: number };
 
@@ -23,9 +24,8 @@ export function LlmLocalPanel() {
   const { t } = useTranslation();
   const [models, setModels] = useState<GgufModelState[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [cudaEnabled, setCudaEnabled] = useState(false);
+  const [backend, setBackend] = useState("cpu");
   const [settings, setSettings] = useState<LlamaCppSettings>({
-    n_gpu_layers: 0,
     context_size: 4096,
     max_tokens: 1024,
   });
@@ -60,7 +60,7 @@ export function LlmLocalPanel() {
           ...s,
           [e.payload.id]: isCancelled(e.payload.message)
             ? t("llmLocal.cancelled")
-            : fail(t("llmLocal.errorPrefix", { message: e.payload.message })),
+            : fail(t("llmLocal.errorPrefix", { message: translateError(t, e.payload.message) })),
         }));
       },
     );
@@ -74,15 +74,15 @@ export function LlmLocalPanel() {
 
   async function refresh() {
     try {
-      const [list, sel, cuda, st] = await Promise.all([
+      const [list, sel, usedBackend, st] = await Promise.all([
         api.listGgufModels(),
         api.getSelectedGguf(),
-        api.llamacppCudaEnabled(),
+        api.llamacppBackend(),
         api.getLlamacppSettings(),
       ]);
       setModels(list);
       setSelectedId(sel);
-      setCudaEnabled(cuda);
+      setBackend(usedBackend);
       setSettings(st);
     } catch (e) {
       console.error(e);
@@ -104,7 +104,7 @@ export function LlmLocalPanel() {
         const { [id]: _, ...rest } = p;
         return rest;
       });
-      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -119,7 +119,26 @@ export function LlmLocalPanel() {
       await api.deleteGgufModel(id);
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
+    }
+  }
+
+  /** "Remove from this computer": Delete for every app, after a confirmation. */
+  async function removeEverywhere(m: GgufModelState) {
+    setStatus((s) => ({ ...s, [m.id]: "" }));
+    try {
+      const outcome = await removeFromComputer(t, {
+        id: m.id,
+        name: m.display_name,
+        bytes: m.on_disk_bytes ?? m.size_bytes,
+        otherApps: m.other_apps,
+      });
+      if (outcome === "cancelled") return;
+      const note = removeNote(t, outcome, m.display_name);
+      if (note) setStatus((s) => ({ ...s, [m.id]: note.failure ? fail(note.text) : note.text }));
+      await refresh();
+    } catch (e) {
+      setStatus((s) => ({ ...s, [m.id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -130,7 +149,7 @@ export function LlmLocalPanel() {
     } catch (e) {
       // Closing the file picker is not an error.
       if (isCancelled(e)) return;
-      setStatus((s) => ({ ...s, import: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, import: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -163,7 +182,10 @@ export function LlmLocalPanel() {
         <span className="font-medium">{t("ai.builtinTitle")}</span>
         <span className="text-[13px] leading-[18px] text-pretty text-muted-foreground">
           {t("ai.builtinDesc")}{" "}
-          {cudaEnabled ? t("llmLocal.cudaBuild") : t("ai.runsOnCpu")}
+          {backend === "cpu"
+            ? t("ai.runsOnCpu")
+            : t("ai.runsOnGpu", { backend: backend === "metal" ? "Metal" : backend === "vulkan" ? "Vulkan" : backend })}{" "}
+          {t("ai.gpuSetting")}
         </span>
       </Block>
 
@@ -205,7 +227,13 @@ export function LlmLocalPanel() {
                   {t("ai.use")}
                 </Button>
               )}
-              {!m.downloaded && !prog && (
+              {!m.downloaded && !prog && m.downloading_elsewhere && (
+                <Button size="sm" variant="outline" disabled>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t("speech.downloadingElsewhere")}
+                </Button>
+              )}
+              {!m.downloaded && !prog && !m.downloading_elsewhere && (
                 <Button size="sm" variant="outline" onClick={() => download(m.id)}>
                   <Download className="h-3.5 w-3.5" />
                   {t("llmLocal.download")}
@@ -217,7 +245,19 @@ export function LlmLocalPanel() {
                   {pct !== null ? `${pct}%` : ""} {t("llmLocal.cancel")}
                 </Button>
               )}
-              {m.downloaded && (
+              {m.downloaded && !m.imported && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={() => removeEverywhere(m)}
+                  title={t("removeModel.action")}
+                  aria-label={t("removeModel.action")}
+                >
+                  <HardDrive className="h-4 w-4" />
+                </Button>
+              )}
+              {m.downloaded && m.removable && (
                 <Button
                   size="icon"
                   variant="ghost"
@@ -272,19 +312,7 @@ export function LlmLocalPanel() {
         </div>
         {status.import && <p className="text-xs text-destructive">{statusText(status.import)}</p>}
         {tuning && (
-          <div className="grid grid-cols-1 gap-3 pl-5 text-xs sm:grid-cols-3">
-            <label className="grid gap-1">
-              <span className="font-medium">{t("llmLocal.nGpuLayers")}</span>
-              <input
-                type="number"
-                min={0}
-                max={200}
-                value={settings.n_gpu_layers}
-                onChange={(e) => updateSetting({ n_gpu_layers: Number(e.target.value) || 0 })}
-                className="h-8 rounded-sm border-[1.5px] border-input bg-background px-2"
-              />
-              <span className="text-muted-foreground">{t("llmLocal.nGpuLayersHelp")}</span>
-            </label>
+          <div className="grid grid-cols-1 gap-3 pl-5 text-xs sm:grid-cols-2">
             <label className="grid gap-1">
               <span className="font-medium">{t("llmLocal.contextSize")}</span>
               <input

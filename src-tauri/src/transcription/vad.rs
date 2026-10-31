@@ -1,254 +1,275 @@
-// VAD (Voice Activity Detection) Silero via whisper-rs.
+// VAD (Voice Activity Detection) Silero, par `voice_engine_stt::vad::VadDetector`
+// (voice-engine v0.3.2, modele "vad" du catalogue).
 //
 // Reference VoiceInk :
-// - Transcription/Core/Whisper/VADModelManager.swift : bundle du fichier
-//   ggml-silero-v5.1.2.bin dans l'app.
+// - Transcription/Core/Whisper/VADModelManager.swift : le modele Silero.
 // - Transcription/Core/Whisper/LibWhisper.swift L73-85 : activation via
 //   UserDefault IsVADEnabled + params threshold 0.50, min_speech 250 ms,
-//   min_silence 100 ms, max_speech +inf, speech_pad 30 ms, samples_overlap 0.1.
+//   speech_pad 30 ms.
 //
-// Sur whisper-rs 0.16 la VAD est un contexte SEPARE (WhisperVadContext) qui
-// retourne des WhisperVadSegment. On segmente d'abord puis on transcrit chaque
-// segment, identique a l'effet du vad_model_path passe a FullParams cote mac.
+// Le moteur rend les plages de parole en millisecondes, sans marge (seuil 0,5,
+// parole minimale 250 ms, silence minimal 300 ms ; ces reglages sont les siens,
+// Parlato ne les change pas). On les convertit ici en plages d'echantillons
+// avec la marge de 30 ms de VoiceInk de chaque cote.
+//
+// Le detecteur (moins de 1 Mo) est charge une fois et reste charge, derriere un
+// `Mutex` (il est `Send`, utilise par un seul fil a la fois), avec le verrou du
+// dossier partage (`ModelHandle`). Il part avec le delai "Garder les modeles
+// prets", avec le Delete du modele VAD et avec "Delete all data" (`unload`,
+// `unload_if_under`). La chauffe du lancement le charge, pour que la premiere
+// dictee ne paie pas.
 
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
-use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager};
 use tracing::{debug, info, warn};
-use whisper_rs::{WhisperVadContext, WhisperVadContextParams, WhisperVadParams, WhisperVadSegment};
+use voice_engine_models::ModelHandle;
+use voice_engine_stt::vad::VadDetector;
 
-/// Modele VAD Silero converti en GGML (whisper.cpp). Le repo a migre de
-/// ggerganov/whisper.cpp vers ggml-org/whisper-vad fin 2025. La 6.2.0 est
-/// la version recente recommandee par le script download-vad-model.sh.
-/// Parlato : figee sur le commit 9ffd54a (2025-11-17, dernier commit au
-/// 2026-10-16) au lieu de "main".
-pub const VAD_MODEL_URL: &str =
-    "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v6.2.0.bin";
+use super::speech;
 
-/// Parlato : SHA-256 du fichier (oid LFS Hugging Face), verifie apres le
-/// telechargement.
-pub const VAD_MODEL_SHA256: &str =
-    "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987";
+const SAMPLE_RATE: u64 = 16_000;
+/// Marge de VoiceInk (`speech_pad_ms`) de chaque cote d'une plage.
+const SPEECH_PAD_MS: u64 = 30;
 
-pub const VAD_MODEL_FILENAME: &str = "ggml-silero-v6.2.0.bin";
-pub const VAD_MODEL_SIZE_BYTES: u64 = 906_752; // ~885 Ko (annonce sur HF)
-
-#[derive(Debug, Clone, Serialize)]
-pub struct VadModelState {
-    pub downloaded: bool,
-    pub path: Option<String>,
-    pub on_disk_bytes: Option<u64>,
+/// Un detecteur charge, avec le dossier d'ou il vient et le verrou du dossier
+/// partage. L'ordre des champs est celui de la chute : le detecteur d'abord,
+/// puis le verrou (un Delete d'une autre application peut alors effacer).
+struct Loaded<D> {
+    detector: D,
+    dir: PathBuf,
+    _handle: Option<ModelHandle>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct VadDownloadProgress {
-    downloaded: u64,
-    total: u64,
-}
+/// Le detecteur charge, s'il y en a un. Generique pour tester le cycle de vie
+/// sans modele (les tests mettent un faux detecteur).
+struct Slot<D>(Option<Loaded<D>>);
 
-/// Contexte VAD charge (reutilisable entre transcriptions).
-pub struct VadEngine {
-    inner: Arc<Mutex<Option<WhisperVadContext>>>,
-    loaded_path: Arc<Mutex<Option<PathBuf>>>,
-}
-
-impl Default for VadEngine {
+impl<D> Default for Slot<D> {
     fn default() -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(None)),
-            loaded_path: Arc::new(Mutex::new(None)),
-        }
+        Self(None)
     }
 }
 
+impl<D> Slot<D> {
+    /// Charge avec `load` si rien n'est charge ou si le dossier change (l'ancien
+    /// et son verrou tombent d'abord). Rend le detecteur et `true` quand il
+    /// vient d'etre charge. `handle` remplace le verrou precedent s'il y en a
+    /// un ; un echec laisse la place vide.
+    fn ensure(
+        &mut self,
+        dir: &Path,
+        handle: Option<ModelHandle>,
+        load: impl FnOnce(&Path) -> Result<D>,
+    ) -> Result<(&mut D, bool)> {
+        let same = self.0.as_ref().is_some_and(|l| l.dir == dir);
+        if !same {
+            self.0 = None;
+            let detector = load(dir)?;
+            self.0 = Some(Loaded {
+                detector,
+                dir: dir.to_path_buf(),
+                _handle: handle,
+            });
+        } else if let Some(cur) = self.0.as_mut() {
+            if handle.is_some() {
+                cur._handle = handle;
+            }
+        }
+        let loaded_now = !same;
+        let cur = self.0.as_mut().expect("charge juste au-dessus");
+        Ok((&mut cur.detector, loaded_now))
+    }
+
+    /// Vrai si quelque chose etait charge.
+    fn unload(&mut self) -> bool {
+        self.0.take().is_some()
+    }
+
+    /// Decharge s'il se trouve dans `dir`. Vrai si c'est le cas.
+    fn unload_if_under(&mut self, dir: &Path) -> bool {
+        if self.0.as_ref().is_some_and(|l| l.dir.starts_with(dir)) {
+            return self.unload();
+        }
+        false
+    }
+
+    #[cfg(test)]
+    fn is_loaded(&self) -> bool {
+        self.0.is_some()
+    }
+}
+
+#[derive(Default)]
+pub struct VadEngine {
+    slot: Mutex<Slot<VadDetector>>,
+}
+
 impl VadEngine {
-    /// Libere le contexte VAD (Silero ONNX charge via whisper-rs). ~20 Mo
-    /// resident habituellement. Appele apres chaque pipeline pour reclaim.
+    /// Oublie le detecteur et son verrou. Apres le delai "Garder les modeles
+    /// prets" ; attend une detection en cours.
     pub fn unload(&self) {
-        let had_model = self.inner.lock().take().is_some();
-        *self.loaded_path.lock() = None;
-        if had_model {
+        if self.slot.lock().unload() {
             info!("Modele VAD decharge");
         }
     }
 
-    pub fn load(&self, model_path: &Path) -> Result<()> {
-        {
-            let loaded = self.loaded_path.lock();
-            if loaded.as_deref() == Some(model_path) {
-                return Ok(());
-            }
+    /// Decharge le detecteur s'il vient du dossier `dir`. Avant un Delete.
+    /// Vrai si un detecteur a ete decharge.
+    pub fn unload_if_under(&self, dir: &Path) -> bool {
+        let unloaded = self.slot.lock().unload_if_under(dir);
+        if unloaded {
+            info!("Modele VAD decharge");
         }
-        info!(path = %model_path.display(), "Chargement du modele VAD Silero");
-        let mut params = WhisperVadContextParams::default();
-        params.set_n_threads(vad_threads());
-        params.set_use_gpu(false);
-        let path_str = model_path
-            .to_str()
-            .ok_or_else(|| anyhow!("chemin VAD non-UTF8"))?;
-        let ctx = WhisperVadContext::new(path_str, params)
-            .map_err(|e| anyhow!("WhisperVadContext: {e}"))?;
-
-        *self.inner.lock() = Some(ctx);
-        *self.loaded_path.lock() = Some(model_path.to_path_buf());
-        Ok(())
+        unloaded
     }
 
-    /// Decoupe un buffer mono f32 16 kHz en segments de parole.
-    pub fn segments(&self, samples: &[f32]) -> Result<Vec<WhisperVadSegment>> {
-        let mut guard = self.inner.lock();
-        let ctx = guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("VAD non initialise"))?;
-        let params = default_vad_params();
+    /// Un detecteur est-il charge ?
+    #[cfg(test)]
+    pub fn is_loaded(&self) -> bool {
+        self.slot.lock().is_loaded()
+    }
+
+    /// Charge le detecteur si ce n'est pas deja fait. `handle` : le verrou du
+    /// dossier partage, garde tant qu'il est charge. Rend la duree du
+    /// chargement (zero s'il l'etait).
+    pub fn ensure_loaded(&self, model_dir: &Path, handle: Option<ModelHandle>) -> Result<Duration> {
         let st = Instant::now();
-        let iter = ctx
-            .segments_from_samples(params, samples)
-            .map_err(|e| anyhow!("VAD segments_from_samples: {e}"))?;
-        // WhisperVadSegments est un iterateur qui yield des WhisperVadSegment.
-        let segs: Vec<WhisperVadSegment> = iter.collect();
+        let mut slot = self.slot.lock();
+        let (_, loaded_now) = slot.ensure(model_dir, handle, load_detector)?;
+        if !loaded_now {
+            return Ok(Duration::ZERO);
+        }
+        let d = st.elapsed();
+        info!(load_ms = d.as_millis() as u64, "Detecteur VAD charge");
+        Ok(d)
+    }
+
+    /// Les plages d'echantillons (debut, fin) de parole de `samples`, marge de
+    /// 30 ms comprise. `model_dir` : le dossier du modele "vad" ; le detecteur
+    /// est charge ici s'il ne l'est pas encore (`handle`, cf `ensure_loaded`).
+    pub fn ranges(
+        &self,
+        model_dir: &Path,
+        handle: Option<ModelHandle>,
+        samples: &[f32],
+    ) -> Result<Vec<(usize, usize)>> {
+        let st = Instant::now();
+        let spans = {
+            let mut slot = self.slot.lock();
+            let (detector, loaded_now) = slot.ensure(model_dir, handle, load_detector)?;
+            if loaded_now {
+                info!(load_ms = st.elapsed().as_millis() as u64, "Detecteur VAD charge");
+            }
+            detector.detect(samples).map_err(|e| anyhow!("VAD: {e}"))?
+        };
+        let ranges = spans_to_sample_ranges(&spans, samples.len());
         debug!(
             duration_ms = st.elapsed().as_millis() as u64,
-            segments = segs.len(),
+            ranges = ranges.len(),
             "VAD segmentation terminee"
         );
-        Ok(segs)
+        Ok(ranges)
     }
 }
 
-/// Parametres repliquant exactement VoiceInk LibWhisper.swift L78-85.
-/// Parlato : verifie le 2026-10-16, ce sont aussi les valeurs par defaut de
-/// whisper.cpp ; on les pose quand meme pour qu'une mise a jour du binding
-/// ne les change pas sans qu'on le voie.
-fn default_vad_params() -> WhisperVadParams {
-    let mut params = WhisperVadParams::new();
-    params.set_threshold(0.5);
-    params.set_min_speech_duration(250);
-    params.set_min_silence_duration(100);
-    params.set_max_speech_duration(f32::MAX);
-    params.set_speech_pad(30);
-    params.set_samples_overlap(0.1);
-    params
+fn load_detector(dir: &Path) -> Result<VadDetector> {
+    VadDetector::load(dir).map_err(|e| anyhow!("VAD: {e}"))
 }
 
-/// Chemin attendu du modele VAD (un seul par installation).
-pub fn vad_model_path(app: &AppHandle) -> Result<PathBuf> {
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| anyhow!("app_local_data_dir: {e}"))?;
-    let dir = base.join("Models");
-    fs::create_dir_all(&dir).ok();
-    Ok(dir.join(VAD_MODEL_FILENAME))
+/// Parlato : 0,5 s de silence a 16 kHz pour la chauffe.
+const WARM_UP_SAMPLES: usize = SAMPLE_RATE as usize / 2;
+
+/// Faut-il chauffer la VAD au lancement ? Oui quand elle est activee et que
+/// son modele est installe dans le dossier partage.
+pub fn should_warm_up(vad_enabled: bool, model_installed: bool) -> bool {
+    vad_enabled && model_installed
 }
 
-pub fn vad_state(app: &AppHandle) -> VadModelState {
-    match vad_model_path(app) {
-        Ok(p) if p.exists() => {
-            let size = p.metadata().ok().map(|m| m.len());
-            VadModelState {
-                downloaded: true,
-                path: Some(p.to_string_lossy().into_owned()),
-                on_disk_bytes: size,
+/// Premier usage du moteur apres le lancement : whisper.cpp initialise ses
+/// backends ggml une fois pour le processus (mesure : ~6,9 s au premier appel,
+/// ~72 ms ensuite, sur un clip de 30 s). On le paie ici, sur un fil, avant la
+/// premiere dictee : le detecteur est charge (il reste charge) puis essaye sur
+/// 0,5 s de silence. Retourne la duree totale.
+pub fn warm_up(engine: &VadEngine, model_dir: &Path, handle: Option<ModelHandle>) -> Result<Duration> {
+    let st = Instant::now();
+    engine.ensure_loaded(model_dir, handle)?;
+    engine
+        .ranges(model_dir, None, &vec![0.0f32; WARM_UP_SAMPLES])
+        .map(|_| st.elapsed())
+}
+
+/// Au lancement, apres l'ouverture du dossier de modeles : charge le detecteur
+/// VAD sur un fil, sans bloquer le demarrage ni une dictee (une dictee qui
+/// arrive pendant la chauffe paie seulement le reste). Rien si la VAD est
+/// coupee ou son modele absent.
+pub fn spawn_warm_up(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let enabled = super::pipeline::is_vad_enabled(app);
+    let store = app.state::<crate::models::ModelStoreState>().0.clone();
+    let engine = app.state::<crate::commands::vad::VadEngineState>().0.clone();
+    let dir = match store.shared().status(crate::commands::vad::VAD_ID) {
+        voice_engine_models::Status::Installed { dir, .. } => Some(dir),
+        _ => None,
+    };
+    if !should_warm_up(enabled, dir.is_some()) {
+        return;
+    }
+    let Some(dir) = dir else { return };
+    let spawned = std::thread::Builder::new()
+        .name("vad-warm-up".into())
+        .spawn(move || {
+            // Le verrou du dossier partage reste au detecteur jusqu'au dechargement.
+            let handle = store.hold(crate::commands::vad::VAD_ID);
+            match warm_up(&engine, &dir, handle) {
+                Ok(d) => info!(warm_up_ms = d.as_millis() as u64, "VAD chauffee au lancement"),
+                Err(e) => warn!(error = %e, "Chauffe de la VAD echouee"),
             }
+        });
+    if let Err(e) = spawned {
+        warn!(error = %e, "Chauffe de la VAD : fil non demarre");
+    }
+}
+
+/// Plages de parole en ms -> plages d'echantillons : marge de `SPEECH_PAD_MS`
+/// de chaque cote, bornees a l'audio, plages qui se touchent fusionnees (la
+/// marge ne doit pas dupliquer de l'audio), plages vides retirees.
+pub fn spans_to_sample_ranges(spans: &[(u64, u64)], total_samples: usize) -> Vec<(usize, usize)> {
+    let to_samples = |ms: u64| (ms * SAMPLE_RATE / 1000) as usize;
+    let mut out: Vec<(usize, usize)> = Vec::with_capacity(spans.len());
+    for &(start_ms, end_ms) in spans {
+        let start = to_samples(start_ms.saturating_sub(SPEECH_PAD_MS)).min(total_samples);
+        let end = to_samples(end_ms + SPEECH_PAD_MS).min(total_samples);
+        if end <= start {
+            continue;
         }
-        _ => VadModelState {
-            downloaded: false,
-            path: None,
-            on_disk_bytes: None,
-        },
+        match out.last_mut() {
+            Some(last) if start <= last.1 => last.1 = last.1.max(end),
+            _ => out.push((start, end)),
+        }
     }
+    out
 }
 
-/// Telecharge le modele VAD Silero depuis HuggingFace avec progression.
-/// Emet vad:download:progress / vad:download:complete / vad:download:error.
-pub async fn download_vad(app: &AppHandle) -> Result<PathBuf> {
-    let target = vad_model_path(app)?;
-    if target.exists() {
-        return Ok(target);
-    }
-    // Parlato : crate::download garde le .part apres un echec (reprise au
-    // prochain essai). Pas d'annulation pour la VAD (moins de 1 Mo).
-    let tmp = target.with_extension("bin.part");
-    let client = crate::download::client()?;
-    crate::download::Transfer {
-        url: VAD_MODEL_URL,
-        target: &target,
-        part: &tmp,
-        cancel: None,
-        progress_every: std::time::Duration::from_millis(100),
-        sha256: Some(VAD_MODEL_SHA256),
-    }
-    .run(&client, |downloaded, total| {
-        let _ = app.emit(
-            "vad:download:progress",
-            VadDownloadProgress {
-                downloaded,
-                total: total.unwrap_or(VAD_MODEL_SIZE_BYTES),
-            },
-        );
-    })
-    .await?;
-
-    let _ = app.emit(
-        "vad:download:complete",
-        serde_json::json!({ "path": target.to_string_lossy() }),
-    );
-    info!(path = %target.display(), "Modele VAD telecharge");
-    Ok(target)
-}
-
-pub fn delete_vad(app: &AppHandle) -> Result<()> {
-    let p = vad_model_path(app)?;
-    if p.exists() {
-        fs::remove_file(&p)?;
-    }
-    Ok(())
-}
-
-/// Parlato : Silero traite l'audio par fenetres de 32 ms, des graphes minuscules.
-/// Avec tous les threads (16 sur un Ryzen 8 coeurs), la synchronisation coute
-/// bien plus que le calcul : 32,8 s au lieu de 0,5 s pour 49 s d'audio
-/// (`vad_threads_smoke`, 2026-10-05), et parfois 50 s quand le PC est occupe.
-/// 2 threads est le plus rapide mesure.
-fn vad_threads() -> i32 {
-    num_cpus_physical().min(2)
-}
-
-fn num_cpus_physical() -> i32 {
-    std::thread::available_parallelism()
-        .map(|n| n.get() as i32)
-        .unwrap_or(4)
-}
-
-/// Applique la VAD sur un WAV 16 kHz mono et retourne les plages de samples
-/// (start, end) a transcrire. Ces plages ont deja subi le padding de
-/// `speech_pad_ms` en interne par whisper.cpp.
 /// Echantillons du WAV + plages (start, end) a transcrire.
 pub type VadOutput = (Vec<f32>, Vec<(usize, usize)>);
 
-pub fn run_vad_on_wav(engine: &VadEngine, wav_path: &Path) -> Result<VadOutput> {
-    let samples = super::whisper::read_wav_as_f32(wav_path)?;
-    let segs = engine.segments(&samples)?;
-    // Les segments de whisper.cpp sont en centisecondes cote start/end.
-    let ranges: Vec<(usize, usize)> = segs
-        .into_iter()
-        .map(|WhisperVadSegment { start, end }| {
-            let start_sample = ((start / 100.0) * 16_000.0) as usize;
-            let end_sample = ((end / 100.0) * 16_000.0) as usize;
-            (
-                start_sample.min(samples.len()),
-                end_sample.min(samples.len()),
-            )
-        })
-        .filter(|(s, e)| e > s)
-        .collect();
+/// Ce que le pipeline passe a la VAD : le moteur, le dossier du modele "vad" et
+/// le verrou du dossier partage (garde par le detecteur s'il se charge).
+pub type VadUse = (std::sync::Arc<VadEngine>, PathBuf, Option<ModelHandle>);
+
+/// Applique la VAD sur un WAV 16 kHz mono et retourne les plages de samples
+/// a transcrire (marge de 30 ms comprise).
+pub fn run_vad_on_wav(
+    engine: &VadEngine,
+    model_dir: &Path,
+    handle: Option<ModelHandle>,
+    wav_path: &Path,
+) -> Result<VadOutput> {
+    let samples = speech::read_wav_as_f32(wav_path)?;
+    let ranges = engine.ranges(model_dir, handle, &samples)?;
     if ranges.is_empty() {
         warn!("VAD n'a detecte aucune parole");
     }
@@ -256,16 +277,180 @@ pub fn run_vad_on_wav(engine: &VadEngine, wav_path: &Path) -> Result<VadOutput> 
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[test]
-    fn model_url_is_pinned_with_checksum() {
-        crate::download::assert_pinned(VAD_MODEL_URL, VAD_MODEL_SHA256);
-        assert!(VAD_MODEL_URL.ends_with(VAD_MODEL_FILENAME));
+    fn spans_get_a_30_ms_margin_inside_the_audio() {
+        // 1.0 s .. 2.0 s -> 0.97 s .. 2.03 s at 16 kHz.
+        assert_eq!(
+            spans_to_sample_ranges(&[(1000, 2000)], 16_000 * 10),
+            vec![(15_520, 32_480)]
+        );
+        // The margin stops at the edges of the audio.
+        assert_eq!(
+            spans_to_sample_ranges(&[(10, 990)], 16_000),
+            vec![(0, 16_000)]
+        );
     }
 
-    /// Parlato : temps de la VAD selon le nombre de threads.
+    #[test]
+    fn margins_that_touch_are_merged_not_duplicated() {
+        // 40 ms apart: the two 30 ms margins overlap.
+        let r = spans_to_sample_ranges(&[(1000, 2000), (2040, 3000)], 16_000 * 10);
+        assert_eq!(r, vec![(15_520, 48_480)]);
+        // Far apart: two ranges.
+        let r = spans_to_sample_ranges(&[(1000, 2000), (4000, 5000)], 16_000 * 10);
+        assert_eq!(r.len(), 2);
+    }
+
+    #[test]
+    fn warm_up_needs_vad_on_and_the_model_installed() {
+        assert!(should_warm_up(true, true));
+        assert!(!should_warm_up(true, false));
+        assert!(!should_warm_up(false, true));
+        assert!(!should_warm_up(false, false));
+    }
+
+    #[test]
+    fn empty_and_backwards_spans_are_dropped() {
+        assert!(spans_to_sample_ranges(&[], 16_000).is_empty());
+        assert!(spans_to_sample_ranges(&[(5000, 5000)], 16_000).is_empty());
+        assert!(spans_to_sample_ranges(&[(5000, 100)], 16_000).is_empty());
+        // Entirely past the end of the audio.
+        assert!(spans_to_sample_ranges(&[(9000, 9500)], 16_000).is_empty());
+    }
+
+    /// A stand-in for the detector: counts its loads and records when it drops.
+    struct Fake {
+        id: u32,
+        log: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    impl Drop for Fake {
+        fn drop(&mut self) {
+            self.log.lock().unwrap().push(format!("drop {}", self.id));
+        }
+    }
+
+    type Log = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
+    fn loader(log: &Log, loads: &std::cell::Cell<u32>) -> impl FnOnce(&Path) -> Result<Fake> {
+        let log = log.clone();
+        let id = loads.get() + 1;
+        loads.set(id);
+        move |_| {
+            log.lock().unwrap().push(format!("load {id}"));
+            Ok(Fake { id, log })
+        }
+    }
+
+    #[test]
+    fn the_detector_is_loaded_once_and_reused() {
+        let (log, loads) = (Log::default(), std::cell::Cell::new(0));
+        let mut slot = Slot::<Fake>::default();
+        let dir = Path::new("/models/vad");
+        for call in 0..3 {
+            let (d, loaded_now) = slot.ensure(dir, None, loader(&log, &loads)).unwrap();
+            assert_eq!(d.id, 1, "call {call}");
+            assert_eq!(loaded_now, call == 0, "call {call}");
+        }
+        assert!(slot.is_loaded());
+        assert_eq!(*log.lock().unwrap(), vec!["load 1"]);
+    }
+
+    #[test]
+    fn unload_drops_the_detector_and_the_next_use_loads_again() {
+        let (log, loads) = (Log::default(), std::cell::Cell::new(0));
+        let mut slot = Slot::<Fake>::default();
+        let dir = Path::new("/models/vad");
+        assert!(!slot.unload(), "nothing to drop yet");
+        slot.ensure(dir, None, loader(&log, &loads)).unwrap();
+        assert!(slot.unload());
+        assert!(!slot.is_loaded());
+        let (d, loaded_now) = slot.ensure(dir, None, loader(&log, &loads)).unwrap();
+        assert!(loaded_now);
+        assert_eq!(d.id, 2);
+        assert_eq!(*log.lock().unwrap(), vec!["load 1", "drop 1", "load 2"]);
+    }
+
+    #[test]
+    fn a_delete_drops_the_detector_only_when_it_comes_from_that_folder() {
+        let (log, loads) = (Log::default(), std::cell::Cell::new(0));
+        let mut slot = Slot::<Fake>::default();
+        slot.ensure(Path::new("/models/vad"), None, loader(&log, &loads)).unwrap();
+        assert!(!slot.unload_if_under(Path::new("/models/whisper-tiny")));
+        assert!(slot.is_loaded());
+        assert!(slot.unload_if_under(Path::new("/models/vad")));
+        assert!(!slot.is_loaded());
+        // The folder above works too (Delete all data).
+        slot.ensure(Path::new("/models/vad"), None, loader(&log, &loads)).unwrap();
+        assert!(slot.unload_if_under(Path::new("/models")));
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec!["load 1", "drop 1", "load 2", "drop 2"]
+        );
+    }
+
+    #[test]
+    fn another_folder_reloads_and_the_old_detector_goes_first() {
+        let (log, loads) = (Log::default(), std::cell::Cell::new(0));
+        let mut slot = Slot::<Fake>::default();
+        slot.ensure(Path::new("/a/vad"), None, loader(&log, &loads)).unwrap();
+        let (d, loaded_now) = slot
+            .ensure(Path::new("/b/vad"), None, loader(&log, &loads))
+            .unwrap();
+        assert!(loaded_now);
+        assert_eq!(d.id, 2);
+        assert_eq!(*log.lock().unwrap(), vec!["load 1", "drop 1", "load 2"]);
+    }
+
+    #[test]
+    fn a_failed_load_leaves_nothing_loaded() {
+        let (log, loads) = (Log::default(), std::cell::Cell::new(0));
+        let mut slot = Slot::<Fake>::default();
+        slot.ensure(Path::new("/a/vad"), None, loader(&log, &loads)).unwrap();
+        let err = slot
+            .ensure(Path::new("/b/vad"), None, |_| Err(anyhow!("VAD: model missing")))
+            .map(|_| ())
+            .unwrap_err();
+        assert!(err.to_string().contains("model missing"));
+        assert!(!slot.is_loaded());
+    }
+
+    #[test]
+    fn the_engine_stays_empty_when_the_model_is_not_there() {
+        // An empty folder: the engine says ModelMissing, nothing is kept.
+        let tmp = tempfile::tempdir().unwrap();
+        let engine = VadEngine::default();
+        assert!(!engine.is_loaded());
+        assert!(engine.ensure_loaded(tmp.path(), None).is_err());
+        assert!(engine.ranges(tmp.path(), None, &[0.0; 16_000]).is_err());
+        assert!(warm_up(&engine, tmp.path(), None).is_err());
+        assert!(!engine.is_loaded());
+        // Unloading an empty engine is harmless.
+        engine.unload();
+        engine.unload_if_under(tmp.path());
+        assert!(!engine.is_loaded());
+    }
+
+    /// The model folder a smoke test gives the engine: `PARLATO_VAD_MODEL` is
+    /// the .bin file; the engine wants a folder holding the catalog's name.
+    /// Returns the folder (a temp folder with a link when the name differs).
+    pub(crate) fn vad_dir_for(model: &Path) -> (PathBuf, Option<tempfile::TempDir>) {
+        let name = voice_engine_models::catalog::find("vad").unwrap().files[0].name;
+        if model.file_name().and_then(|n| n.to_str()) == Some(name) {
+            return (model.parent().unwrap().to_path_buf(), None);
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::hard_link(model, tmp.path().join(name))
+            .or_else(|_| std::fs::copy(model, tmp.path().join(name)).map(|_| ()))
+            .unwrap();
+        (tmp.path().to_path_buf(), Some(tmp))
+    }
+
+    /// Parlato : temps de la VAD du moteur (detecteur charge une fois, 4 threads
+    /// fixes, regle du moteur), nombre de plages seulement :
     /// `PARLATO_VAD_MODEL=<ggml-silero.bin> PARLATO_WAV=<16 kHz wav>
     /// cargo test --release --lib vad_threads_smoke -- --ignored --nocapture`.
     #[test]
@@ -273,24 +458,54 @@ mod tests {
     fn vad_threads_smoke() {
         let model = std::env::var("PARLATO_VAD_MODEL").expect("PARLATO_VAD_MODEL");
         let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
-        let samples = crate::transcription::whisper::read_wav_as_f32(Path::new(&wav)).unwrap();
+        let samples = speech::read_wav_as_f32(Path::new(&wav)).unwrap();
         println!("audio: {:.1} s", samples.len() as f32 / 16000.0);
-        for threads in [1, 2, 4, num_cpus_physical()] {
-            let mut params = WhisperVadContextParams::default();
-            params.set_n_threads(threads);
-            params.set_use_gpu(false);
-            let mut ctx = WhisperVadContext::new(&model, params).unwrap();
-            let mut best = u128::MAX;
-            for _ in 0..3 {
-                let st = Instant::now();
-                let n = ctx
-                    .segments_from_samples(default_vad_params(), &samples)
-                    .unwrap()
-                    .count();
-                best = best.min(st.elapsed().as_millis());
-                assert!(n > 0);
-            }
-            println!("threads={threads:>2}: best of 3 = {best} ms");
+        let (dir, _keep) = vad_dir_for(Path::new(&model));
+        let mut detector = VadDetector::load(&dir).unwrap();
+        let mut best = u128::MAX;
+        let mut n = 0;
+        for _ in 0..3 {
+            let st = Instant::now();
+            n = detector.detect(&samples).unwrap().len();
+            best = best.min(st.elapsed().as_millis());
+        }
+        println!("engine vad (loaded detector, threads fixed by the engine): best of 3 = {best} ms, {n} spans");
+        assert!(n > 0);
+        let engine = VadEngine::default();
+        let ranges = engine.ranges(&dir, None, &samples).unwrap();
+        println!("sample ranges after the 30 ms margin: {}", ranges.len());
+        assert!(!ranges.is_empty());
+    }
+
+    /// Parlato : le demarrage a froid de la VAD, dans un processus neuf :
+    /// le premier appel puis le second sur le meme clip, puis (avec
+    /// `PARLATO_WARM=1`) la chauffe (chargement + 0,5 s de silence) avant le
+    /// premier appel reel.
+    /// `PARLATO_VAD_MODEL=<ggml-silero.bin> PARLATO_WAV=<16 kHz wav>
+    /// [PARLATO_WARM=1] cargo test --release --lib vad_cold_start_smoke --
+    /// --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn vad_cold_start_smoke() {
+        let model = std::env::var("PARLATO_VAD_MODEL").expect("PARLATO_VAD_MODEL");
+        let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
+        let samples = speech::read_wav_as_f32(Path::new(&wav)).unwrap();
+        let (dir, _keep) = vad_dir_for(Path::new(&model));
+        let engine = VadEngine::default();
+        if std::env::var("PARLATO_WARM").is_ok() {
+            println!(
+                "warm-up (load + 0.5 s of silence): {} ms",
+                warm_up(&engine, &dir, None).unwrap().as_millis()
+            );
+        }
+        for n in 1..=2 {
+            let st = Instant::now();
+            let spans = engine.ranges(&dir, None, &samples).unwrap().len();
+            println!(
+                "call {n} on {:.1} s of audio: {} ms, {spans} spans",
+                samples.len() as f32 / 16000.0,
+                st.elapsed().as_millis()
+            );
         }
     }
 }

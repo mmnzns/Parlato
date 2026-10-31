@@ -8,9 +8,10 @@
 import { ask } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 
-export async function confirmDelete(message: string, okLabel?: string): Promise<boolean> {
+export async function confirmDelete(message: string, okLabel?: string, title?: string): Promise<boolean> {
   try {
     return await ask(message, {
+      title,
       kind: "warning",
       okLabel: okLabel ?? i18n.t("common.delete"),
       cancelLabel: i18n.t("common.cancel"),

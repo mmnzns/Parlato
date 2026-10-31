@@ -6,10 +6,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Download, Loader2, Trash2 } from "lucide-react";
+import { Download, HardDrive, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Row, Section, Switch } from "@/components/ui/section";
 import { formatBytes } from "@/lib/format";
+import { removeFromComputer, removeNote } from "@/lib/removeModel";
+import { fail, isFailure, statusText, type Status } from "@/lib/status";
 import { api } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
 
@@ -17,6 +19,9 @@ type VadState = {
   downloaded: boolean;
   path: string | null;
   on_disk_bytes: number | null;
+  /** Another app is downloading this model right now. */
+  downloading_elsewhere?: boolean;
+  other_apps?: string[];
 };
 
 export function VadPanel() {
@@ -25,6 +30,7 @@ export function VadPanel() {
   const [enabled, setEnabled] = useState(false);
   const [progress, setProgress] = useState<{ downloaded: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<Status | null>(null);
 
   useEffect(() => {
     refresh();
@@ -81,6 +87,28 @@ export function VadPanel() {
     }
   }
 
+  /** "Remove from this computer": Delete for every app, after a confirmation. */
+  async function removeEverywhere() {
+    if (!state) return;
+    setError(null);
+    setNote(null);
+    const name = t("vad.modelTitle");
+    try {
+      const outcome = await removeFromComputer(t, {
+        id: "vad",
+        name,
+        bytes: state.on_disk_bytes,
+        otherApps: state.other_apps,
+      });
+      if (outcome === "cancelled") return;
+      const n = removeNote(t, outcome, name);
+      if (n) setNote(n.failure ? fail(n.text) : n.text);
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   if (!state) return null;
   const pct = progress ? Math.round((progress.downloaded / Math.max(1, progress.total)) * 100) : null;
 
@@ -105,11 +133,17 @@ export function VadPanel() {
         }
       >
         {state.downloaded ? (
-          <Button size="sm" variant="ghost" onClick={remove}>
-            <Trash2 className="h-3.5 w-3.5" />
-            {t("vad.delete")}
-          </Button>
-        ) : progress ? (
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={removeEverywhere}>
+              <HardDrive className="h-3.5 w-3.5" />
+              {t("removeModel.action")}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={remove}>
+              <Trash2 className="h-3.5 w-3.5" />
+              {t("vad.delete")}
+            </Button>
+          </div>
+        ) : progress || state.downloading_elsewhere ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />
         ) : (
           <Button size="sm" variant="outline" onClick={download}>
@@ -118,6 +152,11 @@ export function VadPanel() {
           </Button>
         )}
       </Row>
+      {note && (
+        <p className={isFailure(note) ? "px-5 py-3 text-[13px] text-destructive" : "px-5 py-3 text-[13px] text-muted-foreground"}>
+          {statusText(note)}
+        </p>
+      )}
       {error && (
         <p role="alert" className="px-5 py-3 text-[13px] text-destructive">
           {t("vad.errorPrefix", { message: translateError(t, error) })}

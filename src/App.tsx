@@ -24,19 +24,36 @@ import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { TranscribePanel } from "@/components/TranscribePanel";
 import { UpdateChecker } from "@/components/UpdateChecker";
 import { VadPanel } from "@/components/VadPanel";
-import { api, type GpuInfo } from "@/lib/tauri";
+import { api, type UseGpu } from "@/lib/tauri";
 import "./App.css";
 
 function App() {
   const { t, i18n } = useTranslation();
   const [view, setView] = useState<View>("dashboard");
-  const [gpu, setGpu] = useState<GpuInfo | null>(null);
+  const [gpu, setGpu] = useState<UseGpu | null>(null);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const crumb = useCrumb(view);
 
   useEffect(() => {
-    api.getGpuInfo().then(setGpu).catch(console.error);
+    // "Use graphics card": the label under the local models follows it. The
+    // card search can still be running just after launch, and the switch
+    // lives in the models page, which tells us when it changes.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    const loadGpu = () => {
+      if (timer) clearTimeout(timer);
+      api
+        .getUseGpu()
+        .then((g) => {
+          if (cancelled) return;
+          setGpu(g);
+          if (g.default_reason === "checking") timer = setTimeout(loadGpu, 1500);
+        })
+        .catch(console.error);
+    };
+    loadGpu();
+    window.addEventListener("use-gpu-changed", loadGpu);
     api
       .getSelectedWhisperModel()
       .then((id) => setSelectedModelId(id))
@@ -61,6 +78,9 @@ function App() {
     i18n.on("languageChanged", syncLanguage);
 
     return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("use-gpu-changed", loadGpu);
       unNav.then((fn) => fn());
       i18n.off("languageChanged", syncLanguage);
     };
@@ -139,9 +159,11 @@ function App() {
                 onSelectModel={handleSelectModel}
                 hardware={
                   gpu
-                    ? gpu.has_nvidia
-                      ? t("speech.hwGpu", { device: gpu.device_name ?? "" })
-                      : t("speech.hwCpu")
+                    ? gpu.enabled && gpu.platform === "macos"
+                      ? t("speech.hwGpuMac")
+                      : gpu.enabled && gpu.card_name
+                        ? t("speech.hwGpu", { device: gpu.card_name })
+                        : t("speech.hwCpu")
                     : undefined
                 }
               />

@@ -36,8 +36,6 @@
 - **Dictate anywhere.** Hold your shortcut key (Right Alt on Windows, Right
   Option on Mac, or any key you pick) in any app: an email, a document, a
   chat. Let go, and Parlato types what you said.
-- **See your words as you speak.** With Parakeet Unified or an online
-  service that supports it, the recorder shows the text live while you talk.
 - **Private by default.** Speech models run on your own computer. Nothing
   leaves it unless you choose an online service.
 - **AI cleanup (optional).** A language model can tidy up what you said:
@@ -77,8 +75,9 @@ to Parlato. Updates don't ask again. During setup, Parlato asks for the Micropho
 Parlato then opens a short setup: microphone, speech model and shortcut. It
 keeps running with its icon near the clock and updates itself: when a new
 version is published here, it offers to install it. Updates are signed, and
-Parlato refuses any update that isn't. Everything runs on the processor, no
-graphics card needed.
+Parlato refuses any update that isn't. A graphics card is not
+required: Parlato uses one when it can (the **Use graphics card** setting) and
+otherwise runs on the processor.
 
 ## Speech models
 
@@ -95,7 +94,7 @@ once and then work offline.
 
 | Runs | Options |
 |---|---|
-| On your computer | IBM Granite 4.2 3B, Meta Llama 3.2 3B, Google Gemma 2 2B, Microsoft Phi 3.5 Mini, or any model through [Ollama](https://ollama.com) |
+| On your computer | IBM Granite 4.2 3B, Qwen 3.5 4B and 9B, your own GGUF models, or any model through [Ollama](https://ollama.com) |
 | Online | Anthropic, OpenAI, Google Gemini, Mistral, Groq, Cerebras, OpenRouter, or any OpenAI-compatible service |
 
 ## Privacy
@@ -126,7 +125,7 @@ VoiceInk before it. The full source is in this repository.
   the Windows engine Parlato is built on.
 - **VoiceInk** by [Pax](https://github.com/Beingpax): the macOS app Parla
   re-implements, and the reference for Parlato's Mac version.
-- **Models** are made by NVIDIA, Moondream, OpenAI, IBM, Meta, Google and Microsoft, each
+- **Models** are made by NVIDIA, Moondream, OpenAI, IBM and Alibaba (Qwen), each
   under its own licence. Parlato does not include or host any model; they
   download from their original source. Authors, licences and required
   notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
@@ -134,15 +133,15 @@ VoiceInk before it. The full source is in this repository.
   [whisper.cpp](https://github.com/ggerganov/whisper.cpp),
   [llama.cpp](https://github.com/ggerganov/llama.cpp),
   [parakeet-rs](https://github.com/altunenes/parakeet-rs) and
-  [ONNX Runtime](https://onnxruntime.ai/), React, shadcn/ui and many other
+  [ONNX Runtime](https://onnxruntime.ai/), the shared
+  [voice-engine](https://github.com/mmnzns/voice-engine), React, shadcn/ui and many other
   open-source projects.
 
 ## Known limitations
 
 **Mac:** a few features aren't on the Mac yet: switching a power mode
 automatically for a website (apps work), letting AI cleanup read the window
-you're typing in, and the command-line AI engine. Speech and AI cleanup run on
-the processor for now, not the graphics chip.
+you're typing in, and the command-line AI engine.
 
 **Windows, apps run as administrator:** the shortcut does nothing while an app started with **Run as administrator**
 has focus. Windows blocks a normal app from seeing key presses aimed at an
@@ -157,12 +156,15 @@ Parlato is not. Until then:
 See [BUILDING.md](BUILDING.md) for the full instructions.
 
 - **Windows:** on top of what BUILDING.md lists, you need **CMake** and
-  **LLVM** (set `LIBCLANG_PATH` to `C:\Program Files\LLVM\bin`).
+  **LLVM** (set `LIBCLANG_PATH` to the LLVM `bin` folder).
 - **Mac (Apple silicon):** Xcode Command Line Tools
   (`xcode-select --install`), [Rust](https://rustup.rs), Node.js and CMake.
   To test the shortcut and paste, build a real app bundle with
   `npm run tauri build -- --debug --bundles app`: macOS gives its
   permissions to an app, not to a program started from a terminal.
+- **Local AI helper:** Parlato runs local AI in a separate helper program
+  that must be built before the app. On the Mac run `scripts/fetch-helpers.sh`
+  first; see BUILDING.md.
 
 ```bash
 git clone https://github.com/mmnzns/Parlato.git
@@ -171,15 +173,16 @@ npm install
 npm run tauri dev
 ```
 
-The first build compiles whisper.cpp, llama.cpp and ONNX Runtime from source
+The first build compiles whisper.cpp (and, in the helper, llama.cpp) from source
 and takes 20 to 40 minutes. Later builds take seconds to minutes. A release
 installer is built with `npm run tauri build` (a `.exe` on Windows, a
 `.dmg` on Mac).
 
 **Stack:** Tauri v2 (Rust) with a React 19 and TypeScript interface.
-whisper.cpp through `whisper-rs`, NVIDIA models through `parakeet-rs` and
-ONNX Runtime, local AI cleanup through `llama-cpp-2`, audio through `cpal`,
-history in SQLite.
+speech models (whisper.cpp, NVIDIA Parakeet on ONNX Runtime) and local AI
+cleanup come from the shared [voice-engine](https://github.com/mmnzns/voice-engine)
+(AI cleanup runs in its helper program, llama.cpp inside), audio through
+`cpal`, history in SQLite.
 
 ## Feedback
 

@@ -5,37 +5,54 @@
 // choisi d'apres whisper_threads_smoke et parakeet_threads_smoke). Le reglage manuel sert aux utilisateurs qui
 // veulent l'ajuster a leur machine.
 //
-// Parakeet seulement : "utiliser la carte graphique" (reglage `parakeet_gpu`,
-// desactive par defaut, avec repli automatique sur le processeur).
+// "Utiliser la carte graphique" (reglage `use_gpu`, un seul pour la parole et
+// l'IA locale, avec repli automatique sur le processeur) : affiche pour tous
+// les moteurs locaux.
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/tauri";
+import { api, type UseGpu } from "@/lib/tauri";
 
-export function SpeechThreadsPanel({ parakeet = false }: { parakeet?: boolean }) {
+export function SpeechThreadsPanel() {
   const { t } = useTranslation();
   const [info, setInfo] = useState<{ value: number; auto: number; max: number } | null>(null);
   const [keep, setKeep] = useState<{ value: number; recommended: number } | null>(null);
-  const [gpu, setGpu] = useState<{
-    enabled: boolean;
-    available: boolean;
-    failed: boolean;
-    provider: string;
-  } | null>(null);
+  const [gpu, setGpu] = useState<UseGpu | null>(null);
 
   useEffect(() => {
     api.getSpeechThreads().then(setInfo).catch(console.error);
     api.getModelKeepAlive().then(setKeep).catch(console.error);
-    api.getParakeetGpu().then(setGpu).catch(console.error);
+  }, []);
+
+  // The card search can take a few seconds after launch (Windows): ask again
+  // until it has answered.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    const load = () =>
+      api
+        .getUseGpu()
+        .then((g) => {
+          if (cancelled) return;
+          setGpu(g);
+          if (g.default_reason === "checking") timer = setTimeout(load, 1500);
+        })
+        .catch(console.error);
+    load();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   async function changeGpu(enabled: boolean) {
     if (!gpu) return;
-    setGpu({ ...gpu, enabled });
+    setGpu({ ...gpu, enabled, default_reason: "set_by_person" });
     try {
-      await api.setParakeetGpu(enabled);
+      await api.setUseGpu(enabled);
+      window.dispatchEvent(new Event("use-gpu-changed"));
     } catch (e) {
       console.error(e);
     }
@@ -54,7 +71,6 @@ export function SpeechThreadsPanel({ parakeet = false }: { parakeet?: boolean })
   function reset() {
     change(0);
     if (keep) changeKeep(keep.recommended);
-    if (gpu?.enabled) changeGpu(false);
   }
 
   async function change(value: number) {
@@ -68,8 +84,8 @@ export function SpeechThreadsPanel({ parakeet = false }: { parakeet?: boolean })
   }
 
   if (!info || !keep) return null;
-  const showGpu = parakeet && !!gpu?.available;
-  const custom = info.value !== 0 || keep.value !== keep.recommended || (showGpu && !!gpu?.enabled);
+  const showGpu = !!gpu && gpu.platform !== "other";
+  const custom = info.value !== 0 || keep.value !== keep.recommended;
   // Choices in seconds; a value saved by hand elsewhere is kept as is.
   const keepChoices = Array.from(new Set([0, 60, 300, 900, 3600, keep.value])).sort(
     (a, b) => a - b,
@@ -115,7 +131,16 @@ export function SpeechThreadsPanel({ parakeet = false }: { parakeet?: boolean })
           label={t("speech.gpuLabel")}
           description={
             <>
-              {t("speech.gpuDesc")}
+              {t(gpu.platform === "macos" ? "speech.gpuDescMac" : "speech.gpuDescWindows")}
+              {gpu.platform === "windows" && (
+                <span className="mt-1 block">
+                  {gpu.card_name
+                    ? t("speech.gpuCard", { name: gpu.card_name })
+                    : gpu.default_reason === "checking"
+                      ? t("speech.gpuChecking")
+                      : t("speech.gpuNoCard")}
+                </span>
+              )}
               {gpu.enabled && gpu.failed && (
                 <span className="mt-1 block font-medium text-foreground">
                   {t("speech.gpuFailed")}
@@ -123,10 +148,10 @@ export function SpeechThreadsPanel({ parakeet = false }: { parakeet?: boolean })
               )}
             </>
           }
-          htmlFor="parakeet-gpu"
+          htmlFor="use-gpu"
         >
           <Switch
-            id="parakeet-gpu"
+            id="use-gpu"
             checked={gpu.enabled}
             onChange={changeGpu}
             label={t("speech.gpuLabel")}

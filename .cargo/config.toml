@@ -1,0 +1,24 @@
+# Configuration Cargo propre a Parla.
+#
+# Build settings copied from the engine README ("Build settings an app must
+# copy", voice-engine v0.3.2). Cargo reads .cargo/config.toml from the folder
+# it runs in and its parents, only for the workspace it builds, so an app that
+# depends on the engine as a git dependency must carry these lines itself, in
+# a committed file at the repo root (`tauri build` runs cargo from src-tauri
+# and finds this one by walking up). Keep them equal to the engine's.
+# A local [patch] to try engine changes goes in ~/.cargo/config.toml or
+# `cargo --config`, never in this file.
+# After a change here: `cargo clean --release -p whisper-rs-sys`.
+[env]
+GGML_NATIVE = { value = "OFF", force = true }            # no "optimize for this CPU"; read by whisper-rs-sys and llama-cpp-sys-2
+GGML_AVX = { value = "ON", force = true }                # the x86 baseline: AVX2 + FMA + F16C + BMI2 (2013 and newer)
+GGML_AVX2 = { value = "ON", force = true }
+GGML_FMA = { value = "ON", force = true }
+GGML_F16C = { value = "ON", force = true }
+GGML_BMI2 = { value = "ON", force = true }
+MACOSX_DEPLOYMENT_TARGET = { value = "11.0", force = true }   # the first macOS for Apple silicon; read by cc, cmake and rustc
+CMAKE_C_FLAGS_RELEASE = { value = "-O2 -DNDEBUG", force = true }     # optimization: cmake-rs strips /O under the Visual Studio generator
+CMAKE_CXX_FLAGS_RELEASE = { value = "-O2 -DNDEBUG", force = true }   # (Windows x64 builds at /Od, 10x slower); accepted by cl, clang-cl and clang
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+avx2,+fma,+f16c,+bmi2"]   # llama-cpp-sys-2 turns these into GGML_AVX2, GGML_FMA, ...

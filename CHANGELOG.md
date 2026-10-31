@@ -5,6 +5,60 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Remove from this computer** next to Delete on each downloaded model. Delete
+  still only removes the model from Parlato; this one removes it for Parlato,
+  Talaan and Ensayo and frees the space, after asking and naming the other apps
+  that use it. If another app has the model open, nothing is removed and Parlato
+  keeps working.
+- New local AI models: Qwen 3.5 4B and Qwen 3.5 9B. IBM Granite 4.2 3B stays
+  the default.
+- One **Use graphics card** setting. It is on by default on the Mac, and on
+  Windows when the PC has a dedicated graphics card. It covers Whisper on the
+  Mac, Parakeet on Windows and local AI.
+
+### Changed
+- Your downloaded models now live in one folder that Parlato shares with
+  Talaan and Ensayo, so a model downloaded by one app is not downloaded again
+  by another. Parlato moves your existing models there by itself the first
+  time it starts; nothing is downloaded again.
+- Speech and local AI now run on the engine shared with Talaan and Ensayo.
+- Whisper uses the Mac's graphics chip.
+- Local AI runs in a separate helper program and stays ready between
+  dictations.
+- Updated the shared engine to version 0.3.2. Text from Whisper is joined
+  with the engine's own rule for spaces between sentences. The "Graphics card
+  failed, used processor" notice now appears only when the graphics card
+  really failed, not when a model simply has no graphics card support.
+- Turning "Use graphics card" off and on again tries the card again without
+  restarting Parlato.
+- A local AI answer that takes longer than a minute is still stopped and your
+  raw text is pasted; the minute now starts once the model is loaded.
+- Local AI models you import without a chat template now work instead of
+  being refused.
+- Voice detection now stays ready in memory instead of loading again for every
+  dictation. It loads when Parlato starts (only if voice detection is on) and
+  is released with the other models after the "Keep models ready" delay, or
+  when you delete its model. Results are the same.
+- On Windows, the installer now says "Parlato is open. Click OK to close it and
+  continue installing." when Parlato is running during an update, instead of
+  "Parlato is running! Click OK to kill it".
+
+### Fixed
+- The log no longer says the local AI model was loaded twice at every launch.
+
+### Removed
+- Qwen 2.5 3B, Llama 3.2 3B, Gemma 2 2B and Phi-3.5 mini are no longer offered
+  for download. Files you already have keep working as imported models.
+- The recorder pill no longer shows your words while you speak, and the
+  "Show words as you speak" setting is gone. The pasted text never came from
+  that preview, so dictation results are the same. Online models that
+  transcribe while you speak still do, so their text is still ready the
+  moment you stop; their notes now say that instead of promising words on
+  screen.
+
 ## [0.14.1] - 2026-10-28
 
 ### Changed

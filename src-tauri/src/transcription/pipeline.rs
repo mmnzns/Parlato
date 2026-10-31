@@ -33,9 +33,7 @@ use crate::transcription::{
         streaming::{StreamingConfig, StreamingHandle, StreamingRegistry},
         CloudRegistry,
     },
-    model_manager::ModelManager,
-    vad,
-    whisper::{self as whisper_core, WhisperParams},
+    speech, vad,
 };
 
 /// Nom du store Tauri ou est persiste l'ID du modele selectionne.
@@ -43,8 +41,6 @@ const STORE_FILE: &str = "parla.settings.json";
 const SELECTED_MODEL_KEY: &str = "selected_whisper_model";
 const LANGUAGE_KEY: &str = "whisper_language";
 const SPEECH_THREADS_KEY: &str = "speech_threads";
-/// Parlato : Parakeet sur la carte graphique (bool, faux par defaut).
-const PARAKEET_GPU_KEY: &str = "parakeet_gpu";
 /// Parlato : secondes pendant lesquelles les modeles restent charges apres
 /// une dictee (0 = liberes tout de suite, comme VoiceInk).
 const KEEP_ALIVE_KEY: &str = "model_keep_alive_secs";
@@ -109,6 +105,8 @@ pub fn cancel_processing(app: &AppHandle) {
     let pill = mini_recorder::generation();
     CANCELLED_PILL.store(pill, std::sync::atomic::Ordering::SeqCst);
     info!(pill, "dictee annulee pendant le traitement");
+    // Un nettoyage local en cours s'arrete tout de suite (le modele reste charge).
+    crate::enhancement::local_ai::cancel_generation();
     feedback::play(app, Cue::Cancel);
     mini_recorder::close_if_current(app, pill);
 }
@@ -147,24 +145,61 @@ fn emit_state(
     );
 }
 
-/// Parlato : nombre de passages en cours. Les modeles ne sont liberes
-/// qu'une fois le dernier termine, sinon la fin d'un fichier dechargerait
-/// le modele sous une dictee en cours.
-static ACTIVE_RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+/// Parlato : ce qui garde les modeles charges. Un enregistrement et un
+/// passage dans le pipeline comptent chacun comme une activite : les modeles
+/// ne sont liberes qu'une fois la derniere terminee (sinon la fin d'un fichier
+/// dechargerait le modele sous une dictee en cours, ou la minuterie le
+/// dechargerait pendant un long enregistrement). Chaque debut change
+/// l'`epoch` : une liberation programmee ne se fait que si rien n'a commence
+/// depuis.
+#[derive(Default)]
+struct Activity {
+    active: std::sync::atomic::AtomicUsize,
+    epoch: std::sync::atomic::AtomicU64,
+}
 
-/// Compteur de passages commences : une liberation programmee ne se fait
-/// que si aucun passage n'a commence entre-temps.
-static RUN_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+impl Activity {
+    const fn new() -> Self {
+        Self {
+            active: std::sync::atomic::AtomicUsize::new(0),
+            epoch: std::sync::atomic::AtomicU64::new(0),
+        }
+    }
+
+    fn begin(&self) {
+        use std::sync::atomic::Ordering::SeqCst;
+        self.epoch.fetch_add(1, SeqCst);
+        self.active.fetch_add(1, SeqCst);
+    }
+
+    /// Termine une activite. Vrai si plus rien n'est actif.
+    fn end(&self) -> bool {
+        use std::sync::atomic::Ordering::SeqCst;
+        self.active.fetch_sub(1, SeqCst).saturating_sub(1) == 0
+    }
+
+    fn epoch(&self) -> u64 {
+        self.epoch.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Une liberation programmee a l'`epoch` donne peut-elle avoir lieu ?
+    fn may_unload(&self, epoch: u64) -> bool {
+        use std::sync::atomic::Ordering::SeqCst;
+        self.active.load(SeqCst) == 0 && self.epoch.load(SeqCst) == epoch
+    }
+}
+
+static ACTIVITY: Activity = Activity::new();
+
+/// Un enregistrement est-il compte comme activite ? (une seule a la fois)
+static RECORDING_COUNTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn begin_run() {
-    RUN_EPOCH.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    ACTIVE_RUNS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    ACTIVITY.begin();
 }
 
 fn end_run(app: &AppHandle) {
-    use std::sync::atomic::Ordering::SeqCst;
-    let left = ACTIVE_RUNS.fetch_sub(1, SeqCst).saturating_sub(1);
-    if left != 0 {
+    if !ACTIVITY.end() {
         return;
     }
     // Parlato : les modeles restent prets quelques minutes, la dictee
@@ -175,15 +210,33 @@ fn end_run(app: &AppHandle) {
         unload_inference_models(app);
         return;
     }
-    let epoch = RUN_EPOCH.load(SeqCst);
+    let epoch = ACTIVITY.epoch();
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(keep));
-        if ACTIVE_RUNS.load(SeqCst) == 0 && RUN_EPOCH.load(SeqCst) == epoch {
+        if ACTIVITY.may_unload(epoch) {
             info!(keep, "modeles liberes apres inactivite");
             unload_inference_models(&app);
         }
     });
+}
+
+/// Un enregistrement vient de demarrer : il compte comme activite jusqu'a la
+/// fin de son passage dans le pipeline, ou jusqu'a son annulation.
+pub fn recording_started() {
+    use std::sync::atomic::Ordering::SeqCst;
+    if !RECORDING_COUNTED.swap(true, SeqCst) {
+        ACTIVITY.begin();
+    }
+}
+
+/// L'enregistrement est termine sans passage dans le pipeline (annule, arret
+/// en echec, ou arret sans transcription) : l'activite se termine.
+pub fn recording_finished(app: &AppHandle) {
+    use std::sync::atomic::Ordering::SeqCst;
+    if RECORDING_COUNTED.swap(false, SeqCst) {
+        end_run(app);
+    }
 }
 
 pub fn get_model_keep_alive(app: &AppHandle) -> u64 {
@@ -336,30 +389,13 @@ pub fn get_speech_threads(app: &AppHandle) -> usize {
         .ok()
         .and_then(|s| s.get(SPEECH_THREADS_KEY))
         .and_then(|v| v.as_u64())
-        .map(|n| n.min(whisper_core::max_threads() as u64) as usize)
+        .map(|n| n.min(speech::max_threads() as u64) as usize)
         .unwrap_or(0)
 }
 
 pub fn set_speech_threads(app: &AppHandle, threads: usize) -> Result<()> {
     let store = app.store(STORE_FILE)?;
     store.set(SPEECH_THREADS_KEY, serde_json::Value::from(threads));
-    store.save()?;
-    Ok(())
-}
-
-/// Parlato : Parakeet doit-il utiliser la carte graphique ? Faux par defaut
-/// (a mesurer avant d'en faire un choix automatique, cf CLAUDE.md).
-pub fn get_parakeet_gpu(app: &AppHandle) -> bool {
-    app.store(STORE_FILE)
-        .ok()
-        .and_then(|s| s.get(PARAKEET_GPU_KEY))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-}
-
-pub fn set_parakeet_gpu(app: &AppHandle, enabled: bool) -> Result<()> {
-    let store = app.store(STORE_FILE)?;
-    store.set(PARAKEET_GPU_KEY, serde_json::Value::Bool(enabled));
     store.save()?;
     Ok(())
 }
@@ -397,7 +433,7 @@ pub fn get_text_formatting_enabled(app: &AppHandle) -> bool {
         .unwrap_or(true)
 }
 
-fn is_vad_enabled(app: &AppHandle) -> bool {
+pub(crate) fn is_vad_enabled(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
         return false;
     };
@@ -487,6 +523,7 @@ pub fn finish_streaming(
     let pill = mini_recorder::generation();
     let released = std::time::Instant::now();
     begin_run();
+    recording_finished(&app);
     tauri::async_runtime::spawn(async move {
         let run = Run {
             job: Job::Dictation,
@@ -528,6 +565,9 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
         pill,
     };
     begin_run();
+    // Le passage prend le relais de l'enregistrement (jamais de trou entre
+    // les deux).
+    recording_finished(&app);
     // tauri::async_runtime::spawn fonctionne depuis n'importe quel thread
     // (le hotkey-dispatch est un std::thread sans runtime Tokio attache).
     tauri::async_runtime::spawn(async move {
@@ -666,12 +706,12 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
 }
 
 /// Decharge tous les modeles d'inference resident en memoire (whisper,
-/// parakeet, VAD, llama.cpp). Appele en fin de pipeline pour que la RAM
+/// parakeet, VAD, IA locale). Appele en fin de pipeline pour que la RAM
 /// idle de Parla redescende a ~200 Mo (Tauri + WebView2 + SQLite ouvert)
 /// au lieu de ~800 Mo ou plus selon les modeles utilises. Chaque engine
 /// gere son propre Mutex, donc cette fonction est sans erreur et sans
 /// await : on tombe juste le Arc<Option<T>> a None.
-fn unload_inference_models(app: &AppHandle) {
+pub(crate) fn unload_inference_models(app: &AppHandle) {
     if let Some(st) = app.try_state::<crate::commands::transcription::WhisperEngineState>() {
         st.0.unload();
     }
@@ -681,8 +721,11 @@ fn unload_inference_models(app: &AppHandle) {
     if let Some(st) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
         st.0.unload();
     }
-    if let Some(rt) = crate::enhancement::service::llama_runtime() {
-        rt.unload();
+    // Parlato : l'IA locale suit le meme delai ("Garder les modeles prets").
+    // Sur un fil : la liberation attend une generation en cours, et on est
+    // peut-etre dans une tache async.
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        ai.unload_in_background();
     }
 }
 
@@ -773,11 +816,6 @@ async fn transcribe_cloud(
 async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Outcome> {
     let source = resolve_source(&app);
     let language = get_language(&app);
-    let params = WhisperParams {
-        language: language.clone(),
-        n_threads: get_speech_threads(&app),
-        ..Default::default()
-    };
 
     let source_label = match &source {
         Source::Local { model_id } => format!("local / {model_id}"),
@@ -793,7 +831,7 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         None,
     );
 
-    // Branche cloud : pas de VAD, pas de WhisperEngine. Upload direct au provider.
+    // Branche cloud : pas de VAD, pas de moteur local. Upload direct au provider.
     if let Source::Cloud { provider, model } = &source {
         if provider.is_empty() || model.is_empty() {
             anyhow::bail!("PARLA_ERR:cloudUnconfigured");
@@ -818,34 +856,28 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         return finalize_text(&app, run, text, duration_ms).await;
     }
 
-    // Branche Parakeet (local via parakeet-rs).
+    // Branche Parakeet (local via voice-engine-stt : TDT, Unified, Nemotron).
     if let Source::Parakeet { model_id } = &source {
         if model_id.is_empty() {
             anyhow::bail!("PARLA_ERR:noParakeet");
         }
-        let mgr = app
-            .state::<crate::commands::parakeet::ParakeetModelManagerState>()
-            .0
-            .clone();
-        let model_dir = mgr
-            .path_for_id(model_id)
+        let store = app.state::<crate::models::ModelStoreState>().0.clone();
+        let model_source = speech::Source::for_id(&store, model_id)
             .ok_or_else(|| anyhow!("PARLA_ERR:parakeetIncomplete:{model_id}"))?;
         let engine_state = app
             .state::<crate::transcription::parakeet::ParakeetEngineState>()
             .0
             .clone();
-        let kind = crate::transcription::parakeet_model_manager::find_variant(model_id)
-            .map(|v| v.kind)
-            .unwrap_or(crate::transcription::parakeet_model_manager::ParakeetKind::Tdt);
+        // Verrou du dossier partage tant que le modele est charge.
+        let handle = store.hold(model_id);
         let wav_path_clone = wav_path.clone();
         let language_clone = language.clone();
         let vad = vad_for(&app);
-        let threads = get_speech_threads(&app);
-        let gpu = get_parakeet_gpu(&app);
+        let threads = speech::threads_option(get_speech_threads(&app));
         let start = std::time::Instant::now();
         let engine_for_notice = engine_state.clone();
         let text = task::spawn_blocking(move || -> Result<String> {
-            engine_state.ensure_loaded(&model_dir, kind, threads, gpu)?;
+            engine_state.ensure_loaded(&model_source, threads, handle)?;
             let used_vad = vad.is_some();
             let mut samples = speech_samples(vad, &wav_path_clone)?;
             if samples.is_empty() {
@@ -894,33 +926,41 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         .state::<crate::commands::transcription::WhisperEngineState>()
         .0
         .clone();
-    let models: Arc<ModelManager> = app
-        .state::<crate::commands::models::ModelManagerState>()
-        .0
-        .clone();
+    let store = app.state::<crate::models::ModelStoreState>().0.clone();
 
-    let model_path = models
-        .path_if_present(&model_id)
+    let model_source = speech::Source::for_id(&store, &model_id)
         .ok_or_else(|| anyhow!("PARLA_ERR:modelNotDownloaded:{model_id}"))?;
+    // Verrou du dossier partage tant que le modele est charge (rien pour un
+    // modele importe, qui n'est pas dans le dossier partage).
+    let handle = store.hold(&model_id);
 
     // VAD optionnelle (matching VoiceInk IsVADEnabled), cf `speech_samples`.
     let vad = vad_for(&app);
+    let threads = speech::threads_option(get_speech_threads(&app));
 
     let wav_path_clone = wav_path.clone();
+    let language_clone = language.clone();
+    let engine_for_notice = engine.clone();
     let start = std::time::Instant::now();
     let text = task::spawn_blocking(move || -> Result<String> {
-        engine.load(&model_path)?;
+        engine.ensure_loaded(&model_source, threads, handle)?;
         let samples = speech_samples(vad, &wav_path_clone)?;
         if samples.is_empty() {
             return Ok(String::new());
         }
-        engine.transcribe_samples(&samples, &params)
+        // Parlato : les mots du dictionnaire ne sont pas envoyes a Whisper
+        // local (parite 0.14, plan decision 7).
+        engine.transcribe_samples(&samples, language_clone.as_deref(), &[])
     })
     .await
     .map_err(|e| anyhow!("task join: {e}"))??;
 
     let duration_ms = start.elapsed().as_millis() as u64;
     info!(chars = text.len(), duration_ms, "Transcription locale terminee");
+    // Parlato : repli Metal -> processeur, a dire une fois dans la bulle.
+    if engine_for_notice.take_gpu_notice() && run.job == Job::Dictation {
+        crate::notice::send_after_dictation(crate::notice::Notice::GpuFallback);
+    }
     mark_transcribed_in_history(
         &app,
         run,
@@ -932,30 +972,32 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
     finalize_text(&app, run, text, duration_ms).await
 }
 
-/// VAD Silero si elle est activee et que son modele est telecharge.
+/// VAD Silero si elle est activee et que son modele est telecharge : le moteur,
+/// le dossier du modele "vad" et le verrou du dossier partage (le detecteur le
+/// garde tant qu'il est charge).
 /// Parlato : partagee par Whisper et Parakeet (VoiceInk 2.21 6985c4b
 /// l'applique aussi a FluidAudio).
-fn vad_for(app: &AppHandle) -> Option<(Arc<vad::VadEngine>, PathBuf)> {
+fn vad_for(app: &AppHandle) -> Option<vad::VadUse> {
     if !is_vad_enabled(app) {
         return None;
     }
-    let state = vad::vad_state(app);
-    if !state.downloaded {
+    let store = app.state::<crate::models::ModelStoreState>().0.clone();
+    let voice_engine_models::Status::Installed { dir, .. } =
+        store.shared().status(crate::commands::vad::VAD_ID)
+    else {
         return None;
-    }
-    let path = PathBuf::from(state.path?);
+    };
     let engine = app.state::<crate::commands::vad::VadEngineState>().0.clone();
-    Some((engine, path))
+    Some((engine, dir, store.hold(crate::commands::vad::VAD_ID)))
 }
 
 /// Lit le WAV. Avec la VAD, ne garde que les plages de parole mises bout a
 /// bout (vide si aucune parole).
-fn speech_samples(vad: Option<(Arc<vad::VadEngine>, PathBuf)>, wav: &Path) -> Result<Vec<f32>> {
-    let Some((engine, model_path)) = vad else {
-        return whisper_core::read_wav_as_f32(wav);
+fn speech_samples(vad: Option<vad::VadUse>, wav: &Path) -> Result<Vec<f32>> {
+    let Some((engine, model_dir, handle)) = vad else {
+        return speech::read_wav_as_f32(wav);
     };
-    engine.load(&model_path)?;
-    let (samples, ranges) = vad::run_vad_on_wav(&engine, wav)?;
+    let (samples, ranges) = vad::run_vad_on_wav(&engine, &model_dir, handle, wav)?;
     let total: usize = ranges.iter().map(|(s, e)| e - s).sum();
     let mut speech: Vec<f32> = Vec::with_capacity(total);
     for (s, e) in &ranges {
@@ -1122,6 +1164,13 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             Err(e) => warn!("Enhancement LLM echec, fallback texte brut: {e}"),
         }
     }
+    // Parlato : repli carte graphique -> processeur de l'IA locale, a dire une
+    // fois dans la bulle, une fois la dictee finie.
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        if ai.take_gpu_notice() && run.job == Job::Dictation {
+            crate::notice::send_after_dictation(crate::notice::Notice::GpuFallback);
+        }
+    }
 
     // Annule pendant le nettoyage IA.
     if run.cancelled() {
@@ -1204,34 +1253,88 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
 
 #[cfg(test)]
 mod tests {
+    // -- Keep-alive : l'activite ---------------------------------------------
+
+    #[test]
+    fn a_scheduled_unload_waits_for_every_activity() {
+        let a = Activity::new();
+        // A dictation ran and ended: an unload is scheduled at that epoch.
+        a.begin();
+        assert!(a.end());
+        let scheduled = a.epoch();
+        assert!(a.may_unload(scheduled));
+        // A new activity cancels it, even after it ended.
+        a.begin();
+        assert!(!a.may_unload(scheduled));
+        assert!(a.end());
+        assert!(!a.may_unload(scheduled));
+        assert!(a.may_unload(a.epoch()));
+    }
+
+    #[test]
+    fn a_long_recording_holds_the_models_until_its_pipeline_ends() {
+        let a = Activity::new();
+        // A previous dictation scheduled an unload.
+        a.begin();
+        assert!(a.end());
+        let scheduled = a.epoch();
+        // The recording starts: from then on the old timer cannot unload.
+        a.begin();
+        assert!(!a.may_unload(scheduled));
+        // Hours later, still recording: a timer scheduled now would not fire either.
+        assert!(!a.may_unload(a.epoch()));
+        // Stop: the pipeline begins before the recording lets go, so there is
+        // never an idle moment between them.
+        a.begin();
+        assert!(!a.end(), "the pipeline still holds the models");
+        assert!(!a.may_unload(a.epoch()));
+        // The pipeline ends: now idle, and only now an unload can be scheduled.
+        assert!(a.end());
+        assert!(a.may_unload(a.epoch()));
+    }
+
+    #[test]
+    fn a_cancelled_recording_leaves_the_models_to_the_timer() {
+        let a = Activity::new();
+        a.begin(); // recording
+        assert!(a.end()); // cancelled: idle again, the caller schedules the unload
+        assert!(a.may_unload(a.epoch()));
+    }
+
     use super::*;
 
-    /// Smoke test of the shared VAD step in front of Parakeet:
+    /// Smoke test of the shared VAD step in front of Parakeet (counts and
+    /// timings only, never the text):
     /// `PARLATO_VAD_MODEL=<silero .bin> PARLATO_PARAKEET_DIR=<dir>
-    /// PARLATO_WAV=<16 kHz wav> cargo test --lib vad_parakeet_smoke -- --ignored --nocapture`.
+    /// PARLATO_WAV=<16 kHz wav> cargo test --release --lib vad_parakeet_smoke -- --ignored --nocapture`.
+    /// `PARLATO_PARAKEET_ID` picks another TDT catalog id than parakeet-ultra.
     #[test]
     #[ignore]
     fn vad_parakeet_smoke() {
         let vad_model = PathBuf::from(std::env::var("PARLATO_VAD_MODEL").expect("PARLATO_VAD_MODEL"));
-        let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
+        let dir = PathBuf::from(std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR"));
         let wav = PathBuf::from(std::env::var("PARLATO_WAV").expect("PARLATO_WAV"));
-        let all = whisper_core::read_wav_as_f32(&wav).unwrap();
-        let vad = Some((Arc::new(vad::VadEngine::default()), vad_model));
+        let id = std::env::var("PARLATO_PARAKEET_ID").unwrap_or_else(|_| "parakeet-ultra".into());
+        let all = speech::read_wav_as_f32(&wav).unwrap();
+        let (vad_dir, _keep) = vad::tests::vad_dir_for(&vad_model);
+        let vad = Some((Arc::new(vad::VadEngine::default()), vad_dir, None));
+        let t0 = std::time::Instant::now();
         let speech = speech_samples(vad, &wav).unwrap();
-        let engine = crate::transcription::parakeet::ParakeetEngine::new();
-        engine
-            .ensure_loaded(
-                Path::new(&dir),
-                crate::transcription::parakeet_model_manager::ParakeetKind::Tdt,
-                0,
-                false,
-            )
-            .unwrap();
+        println!("vad: {} ms", t0.elapsed().as_millis());
+        let engine = crate::transcription::parakeet::ParakeetEngine::default();
+        let source = speech::Source::Catalog {
+            model: voice_engine_models::catalog::find(&id).expect("catalog id"),
+            dir,
+        };
+        engine.ensure_loaded_with_gpu(&source, None, false, None).unwrap();
+        let t1 = std::time::Instant::now();
         let text = engine.transcribe_samples(&speech, None).unwrap();
         println!(
-            "--- {:.1}s audio, {:.1}s kept after VAD ---\n{text}\n---",
+            "--- {:.1}s audio, {:.1}s kept after VAD, {} words in {} ms ---",
             all.len() as f32 / 16000.0,
-            speech.len() as f32 / 16000.0
+            speech.len() as f32 / 16000.0,
+            text.split_whitespace().count(),
+            t1.elapsed().as_millis()
         );
         assert!(speech.len() < all.len());
         assert!(!text.trim().is_empty());
