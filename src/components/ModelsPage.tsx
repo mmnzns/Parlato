@@ -53,7 +53,7 @@ import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
 import { modelName } from "@/lib/modelText";
 import { fail, type Status } from "@/lib/status";
-import { isCancelled } from "@/lib/translateError";
+import { isCancelled, translateError } from "@/lib/translateError";
 
 /// Parlato: a cancelled download is reported as PARLA_ERR:cancelled; it is
 /// not a real error.
@@ -191,7 +191,7 @@ export function ModelsPage({
             ...s,
             [e.payload.id]: isCancel(e.payload.message)
               ? t("parakeet.cancelled")
-              : fail(t("parakeet.errorPrefix", { message: e.payload.message })),
+              : fail(t("parakeet.errorPrefix", { message: translateError(t, e.payload.message) })),
           }));
         },
       ),
@@ -275,7 +275,7 @@ export function ModelsPage({
       // raw backend message.
       setParakeetStatus((s) => ({
         ...s,
-        [id]: isCancel(e) ? t("parakeet.cancelled") : fail(t("parakeet.errorPrefix", { message: String(e) })),
+        [id]: isCancel(e) ? t("parakeet.cancelled") : fail(t("parakeet.errorPrefix", { message: translateError(t, String(e)) })),
       }));
     }
   }
@@ -288,7 +288,7 @@ export function ModelsPage({
     } catch (e) {
       setParakeetStatus((s) => ({
         ...s,
-        [id]: fail(t("parakeet.errorPrefix", { message: String(e) })),
+        [id]: fail(t("parakeet.errorPrefix", { message: translateError(t, String(e)) })),
       }));
     }
   }

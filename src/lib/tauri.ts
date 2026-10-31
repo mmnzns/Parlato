@@ -44,6 +44,8 @@ export type WhisperModelState = {
   accuracy: number;
   /** Codes ISO supportes ; "auto" en tete = auto-detect. */
   language_codes: string[];
+  /** Another app is downloading this model right now (shared model folder). */
+  downloading_elsewhere?: boolean;
 };
 
 export type DownloadProgress = {
@@ -158,6 +160,9 @@ export type GgufModelState = {
   on_disk_bytes: number | null;
   path: string | null;
   imported: boolean;
+  /** False for an import that lives outside Parlato's folder: Delete leaves it. */
+  removable: boolean;
+  downloading_elsewhere?: boolean;
 };
 
 export type LlamaCppSettings = {
@@ -314,6 +319,7 @@ export type ParakeetModelState = {
   speed: number;
   accuracy: number;
   language_codes: string[];
+  downloading_elsewhere?: boolean;
 };
 
 export const api = {

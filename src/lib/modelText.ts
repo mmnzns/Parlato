@@ -1,10 +1,10 @@
 // Parlato: localized model names and descriptions.
 //
-// The Rust catalogs (transcription/model.rs, parakeet_model_manager.rs,
-// cloud/catalog.rs, enhancement/model_manager.rs) carry upstream's French
-// display names and notes. The UI shows the `modelText.<id>` locale entry
-// instead, and falls back to the backend string for anything not listed
-// (new upstream models, user imports).
+// The engine catalog (voice-engine, models/catalog.rs) carries English names
+// and notes, and the cloud catalog (cloud/catalog.rs) upstream's French ones.
+// The UI shows the `modelText.<id>` locale entry instead, and falls back to
+// the backend string for anything not listed (user imports). Every engine
+// catalog id the app lists has an entry in en, fr and es.
 
 import type { TFunction } from "i18next";
 

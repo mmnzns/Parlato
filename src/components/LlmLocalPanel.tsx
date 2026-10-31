@@ -14,7 +14,7 @@ import {
 import { confirmDelete } from "@/lib/confirmDelete";
 import { formatBytes } from "@/lib/format";
 import { fail, isFailure, statusText, type Status } from "@/lib/status";
-import { isCancelled } from "@/lib/translateError";
+import { isCancelled, translateError } from "@/lib/translateError";
 
 type DownloadProgress = { id: string; downloaded: number; total: number };
 
@@ -60,7 +60,7 @@ export function LlmLocalPanel() {
           ...s,
           [e.payload.id]: isCancelled(e.payload.message)
             ? t("llmLocal.cancelled")
-            : fail(t("llmLocal.errorPrefix", { message: e.payload.message })),
+            : fail(t("llmLocal.errorPrefix", { message: translateError(t, e.payload.message) })),
         }));
       },
     );
@@ -104,7 +104,7 @@ export function LlmLocalPanel() {
         const { [id]: _, ...rest } = p;
         return rest;
       });
-      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -119,7 +119,7 @@ export function LlmLocalPanel() {
       await api.deleteGgufModel(id);
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -130,7 +130,7 @@ export function LlmLocalPanel() {
     } catch (e) {
       // Closing the file picker is not an error.
       if (isCancelled(e)) return;
-      setStatus((s) => ({ ...s, import: fail(t("llmLocal.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, import: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -205,7 +205,13 @@ export function LlmLocalPanel() {
                   {t("ai.use")}
                 </Button>
               )}
-              {!m.downloaded && !prog && (
+              {!m.downloaded && !prog && m.downloading_elsewhere && (
+                <Button size="sm" variant="outline" disabled>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t("speech.downloadingElsewhere")}
+                </Button>
+              )}
+              {!m.downloaded && !prog && !m.downloading_elsewhere && (
                 <Button size="sm" variant="outline" onClick={() => download(m.id)}>
                   <Download className="h-3.5 w-3.5" />
                   {t("llmLocal.download")}
@@ -217,7 +223,7 @@ export function LlmLocalPanel() {
                   {pct !== null ? `${pct}%` : ""} {t("llmLocal.cancel")}
                 </Button>
               )}
-              {m.downloaded && (
+              {m.downloaded && m.removable && (
                 <Button
                   size="icon"
                   variant="ghost"

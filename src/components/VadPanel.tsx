@@ -17,6 +17,8 @@ type VadState = {
   downloaded: boolean;
   path: string | null;
   on_disk_bytes: number | null;
+  /** Another app is downloading this model right now. */
+  downloading_elsewhere?: boolean;
 };
 
 export function VadPanel() {
@@ -109,7 +111,7 @@ export function VadPanel() {
             <Trash2 className="h-3.5 w-3.5" />
             {t("vad.delete")}
           </Button>
-        ) : progress ? (
+        ) : progress || state.downloading_elsewhere ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />
         ) : (
           <Button size="sm" variant="outline" onClick={download}>

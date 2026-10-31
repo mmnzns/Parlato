@@ -426,7 +426,15 @@
     "fileTooLong": "Ce fichier dépasse 2 heures. Coupez-le en parties plus courtes.",
     "interrupted": "Parlato a été fermé avant la fin de cette dictée. Utilisez « Retranscrire » pour réessayer.",
     "pasteFailed": "Impossible de coller dans cette application. Le texte est dans le presse-papiers, prêt à être collé.",
-    "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, et la connexion en direct a échoué. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle."
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, et la connexion en direct a échoué. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle.",
+    "downloadOffline": "Pas de connexion au serveur de téléchargement. Vérifiez votre connexion internet et réessayez.",
+    "downloadRefused": "Le serveur de téléchargement a refusé la demande (erreur {{status}}). Réessayez plus tard.",
+    "downloadDiskFull": "Le disque est plein. Libérez de l'espace et réessayez.",
+    "downloadChecksum": "Le fichier téléchargé ne correspond pas à ce qui était attendu ; il a été supprimé. Téléchargez-le à nouveau.",
+    "downloadStalled": "Le téléchargement s'est bloqué. Réessayez : il reprend là où il s'est arrêté.",
+    "downloadFailed": "Le modèle n'a pas pu être téléchargé ou enregistré. Réessayez.",
+    "downloadRunning": "Ce modèle est déjà en cours de téléchargement.",
+    "downloadingElsewhere": "Une autre application (Talaan ou Ensayo) télécharge ce modèle en ce moment. Attendez la fin du téléchargement."
   },
   "prompts": {
     "default": {
@@ -684,7 +692,8 @@
     "keepAliveHours_one": "{{count}} heure",
     "keepAliveHours_other": "{{count}} heures",
     "keepAliveRecommended": "{{label}} (recommandé)",
-    "confirmDeleteModel": "Supprimer {{name}} ? Il faudra le télécharger à nouveau pour l'utiliser."
+    "confirmDeleteModel": "Supprimer {{name}} ? Il faudra le télécharger à nouveau pour l'utiliser.",
+    "downloadingElsewhere": "Téléchargement dans une autre appli"
   },
   "tf": {
     "dropTitle": "Déposez un fichier audio ou vidéo ici",
@@ -834,49 +843,51 @@
   },
   "modelText": {
     "imported": "Un modèle que vous avez importé.",
-    "ggml_tiny": {
+    "whisper_tiny": {
       "name": "Tiny (multilingue)",
       "notes": "Très rapide, précision limitée. Pratique pour faire un essai."
     },
-    "ggml_tiny_en": {
+    "whisper_tiny_en": {
       "name": "Tiny (anglais)",
       "notes": "Anglais uniquement. Un peu plus précis que Tiny multilingue en anglais."
     },
-    "ggml_base": {
+    "whisper_base": {
       "name": "Base (multilingue)",
       "notes": "Bon équilibre entre taille et précision sur un processeur ordinaire."
     },
-    "ggml_base_en": {
+    "whisper_base_en": {
       "name": "Base (anglais)",
       "notes": "Anglais uniquement. Plus précis que Base multilingue en anglais."
     },
-    "ggml_large_v2": {
-      "name": "Large v2 (multilingue)",
+    "whisper_large_v2_full": {
+      "name": "Large v2 (taille complète)",
       "notes": "Très précis, mais demande beaucoup de mémoire."
     },
-    "ggml_large_v3": {
-      "name": "Large v3 (multilingue)",
+    "whisper_large_v3_full": {
+      "name": "Large v3 (taille complète)",
       "notes": "Dernière génération et le plus précis. Exigeant pour le processeur."
     },
-    "ggml_large_v3_turbo": {
+    "whisper_turbo_full": {
+      "name": "Large v3 Turbo (taille complète)",
       "notes": "Large v3 optimisé pour la vitesse. Idéal avec une carte graphique."
     },
-    "ggml_large_v3_turbo_q5_0": {
+    "whisper_turbo": {
+      "name": "Large v3 Turbo (compressé)",
       "notes": "Compressé. Très bonne qualité pour sa taille sur un processeur ordinaire."
     },
-    "parakeet_tdt_0_6b_v2": {
+    "parakeet_v2_full": {
       "name": "Parakeet TDT 0.6B v2 (anglais, F16)",
       "notes": "Le modèle de référence. Anglais uniquement. Environ 2,5 Go à télécharger."
     },
-    "parakeet_tdt_0_6b_v2_int8": {
+    "parakeet_v2": {
       "name": "Parakeet TDT 0.6B v2 (anglais, int8)",
       "notes": "Version compressée. Environ 680 Mo. Anglais uniquement."
     },
-    "parakeet_tdt_0_6b_v3": {
+    "parakeet_v3_full": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, F16)",
       "notes": "L'anglais et 24 autres langues européennes, et il détecte celle que vous parlez. Environ 2,5 Go."
     },
-    "parakeet_tdt_0_6b_v3_int8": {
+    "parakeet_v3": {
       "name": "Parakeet TDT 0.6B v3 (multilingue, int8)",
       "notes": "L'anglais et 24 autres langues européennes, et il détecte celle que vous parlez. Environ 680 Mo."
     },
@@ -928,56 +939,57 @@
     "universal_2": {
       "notes": "Plus de 90 langues. Plus rapide que Universal-3.5 Pro, mais seulement après que vous avez parlé."
     },
-    "qwen2_5_3b_instruct_q4": {
-      "notes": "Polyvalent, excellent rapport qualité / taille."
-    },
-    "llama_3_2_3b_instruct_q4": {
-      "notes": "À l'aise avec les textes longs."
-    },
-    "gemma_2_2b_it_q4": {
-      "notes": "Léger et rapide sur un processeur ordinaire."
-    },
-    "phi_3_5_mini_instruct_q4": {
-      "notes": "Fort en raisonnement et pour suivre les consignes."
-    },
-    "ggml_small": {
+    "whisper_small": {
       "name": "Small (multilingue)",
       "notes": "Bon équilibre entre précision et vitesse sur un processeur ordinaire."
     },
-    "ggml_small_en": {
+    "whisper_small_en": {
       "name": "Small (anglais)",
       "notes": "Anglais uniquement. Plus précis que Small multilingue en anglais."
     },
-    "ggml_medium": {
+    "whisper_medium": {
       "name": "Medium (multilingue)",
       "notes": "Très précis, mais plus lent que Large v3 Turbo."
     },
-    "ggml_medium_en": {
+    "whisper_medium_en": {
       "name": "Medium (anglais)",
       "notes": "Anglais uniquement. Très précis en anglais."
     },
-    "ggml_large_v3_q5_0": {
-      "name": "Large v3 (Q5_0)",
+    "whisper_large_v3": {
+      "name": "Large v3 (compressé)",
       "notes": "Large v3 compressé. Presque la même précision pour un tiers de la taille."
     },
-    "granite_4_2_3b_q4": {
+    "granite_4_2_3b": {
+      "name": "Granite 4.2 3B",
       "notes": "Le plus récent petit modèle d'IBM. Précis et fidèle à ce que vous avez dit."
     },
-    "parakeet_unified_en_0_6b": {
+    "parakeet_unified_en_full": {
       "name": "Parakeet Unified EN 0.6B (anglais, F16)",
       "notes": "Le modèle anglais le plus récent et le plus précis de NVIDIA. Environ 2,5 Go. Distribué par NVIDIA Corporation sous la NVIDIA Open Model License."
     },
-    "parakeet_unified_en_0_6b_int8": {
+    "parakeet_unified_en": {
       "name": "Parakeet Unified EN 0.6B (anglais, int8)",
       "notes": "Le modèle anglais le plus récent de NVIDIA, compressé à environ 660 Mo avec les mêmes résultats dans nos tests. Distribué par NVIDIA Corporation sous la NVIDIA Open Model License."
     },
-    "nemotron_3_5_asr_streaming_0_6b": {
+    "nemotron_3_5": {
       "name": "Nemotron 3.5 ASR 0.6B (multilingue)",
       "notes": "Le modèle vocal le plus récent de NVIDIA : 35 langues, dont le chinois, le japonais, le coréen, l'hindi et l'arabe, et il détecte celle que vous parlez. Environ 2.6 Go. Fourni par NVIDIA sous la licence OpenMDW-1.1."
     },
-    "parakeet_ultra_0_6b_int8": {
+    "parakeet_ultra": {
       "name": "Parakeet Ultra 0.6B (multilingue, int8)",
       "notes": "Le Parakeet v3 de NVIDIA, réentraîné par Moondream pour faire moins d'erreurs, surtout hors anglais et dans le bruit. L'anglais et 24 autres langues européennes, et il détecte celle que vous parlez. Environ 670 Mo."
+    },
+    "whisper_large_v2": {
+      "name": "Large v2 (compressé)",
+      "notes": "Large v2 compressé. Très précis, avec un téléchargement bien plus léger."
+    },
+    "qwen3_5_4b": {
+      "name": "Qwen3.5 4B",
+      "notes": "Un petit modèle rapide, même sur un ordinateur portable."
+    },
+    "qwen3_5_9b": {
+      "name": "Qwen3.5 9B",
+      "notes": "Plus grand et un peu plus minutieux. Demande 16 Go de mémoire et prend environ deux fois plus de temps."
     }
   },
   "mac": {

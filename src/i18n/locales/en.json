@@ -426,7 +426,15 @@
     "fileTooLong": "This file is longer than 2 hours. Split it into shorter parts.",
     "interrupted": "Parlato was closed before this dictation finished. Use Transcribe again to try once more.",
     "pasteFailed": "Could not paste into this app. The text is on the clipboard, ready to paste.",
-    "assemblyaiRealtimeOnly": "Universal-3.6 Pro handles this language only live, and the live connection failed. To transcribe this recording, pick another language or model."
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro handles this language only live, and the live connection failed. To transcribe this recording, pick another language or model.",
+    "downloadOffline": "No connection to the download server. Check your internet connection and try again.",
+    "downloadRefused": "The download server refused the request (error {{status}}). Try again later.",
+    "downloadDiskFull": "The disk is full. Free some space and try again.",
+    "downloadChecksum": "The downloaded file did not match what was expected, so it was deleted. Try downloading it again.",
+    "downloadStalled": "The download stalled. Try again: it picks up where it stopped.",
+    "downloadFailed": "The model could not be downloaded or saved. Try again.",
+    "downloadRunning": "This model is already downloading.",
+    "downloadingElsewhere": "Another app (Talaan or Ensayo) is downloading this model right now. Wait for it to finish."
   },
   "prompts": {
     "default": {
@@ -684,7 +692,8 @@
     "keepAliveHours_one": "{{count}} hour",
     "keepAliveHours_other": "{{count}} hours",
     "keepAliveRecommended": "{{label}} (recommended)",
-    "confirmDeleteModel": "Delete {{name}}? You will need to download it again to use it."
+    "confirmDeleteModel": "Delete {{name}}? You will need to download it again to use it.",
+    "downloadingElsewhere": "Downloading in another app"
   },
   "tf": {
     "dropTitle": "Drop an audio or video file here",
@@ -834,49 +843,51 @@
   },
   "modelText": {
     "imported": "A model you imported.",
-    "ggml_tiny": {
+    "whisper_tiny": {
       "name": "Tiny (multilingual)",
       "notes": "Very fast, limited accuracy. Good for trying things out."
     },
-    "ggml_tiny_en": {
+    "whisper_tiny_en": {
       "name": "Tiny (English)",
       "notes": "English only. A little more accurate than multilingual Tiny for English."
     },
-    "ggml_base": {
+    "whisper_base": {
       "name": "Base (multilingual)",
       "notes": "Good balance of size and accuracy on a regular processor."
     },
-    "ggml_base_en": {
+    "whisper_base_en": {
       "name": "Base (English)",
       "notes": "English only. More accurate than multilingual Base for English."
     },
-    "ggml_large_v2": {
-      "name": "Large v2 (multilingual)",
+    "whisper_large_v2_full": {
+      "name": "Large v2 (full size)",
       "notes": "Very accurate, but needs a lot of memory."
     },
-    "ggml_large_v3": {
-      "name": "Large v3 (multilingual)",
+    "whisper_large_v3_full": {
+      "name": "Large v3 (full size)",
       "notes": "Latest generation and the most accurate. Heavy on the processor."
     },
-    "ggml_large_v3_turbo": {
+    "whisper_turbo_full": {
+      "name": "Large v3 Turbo (full size)",
       "notes": "Large v3 tuned for speed. Best with a graphics card."
     },
-    "ggml_large_v3_turbo_q5_0": {
+    "whisper_turbo": {
+      "name": "Large v3 Turbo (compressed)",
       "notes": "Compressed. Very good quality for its size on a regular processor."
     },
-    "parakeet_tdt_0_6b_v2": {
+    "parakeet_v2_full": {
       "name": "Parakeet TDT 0.6B v2 (English, F16)",
       "notes": "The reference model. English only. About 2.5 GB to download."
     },
-    "parakeet_tdt_0_6b_v2_int8": {
+    "parakeet_v2": {
       "name": "Parakeet TDT 0.6B v2 (English, int8)",
       "notes": "Compressed version. About 680 MB. English only."
     },
-    "parakeet_tdt_0_6b_v3": {
+    "parakeet_v3_full": {
       "name": "Parakeet TDT 0.6B v3 (multilingual, F16)",
       "notes": "English and 24 other European languages, and it detects which one you speak. About 2.5 GB."
     },
-    "parakeet_tdt_0_6b_v3_int8": {
+    "parakeet_v3": {
       "name": "Parakeet TDT 0.6B v3 (multilingual, int8)",
       "notes": "English and 24 other European languages, and it detects which one you speak. About 680 MB."
     },
@@ -928,56 +939,57 @@
     "universal_2": {
       "notes": "Over 90 languages. Faster than Universal-3.5 Pro, but only after you speak."
     },
-    "qwen2_5_3b_instruct_q4": {
-      "notes": "All-rounder with an excellent quality-to-size ratio."
-    },
-    "llama_3_2_3b_instruct_q4": {
-      "notes": "Handles long texts well."
-    },
-    "gemma_2_2b_it_q4": {
-      "notes": "Lightweight and fast on a regular processor."
-    },
-    "phi_3_5_mini_instruct_q4": {
-      "notes": "Strong at reasoning and following instructions."
-    },
-    "ggml_small": {
+    "whisper_small": {
       "name": "Small (multilingual)",
       "notes": "Good balance of accuracy and speed on a regular processor."
     },
-    "ggml_small_en": {
+    "whisper_small_en": {
       "name": "Small (English)",
       "notes": "English only. More accurate than multilingual Small for English."
     },
-    "ggml_medium": {
+    "whisper_medium": {
       "name": "Medium (multilingual)",
       "notes": "Very accurate, but slower than Large v3 Turbo."
     },
-    "ggml_medium_en": {
+    "whisper_medium_en": {
       "name": "Medium (English)",
       "notes": "English only. Very accurate for English."
     },
-    "ggml_large_v3_q5_0": {
-      "name": "Large v3 (Q5_0)",
+    "whisper_large_v3": {
+      "name": "Large v3 (compressed)",
       "notes": "Compressed Large v3. Nearly the same accuracy at a third of the size."
     },
-    "granite_4_2_3b_q4": {
+    "granite_4_2_3b": {
+      "name": "Granite 4.2 3B",
       "notes": "IBM's newest small model. Accurate and faithful to what you said."
     },
-    "parakeet_unified_en_0_6b": {
+    "parakeet_unified_en_full": {
       "name": "Parakeet Unified EN 0.6B (English, F16)",
       "notes": "NVIDIA's newest and most accurate English model. About 2.5 GB. Licensed by NVIDIA Corporation under the NVIDIA Open Model License."
     },
-    "parakeet_unified_en_0_6b_int8": {
+    "parakeet_unified_en": {
       "name": "Parakeet Unified EN 0.6B (English, int8)",
       "notes": "NVIDIA's newest English model, compressed to about 660 MB with the same results in our tests. Licensed by NVIDIA Corporation under the NVIDIA Open Model License."
     },
-    "nemotron_3_5_asr_streaming_0_6b": {
+    "nemotron_3_5": {
       "name": "Nemotron 3.5 ASR 0.6B (multilingual)",
       "notes": "NVIDIA's newest speech model: 35 languages, including Chinese, Japanese, Korean, Hindi and Arabic, and it detects which one you speak. About 2.6 GB. Provided by NVIDIA under the OpenMDW-1.1 license."
     },
-    "parakeet_ultra_0_6b_int8": {
+    "parakeet_ultra": {
       "name": "Parakeet Ultra 0.6B (multilingual, int8)",
       "notes": "NVIDIA's Parakeet v3, retrained by Moondream to make fewer mistakes, especially outside English and in noisy rooms. English and 24 other European languages, and it detects which one you speak. About 670 MB."
+    },
+    "whisper_large_v2": {
+      "name": "Large v2 (compressed)",
+      "notes": "Compressed Large v2. Very accurate, with a much smaller download."
+    },
+    "qwen3_5_4b": {
+      "name": "Qwen3.5 4B",
+      "notes": "A small model that runs quickly, even on a laptop."
+    },
+    "qwen3_5_9b": {
+      "name": "Qwen3.5 9B",
+      "notes": "Larger and a little more thorough. Needs 16 GB of memory and takes about twice as long."
     }
   },
   "mac": {

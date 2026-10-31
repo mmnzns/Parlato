@@ -88,6 +88,11 @@ export function ParakeetModelCard({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             {t("speech.cancel")}
           </Button>
+        ) : m.downloading_elsewhere ? (
+          <Button size="sm" variant="outline" disabled>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t("speech.downloadingElsewhere")}
+          </Button>
         ) : (
           <Button size="sm" variant="outline" onClick={onDownload}>
             <Download className="h-3.5 w-3.5" />

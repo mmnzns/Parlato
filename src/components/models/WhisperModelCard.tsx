@@ -5,10 +5,11 @@
 // Parlato: rendered through the Workbench ModelTile.
 
 import { useTranslation } from "react-i18next";
-import { Download, Trash2, X } from "lucide-react";
+import { Download, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelTile, TileProgress } from "@/components/models/ModelTile";
 import { modelName, modelNotes } from "@/lib/modelText";
+import { translateError } from "@/lib/translateError";
 import type { DownloadProgress, WhisperModelState } from "@/lib/tauri";
 
 import { formatBytes } from "@/lib/format";
@@ -87,6 +88,11 @@ export function WhisperModelCard({
             <X className="h-3.5 w-3.5" />
             {t("speech.cancel")}
           </Button>
+        ) : m.downloading_elsewhere ? (
+          <Button size="sm" variant="outline" disabled>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t("speech.downloadingElsewhere")}
+          </Button>
         ) : (
           <Button size="sm" variant="outline" onClick={onDownload}>
             <Download className="h-3.5 w-3.5" />
@@ -97,7 +103,7 @@ export function WhisperModelCard({
     >
       {p && <TileProgress pct={pct} label={`${pct ?? 0}%`} />}
       {error && (
-        <p className="text-xs text-destructive">{t("whisperModels.errorPrefix", { message: error })}</p>
+        <p className="text-xs text-destructive">{t("whisperModels.errorPrefix", { message: translateError(t, error) })}</p>
       )}
     </ModelTile>
   );
