@@ -87,8 +87,20 @@ pub struct LLMSelection {
 
 pub fn get_selection(app: &AppHandle) -> Option<LLMSelection> {
     let store = app.store(STORE_FILE).ok()?;
-    let provider_id = store.get(KEY_LLM_PROVIDER)?.as_str()?.to_string();
-    let model = store.get(KEY_LLM_MODEL)?.as_str()?.to_string();
+    selection_from(store.get(KEY_LLM_PROVIDER), store.get(KEY_LLM_MODEL))
+}
+
+/// Le choix enregistre. Le moteur integre (`llamacpp`) choisit son modele dans
+/// `llm_selected_gguf` et n'ecrit pas toujours `llm_model` (Parlato 0.14.1 ne
+/// l'ecrit pas) : une cle absente vaut "" (le modele par defaut du fournisseur).
+fn selection_from(
+    provider: Option<serde_json::Value>,
+    model: Option<serde_json::Value>,
+) -> Option<LLMSelection> {
+    let provider_id = provider?.as_str()?.to_string();
+    let model = model
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
     if provider_id.is_empty() {
         return None;
     }
@@ -487,6 +499,21 @@ pub async fn enhance_with_override(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_saved_provider_without_a_model_key_is_still_a_selection() {
+        use super::selection_from;
+        use serde_json::json;
+        let sel = selection_from(Some(json!("llamacpp")), None).unwrap();
+        assert_eq!(
+            (sel.provider_id.as_str(), sel.model.as_str()),
+            ("llamacpp", "")
+        );
+        let sel = selection_from(Some(json!("openai")), Some(json!("gpt-x"))).unwrap();
+        assert_eq!(sel.model, "gpt-x");
+        assert!(selection_from(None, Some(json!("m"))).is_none());
+        assert!(selection_from(Some(json!("")), None).is_none());
+    }
+
     use super::*;
 
     #[test]
