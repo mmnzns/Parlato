@@ -9,10 +9,10 @@
 # the engine's own .cargo/config.toml, which Cargo would not do inside Parlato). The first run builds llama.cpp and
 # takes several minutes; later runs reuse the cache. src-tauri/binaries/ is git-ignored.
 #
-# Override: ENGINE_REF (tag, default v0.3.1), PARLATO_ENGINE_CACHE (cache folder).
+# Override: ENGINE_REF (tag, default v0.3.2), PARLATO_ENGINE_CACHE (cache folder).
 set -euo pipefail
 
-ENGINE_REF="${ENGINE_REF:-v0.3.1}"
+ENGINE_REF="${ENGINE_REF:-v0.3.2}"
 CACHE="${PARLATO_ENGINE_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/parlato/voice-engine-$ENGINE_REF}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/src-tauri/binaries"
