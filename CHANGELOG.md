@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Whisper uses the Mac's graphics chip.
 - Local AI runs in a separate helper program and stays ready between
   dictations.
-- Updated the shared engine to version 0.3.1. Text from Whisper is joined
+- Updated the shared engine to version 0.3.2. Text from Whisper is joined
   with the engine's own rule for spaces between sentences. The "Graphics card
   failed, used processor" notice now appears only when the graphics card
   really failed, not when a model simply has no graphics card support.

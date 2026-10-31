@@ -76,10 +76,10 @@ tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 # Shared engine (voice-engine, MIT): models, speech, local AI client. Every
 # engine crate stays on the same tag. Code flows from the engine into Parlato
 # only, never the other way (see CLAUDE.md "One shared engine").
-voice-engine-protocol = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.1" }
-voice-engine-client = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.1" }
-voice-engine-models = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.1" }
-voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.1" }
+voice-engine-protocol = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
+voice-engine-client = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
+voice-engine-models = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
+voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2" }
 
 [dev-dependencies]
 # Tests of the model store use temp folders, never the real shared folder.
@@ -91,7 +91,7 @@ tempfile = "3"
 # `discrete_card`). Cargo unifies the features with the
 # entry in [dependencies]. Whisper and Parakeet themselves (whisper-rs,
 # parakeet-rs) come in through voice-engine-stt, not directly.
-voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.1", features = ["directml"] }
+voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.3.2", features = ["directml"] }
 # UI Automation pour l'extraction d'URL des navigateurs (Power Mode).
 uiautomation = "0.24"
 keyring = { version = "3", features = ["windows-native"] }

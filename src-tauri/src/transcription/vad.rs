@@ -1,5 +1,5 @@
 // VAD (Voice Activity Detection) Silero, par `voice_engine_stt::vad::VadDetector`
-// (voice-engine v0.3.1, modele "vad" du catalogue).
+// (voice-engine v0.3.2, modele "vad" du catalogue).
 //
 // Reference VoiceInk :
 // - Transcription/Core/Whisper/VADModelManager.swift : le modele Silero.

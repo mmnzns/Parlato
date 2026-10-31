@@ -15,11 +15,11 @@ jobs:
   # app's Cargo.toml pins. One artifact per target, "helpers-<triple>", with
   # the helper files, SHA256SUMS and build-info.txt. The app jobs below
   # download it into src-tauri/binaries, where Tauri finds the externalBin
-  # sidecars. Keep the two tags (@v0.3.1, engine-ref) equal to Cargo.toml's.
+  # sidecars. Keep the two tags (@v0.3.2, engine-ref) equal to Cargo.toml's.
   helpers:
-    uses: mmnzns/voice-engine/.github/workflows/build-helpers.yml@v0.3.1
+    uses: mmnzns/voice-engine/.github/workflows/build-helpers.yml@v0.3.2
     with:
-      engine-ref: v0.3.1
+      engine-ref: v0.3.2
       helpers: llm,llm-vulkan
       llm-name: parlato-llm
 
