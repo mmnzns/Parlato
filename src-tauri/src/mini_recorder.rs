@@ -39,12 +39,10 @@ const KEY_STYLE: &str = "recorder_style";
 /// Dimensions VoiceInk MiniRecorderPanel.
 const WIDTH: f64 = 300.0;
 const HEIGHT: f64 = 120.0;
-const BOTTOM_PADDING: f64 = 24.0;
-/// Position y du Notch recorder depuis le haut. VoiceInk colle au notch
-/// (y=screen.maxY-200). Sur Windows, sans notch, on descend de 0 px du
-/// haut pour que le pill sorte de l'ecran.
-#[cfg_attr(target_os = "macos", allow(dead_code))] // macOS uses the work area
-const TOP_PADDING: f64 = 0.0;
+/// Espace (pixels logiques) entre le bas de la bulle et le bas de la zone
+/// utile (haut de la barre des taches ou du Dock), meme valeur sur Windows
+/// et macOS pour que la bulle paraisse flotter.
+const BOTTOM_PADDING: f64 = 32.0;
 
 /// Fenetre popover du bouton Mode (VoiceInk ModePopover : 180 pt de large,
 /// 340 max de haut ; ici 184 px, la largeur de la bulle).
@@ -227,10 +225,53 @@ fn apply_no_activate_style(window: &tauri::WebviewWindow) {
     }
 }
 
-/// Parlato : on macOS, place the pill on the screen under the mouse, inside
-/// the usable area (below the menu bar and notch, above the Dock), which the
-/// full monitor size used on Windows does not account for.
-#[cfg(target_os = "macos")]
+/// Parlato : rectangle en pixels physiques (position du coin haut-gauche et
+/// taille). Sert a decrire l'ecran et sa zone utile (hors barre des taches,
+/// Dock, barre de menus).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PxRect {
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+}
+
+/// Parlato : position (pixels physiques, coin haut-gauche) de la fenetre de
+/// la bulle. Fonction pure, testee ci-dessous.
+///
+/// - Horizontalement : centree dans la zone utile (`work`).
+/// - Mini : le bas de la fenetre est a `gap` pixels logiques AU-DESSUS du bas
+///   de la zone utile, donc au-dessus de la barre des taches ou du Dock. Une
+///   barre des taches masquee automatiquement laisse la zone utile egale a
+///   l'ecran entier : l'espace s'applique quand meme.
+/// - Notch : colle au haut de la zone utile (sous une barre en haut).
+/// - Le resultat est borne a l'ecran (`screen`) pour qu'une zone utile
+///   etroite ou une barre sur le cote ne pousse jamais la bulle dehors.
+fn pill_position(
+    screen: PxRect,
+    work: PxRect,
+    scale: f64,
+    style: RecorderStyle,
+    gap: f64,
+) -> (i32, i32) {
+    let win_w = (WIDTH * scale).round();
+    let win_h = (HEIGHT * scale).round();
+    let x = work.x as f64 + (work.w as f64 - win_w) / 2.0;
+    let y = match style {
+        RecorderStyle::Mini => (work.y + work.h) as f64 - win_h - (gap * scale).round(),
+        RecorderStyle::Notch => work.y as f64,
+    };
+    let max_x = (screen.x + screen.w) as f64 - win_w;
+    let max_y = (screen.y + screen.h) as f64 - win_h;
+    let x = x.min(max_x).max(screen.x as f64);
+    let y = y.min(max_y).max(screen.y as f64);
+    (x.round() as i32, y.round() as i32)
+}
+
+/// Parlato : place la bulle sur l'ecran sous la souris (sinon l'ecran
+/// principal), dans la zone utile de cet ecran. Sur Windows cela tient
+/// compte de la barre des taches (n'importe quel bord), sur macOS de la
+/// barre de menus, de l'encoche et du Dock.
 fn reposition(window: &tauri::WebviewWindow, style: RecorderStyle) {
     use tauri::PhysicalPosition;
     let monitor = window
@@ -242,33 +283,21 @@ fn reposition(window: &tauri::WebviewWindow, style: RecorderStyle) {
         return;
     };
     let scale = monitor.scale_factor();
-    let area = monitor.work_area();
-    let (ax, ay) = (area.position.x as f64, area.position.y as f64);
-    let (aw, ah) = (area.size.width as f64, area.size.height as f64);
-    let x = ax + (aw - WIDTH * scale) / 2.0;
-    let y = match style {
-        RecorderStyle::Mini => ay + ah - (HEIGHT + BOTTOM_PADDING) * scale,
-        RecorderStyle::Notch => ay,
+    let to_rect = |p: &tauri::PhysicalPosition<i32>, s: &tauri::PhysicalSize<u32>| PxRect {
+        x: p.x,
+        y: p.y,
+        w: s.width as i32,
+        h: s.height as i32,
     };
+    let screen = to_rect(monitor.position(), monitor.size());
+    let area = monitor.work_area();
+    let work = to_rect(&area.position, &area.size);
+    let (x, y) = pill_position(screen, work, scale, style, BOTTOM_PADDING);
+    // Position d'abord, pour que la fenetre soit deja sur l'ecran cible
+    // (et son echelle) quand on fixe la taille logique.
+    let _ = window.set_position(PhysicalPosition::new(x, y));
     let _ = window.set_size(LogicalSize::new(WIDTH, HEIGHT));
-    let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
-}
-
-#[cfg(not(target_os = "macos"))]
-fn reposition(window: &tauri::WebviewWindow, style: RecorderStyle) {
-    if let Ok(Some(monitor)) = window.primary_monitor() {
-        let size = monitor.size();
-        let scale = monitor.scale_factor();
-        let work_w = size.width as f64 / scale;
-        let work_h = size.height as f64 / scale;
-        let x = (work_w - WIDTH) / 2.0;
-        let y = match style {
-            RecorderStyle::Mini => work_h - HEIGHT - BOTTOM_PADDING,
-            RecorderStyle::Notch => TOP_PADDING,
-        };
-        let _ = window.set_position(LogicalPosition::new(x, y));
-        let _ = window.set_size(LogicalSize::new(WIDTH, HEIGHT));
-    }
+    let _ = window.set_position(PhysicalPosition::new(x, y));
 }
 
 /// Montre le popover du bouton Mode, ancre sur la bulle. Les ancres sont en
@@ -338,5 +367,95 @@ pub fn close(app: &AppHandle) {
     }
     if let Some(win) = app.get_webview_window(LABEL) {
         let _ = win.close();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn r(x: i32, y: i32, w: i32, h: i32) -> PxRect {
+        PxRect { x, y, w, h }
+    }
+
+    const GAP: f64 = 32.0;
+
+    #[test]
+    fn taskbar_at_bottom_floats_above_work_area() {
+        // 1920x1080 at 100%, taskbar 48 px at the bottom.
+        let screen = r(0, 0, 1920, 1080);
+        let work = r(0, 0, 1920, 1032);
+        let (x, y) = pill_position(screen, work, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!(x, (1920 - 300) / 2);
+        // window bottom = 1032 - 32
+        assert_eq!(y + 120, 1000);
+    }
+
+    #[test]
+    fn auto_hidden_taskbar_still_has_the_gap() {
+        let screen = r(0, 0, 1920, 1080);
+        let (_, y) = pill_position(screen, screen, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!(y + 120, 1080 - 32);
+    }
+
+    #[test]
+    fn taskbar_on_the_left_shifts_x_only() {
+        let screen = r(0, 0, 1920, 1080);
+        let work = r(60, 0, 1860, 1080);
+        let (x, y) = pill_position(screen, work, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!(x, 60 + (1860 - 300) / 2);
+        assert_eq!(y + 120, 1080 - 32);
+    }
+
+    #[test]
+    fn taskbar_on_the_right_shifts_x_only() {
+        let screen = r(0, 0, 1920, 1080);
+        let work = r(0, 0, 1860, 1080);
+        let (x, y) = pill_position(screen, work, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!(x, (1860 - 300) / 2);
+        assert_eq!(y + 120, 1080 - 32);
+    }
+
+    #[test]
+    fn taskbar_on_top_mini_unchanged_notch_sits_below_it() {
+        let screen = r(0, 0, 1920, 1080);
+        let work = r(0, 48, 1920, 1032);
+        let (_, y) = pill_position(screen, work, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!(y + 120, 1080 - 32);
+        let (_, y) = pill_position(screen, work, 1.0, RecorderStyle::Notch, GAP);
+        assert_eq!(y, 48);
+    }
+
+    #[test]
+    fn second_monitor_to_the_right_and_negative_origin() {
+        // Secondary monitor left of the primary (negative x) and above it.
+        let screen = r(-1920, -200, 1920, 1080);
+        let work = r(-1920, -200, 1920, 1032);
+        let (x, y) = pill_position(screen, work, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!(x, -1920 + (1920 - 300) / 2);
+        assert_eq!(y + 120, -200 + 1032 - 32);
+        // Monitor to the right of the primary.
+        let screen = r(1920, 0, 2560, 1440);
+        let (x, y) = pill_position(screen, screen, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!(x, 1920 + (2560 - 300) / 2);
+        assert_eq!(y + 120, 1440 - 32);
+    }
+
+    #[test]
+    fn high_dpi_scales_size_and_gap() {
+        // 200%: 3840x2160 physical, work area loses 96 px at the bottom.
+        let screen = r(0, 0, 3840, 2160);
+        let work = r(0, 0, 3840, 2064);
+        let (x, y) = pill_position(screen, work, 2.0, RecorderStyle::Mini, GAP);
+        assert_eq!(x, (3840 - 600) / 2);
+        assert_eq!(y + 240, 2064 - 64);
+    }
+
+    #[test]
+    fn result_never_leaves_the_screen() {
+        // Tiny work area: clamp to the screen.
+        let screen = r(0, 0, 200, 100);
+        let (x, y) = pill_position(screen, screen, 1.0, RecorderStyle::Mini, GAP);
+        assert_eq!((x, y), (0, 0));
     }
 }
