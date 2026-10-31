@@ -1,4 +1,4 @@
-// Parlato : l'IA locale, dans l'assistant IA du moteur (voice-engine v0.2.2).
+// Parlato : l'IA locale, dans l'assistant IA du moteur (voice-engine v0.3.0).
 //
 // Un `LocalAi` possede UN `LlmClient` : le client lance l'assistant
 // (`parlato-llm`, le sidecar Tauri a cote de l'executable), le garde tant que
@@ -20,7 +20,6 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -30,7 +29,7 @@ use tauri::{AppHandle, Manager};
 use tracing::{info, warn};
 use voice_engine_client::{EngineError, Limits, LlmClient, LlmConfig, Outcome};
 use voice_engine_models::ModelHandle;
-use voice_engine_protocol::Completion;
+use voice_engine_protocol::{Completion, Fallback};
 
 use crate::models::store::ModelStore;
 
@@ -38,8 +37,8 @@ use crate::models::store::ModelStore;
 /// Au-dela, le nettoyage est abandonne et le texte brut est colle, au lieu
 /// de laisser la dictee en attente sans fin sur une machine lente. Les
 /// limites du client valent pour toute requete (un chargement de 9B peut
-/// durer plus longtemps) : cette limite-ci est donc surveillee ici et
-/// arrete la requete par `cancel`.
+/// durer plus longtemps) : cette limite-ci est donnee a `complete_within`, qui
+/// la compte une fois le modele charge.
 pub const GENERATION_LIMIT: Duration = Duration::from_secs(60);
 
 /// Le nom du sidecar (`externalBin` de tauri.conf.json, sans le triplet).
@@ -86,7 +85,8 @@ pub struct LocalAi {
     /// Une generation tourne : seule celle-la est annulee par `cancel`, pas un
     /// chargement en arriere-plan.
     generating: AtomicBool,
-    /// La derniere reponse ou le dernier chargement a dit `fell_back`.
+    /// La derniere reponse ou le dernier chargement a rapporte un repli
+    /// (n'importe lequel, pas seulement un echec de la carte).
     last_fell_back: AtomicBool,
 }
 
@@ -112,9 +112,8 @@ pub fn helper_paths(dir: &Path, windows_x64: bool) -> (PathBuf, Option<PathBuf>)
 
 /// L'assistant peut-il essayer une carte graphique ? Mac : oui, c'est le meme
 /// assistant (Metal). Windows : seulement avec l'assistant Vulkan ; sans lui
-/// le client n'a que l'assistant processeur, qui ne repond jamais `fell_back`
-/// (rien n'a ete essaye) : on ne demande alors pas la carte, donc aucun avis
-/// "carte graphique en echec" pour un fichier absent.
+/// le client n'a que l'assistant processeur (`NoCardHelper`, silencieux) : on
+/// ne demande alors pas la carte, ce qui garde `backend()` juste.
 fn card_path(vulkan_helper: bool, mac: bool) -> bool {
     mac || vulkan_helper
 }
@@ -160,7 +159,7 @@ pub fn error_label(e: &EngineError) -> &'static str {
         EngineError::GpuFailed { .. } => "llama.cpp: graphics card failed",
         EngineError::BadRequest => "llama.cpp: bad request",
         EngineError::Internal { .. } => "llama.cpp: internal error",
-        EngineError::Crashed => "llama.cpp: the AI helper stopped",
+        EngineError::Crashed { .. } => "llama.cpp: the AI helper stopped",
         EngineError::VersionMismatch { .. } => "llama.cpp: the AI helper is from another version",
         EngineError::TimedOut => "llama.cpp: the AI helper did not answer in time",
         EngineError::CouldNotStart { .. } => "llama.cpp: the AI helper could not start",
@@ -181,7 +180,7 @@ fn error_kind(e: &EngineError) -> &'static str {
         EngineError::GpuFailed { .. } => "gpu_failed",
         EngineError::BadRequest => "bad_request",
         EngineError::Internal { .. } => "internal",
-        EngineError::Crashed => "crashed",
+        EngineError::Crashed { .. } => "crashed",
         EngineError::VersionMismatch { .. } => "version_mismatch",
         EngineError::TimedOut => "timed_out",
         EngineError::CouldNotStart { .. } => "could_not_start",
@@ -233,16 +232,20 @@ impl LocalAi {
             && !self.gpu_failed.load(Ordering::Relaxed)
     }
 
-    /// Ce qu'une reponse du moteur dit de la carte graphique : un repli est
-    /// signale une seule fois, puis le processeur sert jusqu'a la fermeture.
-    fn note_backend(&self, gpu_asked: bool, backend: &str, fell_back: bool) {
+    /// Ce qu'une reponse du moteur dit de la carte graphique : un echec de la
+    /// carte (`CardFailed`, `CardOutOfMemory`) est signale une seule fois, puis
+    /// le processeur sert jusqu'a ce que la personne rallume la carte. Les
+    /// autres replis (`NoCardPath`, `NoCardHelper`, `RememberedFailure`) sont
+    /// silencieux.
+    fn note_backend(&self, gpu_asked: bool, backend: &str, fallback: Option<Fallback>) {
         *self.last_backend.lock() = Some(if backend.is_empty() {
             "cpu".into()
         } else {
             backend.to_string()
         });
-        self.last_fell_back.store(fell_back, Ordering::Relaxed);
-        if gpu_asked && fell_back {
+        self.last_fell_back
+            .store(fallback.is_some(), Ordering::Relaxed);
+        if gpu_asked && crate::use_gpu::card_failed(fallback) {
             self.note_gpu_failure();
         }
     }
@@ -269,6 +272,22 @@ impl LocalAi {
     /// le dire a l'utilisateur.
     pub fn take_gpu_notice(&self) -> bool {
         self.gpu_notice_pending.swap(false, Ordering::Relaxed)
+    }
+
+    /// La personne a rallume la carte graphique : le client du moteur oublie
+    /// l'echec (`retry_gpu` attend une requete en cours, d'ou le fil), puis
+    /// l'echec de Parlato s'efface. Rien n'est redemarre : le prochain
+    /// chargement ou la prochaine requete essaie la carte.
+    pub fn retry_gpu_in_background(self: &Arc<Self>) {
+        let me = self.clone();
+        let _ = std::thread::Builder::new()
+            .name("parlato-llm-retry-gpu".into())
+            .spawn(move || {
+                me.client.retry_gpu();
+                me.gpu_failed.store(false, Ordering::Relaxed);
+                me.gpu_notice_pending.store(false, Ordering::Relaxed);
+                info!("carte graphique de l'IA locale : nouvel essai demande");
+            });
     }
 
     /// Ou tourne (ou tournerait) le modele : "metal", "vulkan" ou "cpu". Ce que
@@ -328,13 +347,13 @@ impl LocalAi {
         let path = model.path.to_string_lossy().into_owned();
         match self.client.load(&path, n_ctx, gpu, &mut |_| {}) {
             Ok(out) => {
-                self.note_backend(gpu, &out.backend.backend, out.fell_back);
+                self.note_backend(gpu, &out.backend.backend, out.fallback);
                 info!(
                     seconds = out.value.seconds,
                     wall_ms = started.elapsed().as_millis() as u64,
                     n_ctx,
                     backend = %out.backend.backend,
-                    fell_back = out.fell_back,
+                    fallback = ?out.fallback,
                     "Modele d'IA locale charge"
                 );
                 if self.epoch.load(Ordering::SeqCst) == epoch {
@@ -408,37 +427,21 @@ impl LocalAi {
         request: Completion,
         gpu: bool,
     ) -> std::result::Result<String, CompleteError> {
-        // La limite de generation : un fil qui arrete la requete passe 60 s.
-        let fired = Arc::new(AtomicBool::new(false));
-        let (stop, wait) = mpsc::channel::<()>();
-        let watchdog = {
-            let client = self.client.clone();
-            let fired = fired.clone();
-            std::thread::Builder::new()
-                .name("parlato-llm-limit".into())
-                .spawn(move || {
-                    if wait.recv_timeout(GENERATION_LIMIT) == Err(RecvTimeoutError::Timeout) {
-                        fired.store(true, Ordering::SeqCst);
-                        client.cancel();
-                    }
-                })
-                .ok()
-        };
         self.generating.store(true, Ordering::SeqCst);
         let started = Instant::now();
-        let result = self.client.complete(request, &mut |_| {});
+        // La limite de generation, comptee par le moteur une fois le modele
+        // charge. Depassee, il arrete l'assistant (le modele est decharge).
+        let result = self
+            .client
+            .complete_within(GENERATION_LIMIT, request, &mut |_| {});
         self.generating.store(false, Ordering::SeqCst);
-        drop(stop);
-        if let Some(w) = watchdog {
-            let _ = w.join();
-        }
         match result {
             Ok(Outcome {
                 value,
                 backend,
-                fell_back,
+                fallback,
             }) => {
-                self.note_backend(gpu, &backend.backend, fell_back);
+                self.note_backend(gpu, &backend.backend, fallback);
                 info!(
                     wall_ms = started.elapsed().as_millis() as u64,
                     prompt_tokens = value.prompt_tokens,
@@ -446,12 +449,21 @@ impl LocalAi {
                     seconds = value.seconds,
                     truncated = value.truncated,
                     backend = %backend.backend,
-                    fell_back,
+                    fallback = ?fallback,
                     "Reponse d'IA locale"
                 );
                 Ok(value.text)
             }
-            Err(EngineError::Cancelled) if fired.load(Ordering::SeqCst) => Err(CompleteError::Timeout),
+            Err(EngineError::TimedOut) => {
+                // L'assistant a ete arrete : le modele n'est plus charge.
+                self.slot.lock().take();
+                if started.elapsed() >= GENERATION_LIMIT {
+                    Err(CompleteError::Timeout)
+                } else {
+                    // Une limite du client (demarrage, silence), pas la notre.
+                    Err(CompleteError::Engine(EngineError::TimedOut))
+                }
+            }
             Err(e) => Err(CompleteError::Engine(e)),
         }
     }
@@ -505,6 +517,16 @@ impl LocalAi {
     fn failed(&self, what: &str, gpu_asked: bool, e: &EngineError) -> anyhow::Error {
         if gpu_asked && matches!(e, EngineError::GpuFailed { .. }) {
             self.note_gpu_failure();
+        }
+        if let EngineError::Crashed {
+            exit_code,
+            signal,
+            detail,
+        } = e
+        {
+            // Le moteur garantit que `detail` (5 dernieres lignes d'erreur de
+            // l'assistant) ne porte aucun texte de la personne.
+            warn!(op = what, ?exit_code, ?signal, %detail, "l'assistant d'IA locale s'est arrete");
         }
         warn!(op = what, kind = error_kind(e), "IA locale en echec");
         anyhow!(error_label(e))
@@ -729,7 +751,7 @@ mod tests {
             EngineError::GpuFailed { fell_back: true },
             EngineError::BadRequest,
             EngineError::Internal { message: "private words".into() },
-            EngineError::Crashed,
+            EngineError::Crashed { exit_code: Some(1), signal: None, detail: "secret words".into() },
             EngineError::VersionMismatch { helper: 1, app: 2 },
             EngineError::TimedOut,
             EngineError::CouldNotStart { message: "/some/path".into() },
@@ -747,16 +769,46 @@ mod tests {
     fn a_fallback_is_reported_once_and_pins_the_processor() {
         let ai = LocalAi::new(config_for("/nowhere".into(), None), None);
         // Nothing asked of the card: nothing to report.
-        ai.note_backend(false, "cpu", true);
+        ai.note_backend(false, "cpu", None);
         assert!(!ai.take_gpu_notice());
         assert_eq!(ai.backend(), "cpu");
-        // The card was asked for and the processor ran.
-        ai.note_backend(true, "cpu", true);
+        // Asked, but the model has no card path or the build no card helper,
+        // or the failure was told before: silent, no failure is remembered.
+        for silent in [
+            Fallback::NoCardPath,
+            Fallback::NoCardHelper,
+            Fallback::RememberedFailure,
+        ] {
+            ai.note_backend(true, "cpu", Some(silent));
+            assert!(!ai.take_gpu_notice(), "{silent:?}");
+            assert!(!ai.gpu_failed(), "{silent:?}");
+        }
+        // The card was asked for, failed, and the processor ran.
+        ai.note_backend(true, "cpu", Some(Fallback::CardFailed));
         assert!(ai.take_gpu_notice());
         assert!(!ai.take_gpu_notice());
         assert!(!ai.gpu_wanted());
         // A second fall back (it cannot happen once the card is off) says nothing more.
-        ai.note_backend(true, "cpu", true);
+        ai.note_backend(true, "cpu", Some(Fallback::CardOutOfMemory));
+        assert!(!ai.take_gpu_notice());
+    }
+
+    #[test]
+    fn turning_the_card_back_on_forgets_the_failure_without_a_restart() {
+        let ai = Arc::new(LocalAi::new(config_for("/nowhere".into(), None), None));
+        ai.note_gpu_failure();
+        assert!(ai.gpu_failed());
+        ai.retry_gpu_in_background();
+        // The client waits for a request in progress, so it runs on a thread.
+        let mut cleared = false;
+        for _ in 0..50 {
+            if !ai.gpu_failed() {
+                cleared = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(cleared, "the failure was not forgotten");
         assert!(!ai.take_gpu_notice());
     }
 

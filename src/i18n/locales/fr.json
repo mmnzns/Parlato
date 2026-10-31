@@ -687,7 +687,7 @@
     "gpuCard": "Carte graphique trouvée : {{name}}.",
     "gpuNoCard": "Aucune carte graphique trouvée, le processeur est utilisé.",
     "gpuChecking": "Recherche d'une carte graphique…",
-    "gpuFailed": "La carte graphique n'a pas fonctionné : le processeur est utilisé jusqu'au prochain redémarrage de Parlato.",
+    "gpuFailed": "La carte graphique n'a pas fonctionné : le processeur est utilisé. Désactivez puis réactivez ce réglage pour réessayer la carte.",
     "keepAliveLabel": "Garder les modèles prêts",
     "keepAliveDesc": "Durée pendant laquelle les modèles restent en mémoire après une dictée, pour que la suivante démarre plus vite. Les libérer tout de suite rend la mémoire plus tôt.",
     "keepAliveNever": "Libérer tout de suite",

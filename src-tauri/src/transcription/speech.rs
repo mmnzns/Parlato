@@ -1,9 +1,9 @@
-// Parlato : les moteurs de parole, sur `voice-engine-stt` (voice-engine v0.2.2).
+// Parlato : les moteurs de parole, sur `voice-engine-stt` (voice-engine v0.3.0).
 //
 // Un `SpeechSlot` garde UN modele charge (`Box<dyn Transcriber>`), le verrou
 // du dossier de modeles partage (`ModelHandle`) tant qu'il est charge, et
-// l'etat de la carte graphique : un echec (le moteur dit `fell_back`) fait
-// passer ce moteur sur le processeur jusqu'a la fermeture de l'application,
+// l'etat de la carte graphique : un echec (le moteur dit `CardFailed` ou
+// `CardOutOfMemory`) fait passer ce moteur sur le processeur jusqu'a la fermeture de l'application,
 // avec un avis a dire une fois dans la bulle. Whisper et la famille Parakeet
 // ont chacun leur slot (whisper.rs, parakeet.rs) ; la detection de voix est
 // dans vad.rs.
@@ -212,11 +212,13 @@ impl SpeechSlot {
         let engine = source.load(LoadOptions { gpu, threads })?;
         let backend = engine.backend();
         let mut gpu_asked = gpu;
-        if gpu && backend.fell_back {
-            // La carte graphique a ete demandee et n'a pas servi : le
-            // processeur a pris le relais (le moteur ne dit pas pourquoi).
+        if gpu && crate::use_gpu::card_failed(backend.fallback) {
+            // La carte graphique a ete demandee, a echoue, et le processeur a
+            // pris le relais. Les autres replis (`NoCardPath`...) sont
+            // silencieux : pas d'avis, pas de memoire d'echec.
             warn!(
                 kind = ?source.kind(),
+                fallback = ?backend.fallback,
                 "carte graphique impossible, repli sur le processeur"
             );
             self.note_gpu_failure();
@@ -226,7 +228,7 @@ impl SpeechSlot {
         info!(
             asked = if gpu { "gpu" } else { "cpu" },
             used = %backend.backend,
-            fell_back = backend.fell_back,
+            fallback = ?backend.fallback,
             load_ms = started.elapsed().as_millis() as u64,
             "Modele de parole charge"
         );
@@ -261,7 +263,7 @@ impl SpeechSlot {
             .ok_or_else(|| anyhow!("aucun modele de parole charge"))?;
         let kind = loaded.source.kind();
         let on_gpu =
-            loaded.gpu_asked && !loaded.backend.fell_back && loaded.backend.backend != "cpu";
+            loaded.gpu_asked && !loaded.backend.fell_back() && loaded.backend.backend != "cpu";
         let first_gpu_run = on_gpu && !loaded.verified;
         match op(loaded.engine.as_mut(), kind) {
             Ok(r) => {
@@ -323,6 +325,22 @@ impl SpeechSlot {
         self.gpu_notice_pending.swap(false, Ordering::Relaxed)
     }
 
+    /// La personne a rallume la carte graphique : oublie l'echec de cette
+    /// session (la parole tourne dans ce processus, le moteur n'a rien d'autre
+    /// a remettre a zero). Le modele charge est recharge sur la carte a la
+    /// prochaine dictee, `gpu_asked` ayant change.
+    pub fn retry_gpu(&self) {
+        self.gpu_failed.store(false, Ordering::Relaxed);
+        self.gpu_notice_pending.store(false, Ordering::Relaxed);
+        let used = self
+            .current
+            .lock()
+            .as_ref()
+            .map(|c| c.backend.backend.clone())
+            .unwrap_or_else(|| "cpu".into());
+        *self.last_backend.lock() = used;
+    }
+
     pub(crate) fn note_gpu_failure(&self) {
         self.gpu_failed.store(true, Ordering::Relaxed);
         self.gpu_notice_pending.store(true, Ordering::Relaxed);
@@ -364,6 +382,16 @@ mod tests {
         assert_eq!(slot.provider(), "cpu-fallback");
         assert!(slot.take_gpu_notice());
         assert!(!slot.take_gpu_notice());
+    }
+
+    #[test]
+    fn retrying_the_card_forgets_the_failure_and_the_notice() {
+        let slot = SpeechSlot::default();
+        slot.note_gpu_failure();
+        slot.retry_gpu();
+        assert!(!slot.gpu_failed());
+        assert!(!slot.take_gpu_notice());
+        assert_eq!(slot.provider(), "cpu");
     }
 
     #[test]

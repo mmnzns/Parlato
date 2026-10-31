@@ -368,12 +368,32 @@ pub fn get_use_gpu(app: AppHandle) -> UseGpu {
 }
 
 /// Les modeles de parole et d'IA charges sont decharges : le prochain
-/// chargement prend la nouvelle valeur.
+/// chargement prend la nouvelle valeur. Rallumer la carte graphique efface
+/// aussi l'echec de cette session (parole et IA locale) : rien n'est
+/// redemarre, le prochain chargement essaie la carte.
 #[tauri::command]
 pub fn set_use_gpu(app: AppHandle, enabled: bool) -> Result<(), String> {
     crate::use_gpu::set(&app, enabled).map_err(|e| e.to_string())?;
+    if enabled {
+        retry_gpu(&app);
+    }
     pipeline::unload_inference_models(&app);
     Ok(())
+}
+
+/// "Try again" de la carte graphique sur chaque moteur vivant : les deux
+/// moteurs de parole (dans ce processus) et le client de l'IA locale
+/// (`LlmClient::retry_gpu`).
+fn retry_gpu(app: &AppHandle) {
+    if let Some(st) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
+        st.0.retry_gpu();
+    }
+    if let Some(st) = app.try_state::<crate::commands::transcription::WhisperEngineState>() {
+        st.0.retry_gpu();
+    }
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        ai.retry_gpu_in_background();
+    }
 }
 
 /// Parlato : duree (s) pendant laquelle les modeles restent charges apres
