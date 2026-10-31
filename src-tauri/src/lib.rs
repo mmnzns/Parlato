@@ -68,7 +68,7 @@ use commands::enhancement::{
 };
 use commands::llm_models::{
     cancel_download_gguf_model, delete_gguf_model, download_gguf_model, get_llamacpp_settings,
-    get_selected_gguf, import_gguf_model, list_gguf_models, llamacpp_cuda_enabled,
+    get_selected_gguf, import_gguf_model, list_gguf_models, llamacpp_backend,
     set_llamacpp_settings, set_selected_gguf,
 };
 use commands::parakeet::{
@@ -208,6 +208,9 @@ pub fn run() {
             // des ids, deplacement des anciens modeles, nettoyage. Avant tout
             // ce qui peut charger un modele.
             app.manage(models::ModelStoreState(models::startup::init(&handle)));
+            // L'assistant IA du moteur (IA locale) : le client est cree ici, le
+            // modele choisi se charge en arriere-plan.
+            enhancement::local_ai::init(&handle);
             match db::Database::open(app.handle()) {
                 Ok(db) => {
                     app.manage(db);
@@ -407,7 +410,7 @@ pub fn run() {
             set_selected_gguf,
             get_llamacpp_settings,
             set_llamacpp_settings,
-            llamacpp_cuda_enabled,
+            llamacpp_backend,
             list_parakeet_models,
             download_parakeet_model,
             cancel_download_parakeet_model,
@@ -466,6 +469,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, _event| {
+            // Parlato : the local AI helper stops with the app.
+            if matches!(_event, tauri::RunEvent::Exit) {
+                enhancement::local_ai::shutdown();
+            }
             // Parlato : on macOS, clicking the Dock icon while the window is
             // hidden (closed to the menu bar) brings the window back.
             #[cfg(target_os = "macos")]

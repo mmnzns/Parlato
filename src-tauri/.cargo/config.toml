@@ -4,7 +4,7 @@
 # copy", voice-engine v0.2.2). Cargo reads .cargo/config.toml only for the
 # workspace it builds, so an app that depends on the engine as a git
 # dependency must carry these lines itself. Keep them equal to the engine's.
-# After a change here: `cargo clean --release -p whisper-rs-sys -p llama-cpp-sys-2`.
+# After a change here: `cargo clean --release -p whisper-rs-sys`.
 [env]
 GGML_NATIVE = { value = "OFF", force = true }            # no "optimize for this CPU"; read by whisper-rs-sys and llama-cpp-sys-2
 GGML_AVX = { value = "ON", force = true }                # the x86 baseline: AVX2 + FMA + F16C + BMI2 (2013 and newer)
@@ -19,23 +19,6 @@ MACOSX_DEPLOYMENT_TARGET = { value = "11.0", force = true }   # the first macOS 
 CMAKE_C_FLAGS_RELEASE = { value = "-O2 -DNDEBUG", force = true }
 CMAKE_CXX_FLAGS_RELEASE = { value = "-O2 -DNDEBUG", force = true }
 
-# Parlato : llama.cpp (llama-cpp-sys-2) compile sa copie de cpp-httplib avec
-# OpenSSL s'il le trouve. Parlato ne s'en sert pas (les modeles sont
-# telecharges par Parlato lui-meme), et l'OpenSSL des runners macOS de
-# GitHub ne compile plus avec cette version de httplib (2026-10-15 :
-# "cannot initialize a variable of type 'X509_NAME *'"). llama-cpp-sys-2 ne
-# transmet a CMake que les variables CMAKE_*, d'ou cette variable-ci : elle
-# empeche find_package(OpenSSL), httplib est alors compile sans HTTPS.
-CMAKE_DISABLE_FIND_PACKAGE_OpenSSL = "TRUE"
-
-# llama-cpp-sys-2 et whisper-rs-sys embarquent tous les deux le runtime ggml
-# (issue ggml-org/llama.cpp#9267, ggml-org/whisper.cpp#1887). La duplication
-# des symboles ggml-quants fait echouer le link Windows, d'ou /FORCE:MULTIPLE
-# (le linker garde la premiere definition). Disparait quand llama.cpp sort de
-# l'app (unit 4 of the engine move). Windows x64 also takes the engine's CPU
-# baseline (llama-cpp-sys-2 turns the target features into GGML_AVX2, ...).
+# Windows x64 CPU baseline, the same as the engine's.
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "target-feature=+avx2,+fma,+f16c,+bmi2", "-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
-
-[target.aarch64-pc-windows-msvc]
-rustflags = ["-C", "link-args=/FORCE:MULTIPLE /IGNORE:4006 /IGNORE:4088"]
+rustflags = ["-C", "target-feature=+avx2,+fma,+f16c,+bmi2"]   # whisper-rs-sys turns these into GGML_AVX2, GGML_FMA, ...

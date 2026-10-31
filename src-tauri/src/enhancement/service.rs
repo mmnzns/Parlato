@@ -11,7 +11,7 @@
 //   6. retry : 3 tentatives avec backoff exponentiel (sauf Ollama/LocalCLI)
 //   7. rate limit : 1.0s min entre deux requetes cloud.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
@@ -19,8 +19,6 @@ use parking_lot::Mutex;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_store::StoreExt;
 use tracing::{info, warn};
-
-use super::providers::llamacpp::LlamaRuntime;
 
 use crate::db::{word_replacement as word_repo, Database};
 use crate::services::api_keys;
@@ -78,24 +76,6 @@ impl Default for EnhancementState {
             last_request: Mutex::new(None),
         }
     }
-}
-
-/// Runtime llama.cpp global. Initialise de maniere paresseuse au premier
-/// appel de l'enhancement llamacpp. LlamaBackend ne doit etre instancie
-/// qu'une seule fois par process.
-static LLAMA_RUNTIME: OnceLock<Arc<LlamaRuntime>> = OnceLock::new();
-
-pub fn llama_runtime() -> Option<Arc<LlamaRuntime>> {
-    LLAMA_RUNTIME.get().cloned()
-}
-
-fn ensure_llama_runtime() -> Result<Arc<LlamaRuntime>> {
-    if let Some(rt) = LLAMA_RUNTIME.get() {
-        return Ok(rt.clone());
-    }
-    let rt = Arc::new(LlamaRuntime::new()?);
-    let _ = LLAMA_RUNTIME.set(rt.clone());
-    Ok(LLAMA_RUNTIME.get().cloned().unwrap_or(rt))
 }
 
 /// Configuration LLM extraite du store.
@@ -177,33 +157,22 @@ pub fn has_provider_configured(app: &AppHandle) -> bool {
     api_keys::has_api_key(&sel.provider_id)
 }
 
-/// Construit la chaine config passee a LlamaCppProvider via endpoint_override.
-/// Format : `{gguf_path}|{n_gpu_layers}|{context_size}|{max_tokens}`.
+/// Construit la chaine config passee a LlamaCppProvider via endpoint_override :
+/// `{id du modele}|{contexte}|{tokens max}`. Le fichier du modele (catalogue ou
+/// import) est retrouve par l'id au moment de la requete (`LocalAi::resolve`) ;
+/// ici on verifie seulement qu'il est choisi et present, pour echouer tout de
+/// suite (texte brut colle) s'il manque.
 fn build_llamacpp_endpoint(app: &AppHandle) -> Result<Option<String>> {
     use super::providers::llamacpp as llcp;
     let id = llcp::get_selected_gguf(app)
         .ok_or_else(|| anyhow!("aucun modele GGUF selectionne"))?;
-    let store = app
-        .try_state::<crate::models::ModelStoreState>()
-        .ok_or_else(|| anyhow!("model store state absent"))?;
-    // TODO(unit 4): hold a ModelHandle while the model is loaded. The llama.cpp
-    // runtime still takes a path through the endpoint string; the helper
-    // client of unit 4 will load by model id and can keep the handle.
-    let path = store
-        .0
-        .path_for_id(&id)
-        .ok_or_else(|| anyhow!("modele GGUF non telecharge: {id}"))?;
-    let n_gpu = llcp::get_n_gpu_layers(app);
-    let ctx = llcp::get_context_size(app);
-    let max = llcp::get_max_tokens(app);
-    // Init paresseux du runtime des qu'on sait qu'on va en avoir besoin.
-    ensure_llama_runtime()?;
-    Ok(Some(format!(
-        "{}|{}|{}|{}",
-        path.to_string_lossy(),
-        n_gpu,
-        ctx,
-        max
+    let ai = super::local_ai::local_ai()
+        .ok_or_else(|| anyhow!("llama.cpp: l'assistant IA n'est pas demarre"))?;
+    ai.resolve(&id)?;
+    Ok(Some(llcp::pack_config(
+        &id,
+        llcp::get_context_size(app),
+        llcp::get_max_tokens(app),
     )))
 }
 
@@ -350,7 +319,7 @@ fn build_system_message(app: &AppHandle, active_prompt: &CustomPrompt) -> String
 }
 
 /// Wrap du texte utilisateur. VoiceInk AIEnhancementService L~200.
-fn build_user_message(text: &str) -> String {
+pub(crate) fn build_user_message(text: &str) -> String {
     format!("\n<TRANSCRIPT>\n{text}\n</TRANSCRIPT>")
 }
 

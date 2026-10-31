@@ -103,8 +103,9 @@ fn release_models(app: &AppHandle) {
     if let Some(e) = app.try_state::<super::vad::VadEngineState>() {
         e.0.unload();
     }
-    if let Some(rt) = crate::enhancement::service::llama_runtime() {
-        rt.unload();
+    // The local AI model's handle goes with it; the helper stops at exit.
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        ai.unload();
     }
     match app.try_state::<crate::models::ModelStoreState>() {
         Some(store) => match store.0.shared().release_all() {

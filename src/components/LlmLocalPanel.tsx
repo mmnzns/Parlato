@@ -23,9 +23,8 @@ export function LlmLocalPanel() {
   const { t } = useTranslation();
   const [models, setModels] = useState<GgufModelState[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [cudaEnabled, setCudaEnabled] = useState(false);
+  const [backend, setBackend] = useState("cpu");
   const [settings, setSettings] = useState<LlamaCppSettings>({
-    n_gpu_layers: 0,
     context_size: 4096,
     max_tokens: 1024,
   });
@@ -74,15 +73,15 @@ export function LlmLocalPanel() {
 
   async function refresh() {
     try {
-      const [list, sel, cuda, st] = await Promise.all([
+      const [list, sel, usedBackend, st] = await Promise.all([
         api.listGgufModels(),
         api.getSelectedGguf(),
-        api.llamacppCudaEnabled(),
+        api.llamacppBackend(),
         api.getLlamacppSettings(),
       ]);
       setModels(list);
       setSelectedId(sel);
-      setCudaEnabled(cuda);
+      setBackend(usedBackend);
       setSettings(st);
     } catch (e) {
       console.error(e);
@@ -163,7 +162,9 @@ export function LlmLocalPanel() {
         <span className="font-medium">{t("ai.builtinTitle")}</span>
         <span className="text-[13px] leading-[18px] text-pretty text-muted-foreground">
           {t("ai.builtinDesc")}{" "}
-          {cudaEnabled ? t("llmLocal.cudaBuild") : t("ai.runsOnCpu")}
+          {backend === "cpu"
+            ? t("ai.runsOnCpu")
+            : t("ai.runsOnGpu", { backend: backend === "metal" ? "Metal" : backend === "vulkan" ? "Vulkan" : backend })}
         </span>
       </Block>
 
@@ -278,19 +279,7 @@ export function LlmLocalPanel() {
         </div>
         {status.import && <p className="text-xs text-destructive">{statusText(status.import)}</p>}
         {tuning && (
-          <div className="grid grid-cols-1 gap-3 pl-5 text-xs sm:grid-cols-3">
-            <label className="grid gap-1">
-              <span className="font-medium">{t("llmLocal.nGpuLayers")}</span>
-              <input
-                type="number"
-                min={0}
-                max={200}
-                value={settings.n_gpu_layers}
-                onChange={(e) => updateSetting({ n_gpu_layers: Number(e.target.value) || 0 })}
-                className="h-8 rounded-sm border-[1.5px] border-input bg-background px-2"
-              />
-              <span className="text-muted-foreground">{t("llmLocal.nGpuLayersHelp")}</span>
-            </label>
+          <div className="grid grid-cols-1 gap-3 pl-5 text-xs sm:grid-cols-2">
             <label className="grid gap-1">
               <span className="font-medium">{t("llmLocal.contextSize")}</span>
               <input

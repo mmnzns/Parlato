@@ -32,7 +32,7 @@ pub fn cancel_download_gguf_model(state: State<'_, ModelStoreState>, id: String)
 }
 
 #[command]
-pub fn delete_gguf_model(
+pub async fn delete_gguf_model(
     app: AppHandle,
     state: State<'_, ModelStoreState>,
     id: String,
@@ -44,12 +44,16 @@ pub fn delete_gguf_model(
     if !catalog_model && !imports::find_gguf_import(&store.llm_dir(), &id).is_some_and(|f| f.removable) {
         return Ok(());
     }
-    // Si c'est le modele actif, decharger le runtime pour liberer la RAM/VRAM.
+    // Le modele charge (le sien, ou le choisi) est decharge d'abord : son verrou
+    // du dossier partage et son fichier. `unload` attend une generation en
+    // cours : sur un fil, pas sur celui de l'interface.
     if llamacpp::get_selected_gguf(&app).as_deref() == Some(id.as_str()) {
-        if let Some(rt) = crate::enhancement::service::llama_runtime() {
-            rt.unload();
-        }
         let _ = llamacpp::set_selected_gguf(&app, None);
+    }
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        if ai.is_loaded(&id) {
+            let _ = tauri::async_runtime::spawn_blocking(move || ai.unload()).await;
+        }
     }
     if catalog_model {
         return store.release(&id).map(|_| ()).map_err(|e| e.to_string());
@@ -87,19 +91,33 @@ pub fn get_selected_gguf(app: AppHandle) -> Option<String> {
 #[command]
 pub fn set_selected_gguf(app: AppHandle, id: Option<String>) -> Result<(), String> {
     crate::models::mark_used(&app, id.as_deref());
-    // Si l'ID change, decharger le modele actuellement en memoire.
     let prev = llamacpp::get_selected_gguf(&app);
+    llamacpp::set_selected_gguf(&app, id.as_deref()).map_err(|e| e.to_string())?;
+    // Si l'ID change, le modele en memoire est decharge et le nouveau se
+    // charge en arriere-plan (rien ne l'attend).
     if prev != id {
-        if let Some(rt) = crate::enhancement::service::llama_runtime() {
-            rt.unload();
-        }
+        reload_in_background(&app);
     }
-    llamacpp::set_selected_gguf(&app, id.as_deref()).map_err(|e| e.to_string())
+    Ok(())
+}
+
+/// Decharge le modele en memoire puis charge celui que la configuration veut
+/// (s'il y en a un), sur un fil.
+pub fn reload_in_background(app: &AppHandle) {
+    let Some(ai) = crate::enhancement::local_ai::local_ai() else {
+        return;
+    };
+    let app = app.clone();
+    let _ = std::thread::Builder::new()
+        .name("parlato-llm-reload".into())
+        .spawn(move || {
+            ai.unload();
+            crate::enhancement::local_ai::preload_if_wanted(&app);
+        });
 }
 
 #[derive(serde::Serialize)]
 pub struct LlamaCppSettings {
-    pub n_gpu_layers: u32,
     pub context_size: u32,
     pub max_tokens: u32,
 }
@@ -107,7 +125,6 @@ pub struct LlamaCppSettings {
 #[command]
 pub fn get_llamacpp_settings(app: AppHandle) -> LlamaCppSettings {
     LlamaCppSettings {
-        n_gpu_layers: llamacpp::get_n_gpu_layers(&app),
         context_size: llamacpp::get_context_size(&app),
         max_tokens: llamacpp::get_max_tokens(&app),
     }
@@ -116,21 +133,21 @@ pub fn get_llamacpp_settings(app: AppHandle) -> LlamaCppSettings {
 #[command]
 pub fn set_llamacpp_settings(
     app: AppHandle,
-    n_gpu_layers: u32,
     context_size: u32,
     max_tokens: u32,
 ) -> Result<(), String> {
-    // Tout changement de params impose un rechargement : decharge maintenant.
-    if let Some(rt) = crate::enhancement::service::llama_runtime() {
-        rt.unload();
-    }
-    llamacpp::set_n_gpu_layers(&app, n_gpu_layers).map_err(|e| e.to_string())?;
     llamacpp::set_context_size(&app, context_size).map_err(|e| e.to_string())?;
     llamacpp::set_max_tokens(&app, max_tokens).map_err(|e| e.to_string())?;
+    // Un autre contexte impose un rechargement.
+    reload_in_background(&app);
     Ok(())
 }
 
+/// Ou l'IA locale tourne (ou tournera) : "metal", "vulkan" ou "cpu". Le moteur
+/// le dit a chaque chargement et chaque reponse.
 #[command]
-pub fn llamacpp_cuda_enabled() -> bool {
-    cfg!(feature = "cuda-llama")
+pub fn llamacpp_backend() -> String {
+    crate::enhancement::local_ai::local_ai()
+        .map(|ai| ai.backend())
+        .unwrap_or_else(|| "cpu".into())
 }

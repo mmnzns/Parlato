@@ -235,9 +235,6 @@
     "confirmDelete": "Supprimer le modèle Parakeet {{id}} ?"
   },
   "llmLocal": {
-    "cudaBuild": "Build avec support CUDA",
-    "nGpuLayers": "N GPU layers",
-    "nGpuLayersHelp": "0 = processeur seul, 1000 = tout sur la carte graphique (si l'accélération GPU est active)",
     "contextSize": "Taille du contexte",
     "maxTokens": "Longueur maximale de la réponse (tokens)",
     "imported": "importé",
@@ -610,6 +607,7 @@
     "builtinTitle": "Modèles intégrés",
     "builtinDesc": "Téléchargez un modèle pour nettoyer le texte sur cet ordinateur. Rien ne quitte votre ordinateur.",
     "runsOnCpu": "Tourne sur votre processeur.",
+    "runsOnGpu": "Tourne sur la carte graphique ({{backend}}).",
     "import": "Importer un fichier GGUF",
     "use": "Utiliser",
     "inUse": "Utilisé",

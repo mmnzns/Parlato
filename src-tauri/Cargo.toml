@@ -62,10 +62,6 @@ chrono = { version = "0.4", default-features = false, features = ["serde", "cloc
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "multipart", "json"] }
 futures-util = "0.3"
 
-# LLM enhancement embarque (llama.cpp).
-# Build CPU par defaut ; CUDA optionnelle via la feature parla "cuda-llama".
-llama-cpp-2 = "0.1"
-
 # Capture de fenetre active (Phase 7 screen context).
 xcap = "0.9"
 image = { version = "0.25", default-features = false, features = ["png"] }
@@ -161,10 +157,3 @@ opt-level = 1
 default = ["gpu-detect"]
 gpu-detect = ["dep:nvml-wrapper"]
 
-# Meta-feature that enables NVIDIA acceleration everywhere. Used by the CUDA
-# build variant in the release workflow. Do NOT enable this by default - the
-# resulting binary requires CUDA 12 runtime DLLs to start and will crash on
-# machines without an NVIDIA driver.
-cuda = ["cuda-llama"]
-
-cuda-llama = ["llama-cpp-2/cuda"]

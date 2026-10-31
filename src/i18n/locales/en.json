@@ -235,9 +235,6 @@
     "confirmDelete": "Delete Parakeet model {{id}}?"
   },
   "llmLocal": {
-    "cudaBuild": "Build with CUDA support",
-    "nGpuLayers": "N GPU layers",
-    "nGpuLayersHelp": "0 = processor only, 1000 = all on the graphics card (if GPU acceleration is on)",
     "contextSize": "Context size",
     "maxTokens": "Max tokens output",
     "imported": "imported",
@@ -610,6 +607,7 @@
     "builtinTitle": "Built-in models",
     "builtinDesc": "Download one model to clean up text on this computer. Nothing leaves your computer.",
     "runsOnCpu": "Runs on your processor.",
+    "runsOnGpu": "Runs on the graphics card ({{backend}}).",
     "import": "Import a GGUF file",
     "use": "Use",
     "inUse": "In use",

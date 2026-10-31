@@ -107,6 +107,8 @@ pub fn cancel_processing(app: &AppHandle) {
     let pill = mini_recorder::generation();
     CANCELLED_PILL.store(pill, std::sync::atomic::Ordering::SeqCst);
     info!(pill, "dictee annulee pendant le traitement");
+    // Un nettoyage local en cours s'arrete tout de suite (le modele reste charge).
+    crate::enhancement::local_ai::cancel_generation();
     feedback::play(app, Cue::Cancel);
     mini_recorder::close_if_current(app, pill);
 }
@@ -664,7 +666,7 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
 }
 
 /// Decharge tous les modeles d'inference resident en memoire (whisper,
-/// parakeet, VAD, llama.cpp). Appele en fin de pipeline pour que la RAM
+/// parakeet, VAD, IA locale). Appele en fin de pipeline pour que la RAM
 /// idle de Parla redescende a ~200 Mo (Tauri + WebView2 + SQLite ouvert)
 /// au lieu de ~800 Mo ou plus selon les modeles utilises. Chaque engine
 /// gere son propre Mutex, donc cette fonction est sans erreur et sans
@@ -679,8 +681,11 @@ fn unload_inference_models(app: &AppHandle) {
     if let Some(st) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
         st.0.unload();
     }
-    if let Some(rt) = crate::enhancement::service::llama_runtime() {
-        rt.unload();
+    // Parlato : l'IA locale suit le meme delai ("Garder les modeles prets").
+    // Sur un fil : la liberation attend une generation en cours, et on est
+    // peut-etre dans une tache async.
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        ai.unload_in_background();
     }
 }
 
@@ -1119,6 +1124,13 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             }
             Ok(None) => {}
             Err(e) => warn!("Enhancement LLM echec, fallback texte brut: {e}"),
+        }
+    }
+    // Parlato : repli carte graphique -> processeur de l'IA locale, a dire une
+    // fois dans la bulle, une fois la dictee finie.
+    if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+        if ai.take_gpu_notice() && run.job == Job::Dictation {
+            crate::notice::send_after_dictation(crate::notice::Notice::GpuFallback);
         }
     }
 

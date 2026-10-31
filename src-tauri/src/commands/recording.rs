@@ -131,6 +131,10 @@ pub fn start_recording_core_with_chunk(
         anyhow::bail!("un enregistrement est deja en cours");
     }
 
+    // L'IA locale se charge en arriere-plan pendant l'enregistrement : le
+    // nettoyage ne l'attendra pas (no-op si deja chargee ou non choisie).
+    crate::enhancement::local_ai::preload_if_wanted(app);
+
     // Start cue, played before the microphone capture begins so it never
     // leaks into the recording (VoiceInk SoundManager.playStartSound). On the
     // hotkey path the system mute is deferred ~250ms (audio/mute.rs) so the

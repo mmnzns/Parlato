@@ -166,7 +166,6 @@ export type GgufModelState = {
 };
 
 export type LlamaCppSettings = {
-  n_gpu_layers: number;
   context_size: number;
   max_tokens: number;
 };
@@ -551,7 +550,8 @@ export const api = {
     invoke<LlamaCppSettings>("get_llamacpp_settings"),
   setLlamacppSettings: (args: LlamaCppSettings) =>
     invoke<void>("set_llamacpp_settings", args),
-  llamacppCudaEnabled: () => invoke<boolean>("llamacpp_cuda_enabled"),
+  /** Where the local AI runs (or will run): "metal", "vulkan" or "cpu". */
+  llamacppBackend: () => invoke<string>("llamacpp_backend"),
 
   listParakeetModels: () =>
     invoke<ParakeetModelState[]>("list_parakeet_models"),
