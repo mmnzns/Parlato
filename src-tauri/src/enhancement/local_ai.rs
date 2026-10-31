@@ -74,6 +74,8 @@ pub struct LocalAi {
     /// Compte les `unload` : un chargement parti avant un `unload` n'est pas
     /// note comme charge.
     epoch: std::sync::atomic::AtomicU64,
+    /// L'assistant a ete lance (`start_helper`) pendant ce lancement.
+    helper_started: AtomicBool,
     /// La carte graphique a echoue pendant cette session de l'application.
     gpu_failed: AtomicBool,
     /// Un repli est a signaler une fois dans la bulle.
@@ -197,6 +199,7 @@ impl LocalAi {
             store,
             slot: Mutex::new(None),
             epoch: std::sync::atomic::AtomicU64::new(0),
+            helper_started: AtomicBool::new(false),
             gpu_failed: AtomicBool::new(false),
             gpu_notice_pending: AtomicBool::new(false),
             last_backend: Mutex::new(None),
@@ -278,6 +281,29 @@ impl LocalAi {
             (true, true) => "metal".into(),
             (true, false) => "vulkan".into(),
             _ => "cpu".into(),
+        }
+    }
+
+    /// Lance l'assistant sans rien charger (une seule fois par lancement ; le
+    /// client le relance seul s'il meurt). Bloquant : a appeler sur un fil.
+    pub fn start_helper(&self) {
+        if self.helper_started.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let started = Instant::now();
+        match self.client.devices() {
+            Ok(d) => info!(
+                wall_ms = started.elapsed().as_millis() as u64,
+                devices = d.devices.len(),
+                "assistant d'IA locale lance"
+            ),
+            Err(e) => {
+                self.helper_started.store(false, Ordering::SeqCst);
+                warn!(
+                    error = error_kind(&e),
+                    "lancement de l'assistant d'IA locale impossible"
+                );
+            }
         }
     }
 
@@ -492,17 +518,52 @@ enum CompleteError {
 
 // -- Reglages et demarrage --------------------------------------------------------
 
-/// Le modele que la configuration actuelle veut en memoire : fournisseur
-/// `llamacpp`, nettoyage actif, un modele choisi et present. None sinon.
-fn wanted(app: &AppHandle, ai: &LocalAi) -> Option<(ModelRef, u32)> {
-    use super::providers::llamacpp as llcp;
-    let sel = super::service::get_selection(app)?;
-    if sel.provider_id != "llamacpp" || !super::prompts::is_enhancement_enabled(app) {
-        return None;
+/// Ce que le lancement (et chaque rechargement) doit faire pour l'IA locale.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct StartupPlan {
+    /// Lancer l'assistant (`parlato-llm`) : des que le fournisseur est
+    /// `llamacpp`. Le processus est leger ; seul le chargement du modele est long.
+    pub start_helper: bool,
+    /// Charger le modele choisi : fournisseur `llamacpp`, nettoyage actif, un
+    /// modele choisi et present dans le dossier.
+    pub load_model: bool,
+}
+
+/// La decision, pure : `provider` est le fournisseur enregistre, `enabled` le
+/// reglage "nettoyage IA" (dans `parla.prompts.json`), `selected` le modele
+/// choisi (deja migre), `installed` s'il est present en entier.
+pub(crate) fn startup_plan(
+    provider: Option<&str>,
+    enabled: bool,
+    selected: Option<&str>,
+    installed: bool,
+) -> StartupPlan {
+    let local = provider == Some("llamacpp");
+    StartupPlan {
+        start_helper: local,
+        load_model: local && enabled && selected.is_some_and(|s| !s.is_empty()) && installed,
     }
-    let id = llcp::get_selected_gguf(app)?;
-    let model = ai.resolve(&id).ok()?;
-    Some((model, llcp::get_context_size(app)))
+}
+
+/// Le plan de la configuration actuelle, et le modele a charger s'il y en a un.
+fn wanted(app: &AppHandle, ai: &LocalAi) -> (StartupPlan, Option<(ModelRef, u32)>) {
+    use super::providers::llamacpp as llcp;
+    let provider = super::service::get_selection(app).map(|s| s.provider_id);
+    let enabled = super::prompts::is_enhancement_enabled(app);
+    let selected = llcp::get_selected_gguf(app);
+    let model = selected.as_deref().and_then(|id| ai.resolve(id).ok());
+    let plan = startup_plan(
+        provider.as_deref(),
+        enabled,
+        selected.as_deref(),
+        model.is_some(),
+    );
+    let load = if plan.load_model {
+        model.map(|m| (m, llcp::get_context_size(app)))
+    } else {
+        None
+    };
+    (plan, load)
 }
 
 /// Cree le `LocalAi` de l'application (le dossier de modeles est ouvert) et
@@ -527,7 +588,15 @@ pub fn preload_if_wanted(app: &AppHandle) {
     let _ = std::thread::Builder::new()
         .name("parlato-llm-preload".into())
         .spawn(move || {
-            let Some((model, n_ctx)) = wanted(&app, &ai) else {
+            let (plan, load) = wanted(&app, &ai);
+            if plan.start_helper {
+                ai.start_helper();
+            }
+            let Some((model, n_ctx)) = load else {
+                info!(
+                    helper = plan.start_helper,
+                    "IA locale : pas de modele a charger"
+                );
                 return;
             };
             if let Err(e) = ai.ensure_loaded(&model, n_ctx) {
@@ -553,6 +622,52 @@ pub fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn plan(
+        provider: Option<&str>,
+        enabled: bool,
+        sel: Option<&str>,
+        installed: bool,
+    ) -> (bool, bool) {
+        let p = startup_plan(provider, enabled, sel, installed);
+        (p.start_helper, p.load_model)
+    }
+
+    #[test]
+    fn the_helper_starts_whenever_the_built_in_ai_is_the_provider() {
+        // Meme sans nettoyage actif, sans modele choisi ou sans fichier.
+        assert_eq!(plan(Some("llamacpp"), false, None, false), (true, false));
+        assert_eq!(plan(Some("llamacpp"), true, None, false), (true, false));
+        assert_eq!(
+            plan(Some("llamacpp"), true, Some("granite-4.2-3b"), false),
+            (true, false)
+        );
+    }
+
+    #[test]
+    fn the_model_loads_only_when_enabled_chosen_and_installed() {
+        assert_eq!(
+            plan(Some("llamacpp"), true, Some("granite-4.2-3b"), true),
+            (true, true)
+        );
+        assert_eq!(
+            plan(Some("llamacpp"), false, Some("granite-4.2-3b"), true),
+            (true, false)
+        );
+        assert_eq!(plan(Some("llamacpp"), true, Some(""), true), (true, false));
+        assert_eq!(plan(Some("llamacpp"), true, None, true), (true, false));
+    }
+
+    #[test]
+    fn another_provider_or_none_starts_nothing() {
+        for p in [Some("openai"), Some("ollama"), Some(""), None] {
+            assert_eq!(
+                plan(p, true, Some("granite-4.2-3b"), true),
+                (false, false),
+                "{p:?}"
+            );
+        }
+    }
 
     #[test]
     fn helper_sits_next_to_the_executable() {
