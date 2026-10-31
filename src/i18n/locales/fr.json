@@ -852,6 +852,15 @@
     "accessTitle": "Autorisez Parlato sur votre Mac",
     "accessDesc": "macOS demande avant qu'une app utilise le micro ou tape pour vous. Parlato a besoin des deux : le micro pour vous entendre, l'Accessibilité pour entendre votre raccourci et coller le texte. Rien ne quitte votre ordinateur sauf si vous choisissez un service en ligne."
   },
+  "removeModel": {
+    "action": "Retirer de cet ordinateur",
+    "confirmTitle": "Retirer {{name}} de cet ordinateur ?",
+    "bodyShared": "Il sera retiré de Parlato et de {{apps}}, et cela libère {{size}}.",
+    "bodyAlone": "Cela libère {{size}}.",
+    "confirmButton": "Retirer",
+    "inUse": "{{name}} est ouvert dans une autre application. Fermez-le d'abord là-bas, puis réessayez.",
+    "oldCopies": "Retiré. Quelques anciens fichiers étaient utilisés et disparaîtront après un redémarrage."
+  },
   "modelText": {
     "imported": "Un modèle que vous avez importé.",
     "whisper_tiny": {

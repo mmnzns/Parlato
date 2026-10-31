@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Remove from this computer** next to Delete on each downloaded model. Delete
+  still only removes the model from Parlato; this one removes it for Parlato,
+  Talaan and Ensayo and frees the space, after asking and naming the other apps
+  that use it. If another app has the model open, nothing is removed and Parlato
+  keeps working.
 - New local AI models: Qwen 3.5 4B and Qwen 3.5 9B. IBM Granite 4.2 3B stays
   the default.
 - One **Use graphics card** setting. It is on by default on the Mac, and on

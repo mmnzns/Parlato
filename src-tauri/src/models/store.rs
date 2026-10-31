@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use voice_engine_models::{catalog, Kind, ModelHandle, ModelInfo, SharedStore, Status};
+use voice_engine_models::{catalog, Kind, ModelHandle, ModelInfo, Removed, SharedStore, Status};
 
 use super::imports;
 
@@ -119,6 +119,19 @@ impl ModelStore {
         let released = self.shared.release(id)?;
         self.remove_legacy_copy(id);
         Ok(released)
+    }
+
+    /// "Remove from this computer": the model goes for every app (the shared
+    /// folder, all the markers, the old copies in the apps' old folders).
+    /// `InUse` when any app has it loaded or is downloading it, nothing
+    /// touched: this app's own `ModelHandle` counts, unload first. The copy an
+    /// older Parlato left at its old path goes too, as in `release`.
+    pub fn remove_everywhere(&self, id: &str) -> std::io::Result<Removed> {
+        let removed = self.shared.remove_everywhere(id)?;
+        if removed != Removed::InUse {
+            self.remove_legacy_copy(id);
+        }
+        Ok(removed)
     }
 
     /// Removes the file or folder Parlato 0.14 stored for this catalog id

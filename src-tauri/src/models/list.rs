@@ -10,6 +10,7 @@ use serde::Serialize;
 use voice_engine_models::{catalog, Kind, ModelInfo, Status};
 
 use super::imports::{self, ImportedFile};
+use super::remove;
 use super::store::ModelStore;
 use crate::transcription::langs::{NEMOTRON_LANGS, PARAKEET_V3_LANGS, WHISPER_FULL_LANGS};
 
@@ -34,6 +35,9 @@ pub struct WhisperModelState {
     pub language_codes: Vec<String>,
     /// Another app is downloading this model right now.
     pub downloading_elsewhere: bool,
+    /// The other apps (Talaan, Ensayo) that use this model, for the
+    /// "Remove from this computer" confirmation. Empty for an import.
+    pub other_apps: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -52,6 +56,7 @@ pub struct ParakeetModelState {
     pub accuracy: f32,
     pub language_codes: Vec<String>,
     pub downloading_elsewhere: bool,
+    pub other_apps: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,6 +74,7 @@ pub struct GgufModelState {
     /// `LlmModels/imported/`: Parlato leaves it where the person put it.
     pub removable: bool,
     pub downloading_elsewhere: bool,
+    pub other_apps: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -77,6 +83,7 @@ pub struct VadModelState {
     pub path: Option<String>,
     pub on_disk_bytes: Option<u64>,
     pub downloading_elsewhere: bool,
+    pub other_apps: Vec<String>,
 }
 
 /// The catalog's 1 to 3 dots as the 0 to 1 the UI draws.
@@ -90,6 +97,13 @@ fn path_string(p: &Path) -> String {
 
 fn is_elsewhere(status: &Status) -> bool {
     matches!(status, Status::Downloading { by_me: false, .. })
+}
+
+fn other_apps_of(status: &Status) -> Vec<String> {
+    match status {
+        Status::Installed { users, .. } => remove::other_apps(users),
+        _ => Vec::new(),
+    }
 }
 
 pub fn whisper_languages(model: &ModelInfo) -> Vec<String> {
@@ -133,6 +147,7 @@ pub fn whisper_models(store: &ModelStore) -> Vec<WhisperModelState> {
                 accuracy: rating(m.accuracy),
                 language_codes: whisper_languages(m),
                 downloading_elsewhere: is_elsewhere(&status),
+                other_apps: other_apps_of(&status),
             }
         })
         .collect();
@@ -160,6 +175,7 @@ fn whisper_import_state(f: ImportedFile) -> WhisperModelState {
         accuracy: 0.0,
         language_codes: WHISPER_FULL_LANGS.iter().map(|s| s.to_string()).collect(),
         downloading_elsewhere: false,
+        other_apps: Vec::new(),
     }
 }
 
@@ -210,6 +226,7 @@ pub fn parakeet_models(store: &ModelStore) -> Vec<ParakeetModelState> {
                     .map(|s| s.to_string())
                     .collect(),
                 downloading_elsewhere: is_elsewhere(&status),
+                other_apps: other_apps_of(&status),
             }
         })
         .collect()
@@ -243,6 +260,7 @@ pub fn gguf_models(store: &ModelStore) -> Vec<GgufModelState> {
                 imported: false,
                 removable: true,
                 downloading_elsewhere: is_elsewhere(&status),
+                other_apps: other_apps_of(&status),
             }
         })
         .collect();
@@ -261,6 +279,7 @@ pub fn gguf_models(store: &ModelStore) -> Vec<GgufModelState> {
                 imported: true,
                 removable: f.removable,
                 downloading_elsewhere: false,
+                other_apps: Vec::new(),
             }),
     );
     out
@@ -274,12 +293,14 @@ pub fn vad_state(store: &ModelStore) -> VadModelState {
             path: Some(path_string(&ModelStore::installed_path(m, dir))),
             on_disk_bytes: Some(m.size()),
             downloading_elsewhere: false,
+            other_apps: other_apps_of(&status),
         },
         _ => VadModelState {
             downloaded: false,
             path: None,
             on_disk_bytes: None,
             downloading_elsewhere: is_elsewhere(&status),
+            other_apps: Vec::new(),
         },
     }
 }
@@ -425,6 +446,36 @@ mod tests {
         assert!(s.downloaded);
         assert!(Path::new(&s.path.unwrap()).ends_with("vad/ggml-silero-v6.2.0.bin"));
         assert_eq!(s.on_disk_bytes, Some(885_098));
+    }
+
+    #[test]
+    fn the_lists_name_the_other_apps_that_use_a_model() {
+        use voice_engine_models::{App, SharedStore};
+        let tmp = tempfile::tempdir().unwrap();
+        let store = temp_store(tmp.path());
+        install(&store, "vad");
+        install(&store, "whisper-tiny");
+        store.shared().use_model("vad").unwrap();
+        store.shared().use_model("whisper-tiny").unwrap();
+        // Parlato alone: nobody else.
+        assert!(vad_state(&store).other_apps.is_empty());
+        // Talaan and Ensayo (fake users on the temp folder) also use the VAD.
+        for app in [App::Talaan, App::Ensayo] {
+            let other = SharedStore::open_at(app, store.shared().root().to_path_buf()).unwrap();
+            other.use_model("vad").unwrap();
+        }
+        assert_eq!(vad_state(&store).other_apps, ["Talaan", "Ensayo"]);
+        let tiny = whisper_models(&store)
+            .into_iter()
+            .find(|m| m.id == "whisper-tiny")
+            .unwrap();
+        assert!(tiny.other_apps.is_empty());
+        // Not installed: no apps listed.
+        let tiny_en = whisper_models(&store)
+            .into_iter()
+            .find(|m| m.id == "whisper-tiny-en")
+            .unwrap();
+        assert!(tiny_en.other_apps.is_empty());
     }
 
     #[test]

@@ -232,6 +232,15 @@ limit, `retry_gpu()`. From v0.3.1:
 Not adopted: `vad::detect_with` (Parlato's own 30 ms margin matches the engine's padding but
 clamps in samples, not ms), `loaded_model()` (Parlato's `Loaded` slot tracks more than the path), `plain_format`.
 
+**"Remove from this computer"** (2026-10-31) sits next to Delete on every installed catalog model (Whisper and Parakeet
+cards, the local AI rows, the voice detection panel); imports have only Delete, because their files are not in the
+shared folder. Delete is still `release(id)`, this app only. Remove asks first (naming Talaan / Ensayo from
+`Status::Installed { users, .. }`, `other_apps` in the list payloads), then `commands/remove_model.rs` unloads the
+model here (same order as Delete), calls `SharedStore::remove_everywhere` on a blocking thread (`models/remove.rs`)
+and answers `removed`, `old_copies_left` or `in_use`. `in_use` (another app has it open or is downloading it) changes
+nothing and Parlato reloads the model as it was. A removed selected local AI model is deselected like Delete does;
+the Whisper card clears the selection in the UI like its Delete.
+
 **The Windows installer's "app is running" box** is Tauri's `appRunningOkKill` string. `bundle.windows.nsis.customLanguageFiles`
 points English at `src-tauri/installer-languages/English.nsh`, a full copy of Tauri 2.10.1's file with that one line
 changed (a custom file replaces the built-in one). The installer ships English only (`languages`). After upgrading
