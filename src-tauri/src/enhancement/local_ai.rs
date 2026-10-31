@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
 use tauri::{AppHandle, Manager};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use voice_engine_client::{EngineError, Limits, LlmClient, LlmConfig, Outcome};
 use voice_engine_models::ModelHandle;
 use voice_engine_protocol::{Completion, Fallback};
@@ -70,6 +70,10 @@ pub struct LocalAi {
     /// Une carte graphique peut etre essayee (cf `card_path`).
     card_path: bool,
     slot: Mutex<Option<Loaded>>,
+    /// Un seul chargement a la fois : un second appel (le chargement du
+    /// lancement et un autre qui arrive pendant) attend le premier, puis voit
+    /// le modele charge au lieu de redemander le meme chargement a l'assistant.
+    load_lock: Mutex<()>,
     /// Compte les `unload` : un chargement parti avant un `unload` n'est pas
     /// note comme charge.
     epoch: std::sync::atomic::AtomicU64,
@@ -116,6 +120,12 @@ pub fn helper_paths(dir: &Path, windows_x64: bool) -> (PathBuf, Option<PathBuf>)
 /// ne demande alors pas la carte, ce qui garde `backend()` juste.
 fn card_path(vulkan_helper: bool, mac: bool) -> bool {
     mac || vulkan_helper
+}
+
+/// L'assistant rend 0 seconde quand il avait deja ce modele : rien n'a ete
+/// charge, la demande etait un doublon.
+fn load_was_a_no_op(seconds: f32) -> bool {
+    seconds <= 0.0
 }
 
 /// Ce que le moteur retient d'un echec de la carte graphique (`gpu_key`) : la
@@ -236,6 +246,7 @@ impl LocalAi {
             client: Arc::new(LlmClient::new(config)),
             store,
             slot: Mutex::new(None),
+            load_lock: Mutex::new(()),
             epoch: std::sync::atomic::AtomicU64::new(0),
             helper_started: AtomicBool::new(false),
             gpu_failed: AtomicBool::new(false),
@@ -365,18 +376,28 @@ impl LocalAi {
         }
     }
 
+    /// Est-ce deja ce modele (meme fichier, meme contexte, meme demande de
+    /// carte) qui est charge ?
+    fn already_loaded(&self, model: &ModelRef, n_ctx: u32, gpu: bool) -> bool {
+        self.slot
+            .lock()
+            .as_ref()
+            .is_some_and(|cur| cur.path == model.path && cur.n_ctx == n_ctx && cur.gpu == gpu)
+    }
+
     /// Charge le modele si ce n'est pas deja lui (meme fichier, meme contexte,
     /// meme demande de carte). Bloquant. Rend les secondes de chargement (0 si
     /// deja charge).
     pub fn ensure_loaded(&self, model: &ModelRef, n_ctx: u32) -> Result<f32> {
+        if self.already_loaded(model, n_ctx, self.gpu_wanted()) {
+            return Ok(0.0);
+        }
+        // Un chargement a la fois : si un autre est en cours pour ce modele,
+        // on attend sa fin puis on le trouve charge (rien a redemander).
+        let _loading = self.load_lock.lock();
         let gpu = self.gpu_wanted();
-        {
-            let guard = self.slot.lock();
-            if let Some(cur) = guard.as_ref() {
-                if cur.path == model.path && cur.n_ctx == n_ctx && cur.gpu == gpu {
-                    return Ok(0.0);
-                }
-            }
+        if self.already_loaded(model, n_ctx, gpu) {
+            return Ok(0.0);
         }
         // Le verrou du dossier partage (rien pour un import), pris avant le
         // chargement : un Delete d'une autre application ne l'efface plus.
@@ -387,14 +408,20 @@ impl LocalAi {
         match self.client.load(&path, n_ctx, gpu, &mut |_| {}) {
             Ok(out) => {
                 self.note_backend(gpu, &out.backend.backend, out.fallback);
-                info!(
-                    seconds = out.value.seconds,
-                    wall_ms = started.elapsed().as_millis() as u64,
-                    n_ctx,
-                    backend = %out.backend.backend,
-                    fallback = ?out.fallback,
-                    "Modele d'IA locale charge"
-                );
+                if load_was_a_no_op(out.value.seconds) {
+                    // L'assistant avait deja ce modele : rien n'a ete charge, on
+                    // ne le dit pas une seconde fois dans le journal.
+                    debug!(n_ctx, "modele d'IA locale deja charge dans l'assistant");
+                } else {
+                    info!(
+                        seconds = out.value.seconds,
+                        wall_ms = started.elapsed().as_millis() as u64,
+                        n_ctx,
+                        backend = %out.backend.backend,
+                        fallback = ?out.fallback,
+                        "Modele d'IA locale charge"
+                    );
+                }
                 if self.epoch.load(Ordering::SeqCst) == epoch {
                     *self.slot.lock() = Some(Loaded {
                         id: model.id.clone(),
@@ -925,6 +952,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let path = dir.join("fake-llm");
         let pid_file = dir.join("helper.pid").display().to_string();
+        let loads_file = dir.join("loads.log").display().to_string();
         let script = format!(
             r#"#!/bin/sh
 echo $$ > "{pid_file}"
@@ -932,7 +960,7 @@ while IFS= read -r line; do
   case "$line" in
     *'"op":"ping"'*) printf '%s\n' '{{"event":"ready","backend":"cpu","protocol":2}}';;
     *'"op":"configure"'*) printf '%s\n' '{{"event":"configured","idle_secs":null}}';;
-    *'"op":"load"'*) printf '%s\n' '{{"event":"loaded","seconds":0.5,"n_ctx_train":4096,"backend":"metal"}}';;
+    *'"op":"load"'*) echo load >> "{loads_file}"; sleep 0.3; printf '%s\n' '{{"event":"loaded","seconds":0.5,"n_ctx_train":4096,"backend":"metal"}}';;
     *'"op":"unload"'*) printf '%s\n' '{{"event":"unloaded"}}';;
     *'"op":"complete"'*) printf '%s\n' '{complete_reply}';;
   esac
@@ -942,6 +970,37 @@ done
         std::fs::write(&path, script).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         path
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn two_loads_at_once_ask_the_helper_once_and_log_once() {
+        let tmp = tempfile::tempdir().unwrap();
+        let helper = fake_helper(tmp.path(), "{}");
+        let ai = Arc::new(LocalAi::new(config_for(helper, None), None));
+        let model = ModelRef { id: "m".into(), path: tmp.path().join("m.gguf") };
+        // The launch preload and a second call that arrives while it loads.
+        let threads: Vec<_> = (0..2)
+            .map(|_| {
+                let (ai, model) = (ai.clone(), model.clone());
+                std::thread::spawn(move || ai.ensure_loaded(&model, 4096).unwrap())
+            })
+            .collect();
+        let mut seconds: Vec<f32> = threads.into_iter().map(|t| t.join().unwrap()).collect();
+        seconds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // One real load; the other call found the model loaded.
+        assert_eq!(seconds, vec![0.0, 0.5]);
+        let loads = std::fs::read_to_string(tmp.path().join("loads.log")).unwrap();
+        assert_eq!(loads.lines().count(), 1, "the helper was asked once");
+        assert!(ai.is_loaded("m"));
+        ai.shutdown();
+    }
+
+    #[test]
+    fn only_a_load_that_took_time_is_a_load() {
+        assert!(load_was_a_no_op(0.0));
+        assert!(!load_was_a_no_op(0.02));
+        assert!(!load_was_a_no_op(3.4));
     }
 
     #[cfg(unix)]
