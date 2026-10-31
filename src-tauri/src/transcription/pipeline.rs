@@ -972,11 +972,12 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
     finalize_text(&app, run, text, duration_ms).await
 }
 
-/// VAD Silero si elle est activee et que son modele est telecharge : le moteur
-/// et le dossier du modele "vad".
+/// VAD Silero si elle est activee et que son modele est telecharge : le moteur,
+/// le dossier du modele "vad" et le verrou du dossier partage (le detecteur le
+/// garde tant qu'il est charge).
 /// Parlato : partagee par Whisper et Parakeet (VoiceInk 2.21 6985c4b
 /// l'applique aussi a FluidAudio).
-fn vad_for(app: &AppHandle) -> Option<(Arc<vad::VadEngine>, PathBuf)> {
+fn vad_for(app: &AppHandle) -> Option<vad::VadUse> {
     if !is_vad_enabled(app) {
         return None;
     }
@@ -987,18 +988,16 @@ fn vad_for(app: &AppHandle) -> Option<(Arc<vad::VadEngine>, PathBuf)> {
         return None;
     };
     let engine = app.state::<crate::commands::vad::VadEngineState>().0.clone();
-    // Verrou du dossier partage tant que le modele VAD est charge.
-    engine.hold(store.hold(crate::commands::vad::VAD_ID));
-    Some((engine, dir))
+    Some((engine, dir, store.hold(crate::commands::vad::VAD_ID)))
 }
 
 /// Lit le WAV. Avec la VAD, ne garde que les plages de parole mises bout a
 /// bout (vide si aucune parole).
-fn speech_samples(vad: Option<(Arc<vad::VadEngine>, PathBuf)>, wav: &Path) -> Result<Vec<f32>> {
-    let Some((engine, model_dir)) = vad else {
+fn speech_samples(vad: Option<vad::VadUse>, wav: &Path) -> Result<Vec<f32>> {
+    let Some((engine, model_dir, handle)) = vad else {
         return speech::read_wav_as_f32(wav);
     };
-    let (samples, ranges) = vad::run_vad_on_wav(&engine, &model_dir, wav)?;
+    let (samples, ranges) = vad::run_vad_on_wav(&engine, &model_dir, handle, wav)?;
     let total: usize = ranges.iter().map(|(s, e)| e - s).sum();
     let mut speech: Vec<f32> = Vec::with_capacity(total);
     for (s, e) in &ranges {
@@ -1318,7 +1317,7 @@ mod tests {
         let id = std::env::var("PARLATO_PARAKEET_ID").unwrap_or_else(|_| "parakeet-ultra".into());
         let all = speech::read_wav_as_f32(&wav).unwrap();
         let (vad_dir, _keep) = vad::tests::vad_dir_for(&vad_model);
-        let vad = Some((Arc::new(vad::VadEngine::default()), vad_dir));
+        let vad = Some((Arc::new(vad::VadEngine::default()), vad_dir, None));
         let t0 = std::time::Instant::now();
         let speech = speech_samples(vad, &wav).unwrap();
         println!("vad: {} ms", t0.elapsed().as_millis());

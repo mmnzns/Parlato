@@ -86,7 +86,7 @@ The upstream `BUILDING.md` is incomplete. This machine additionally needed:
 Also note: VS Build Tools here are **2026 (v18)**, not the 2022 (v17) upstream
 specifies. The build works. CUDA is not used by this app — see Guardrails.
 
-**The local AI helper must exist before the app builds** (engine v0.3.0).
+**The local AI helper must exist before the app builds** (engine v0.3.1).
 `tauri.conf.json` lists `binaries/parlato-llm` in `bundle.externalBin`, and
 `tauri-build` fails if `src-tauri/binaries/parlato-llm-<triple>[.exe]` is
 missing. On the Mac run `scripts/fetch-helpers.sh` once (it builds the engine's
@@ -176,7 +176,7 @@ either, and the two texts differ only in a few words (single pass "Parlato",
 windows "Parlat"), so it shows no harm, not the fix itself; Florian's case
 was a 147 s recording.
 
-**One "Use graphics card" setting, `use_gpu` (engine v0.3.0).** It replaces the 0.14
+**One "Use graphics card" setting, `use_gpu` (engine v0.3.1).** It replaces the 0.14
 `parakeet_gpu` setting (commands `get/set_use_gpu`, store key `use_gpu`, migration in
 `use_gpu.rs`: `parakeet_gpu == true` becomes `use_gpu = true`, then the old key is removed;
 switch in `SpeechThreadsPanel.tsx`). Default: on for the Mac; on Windows on only when
@@ -193,7 +193,7 @@ clears the speech engines' flag; a restart also clears it) and shows one recorde
 (`NoCardPath`, `NoCardHelper`, `RememberedFailure`) is silent. The old 2026-10-22 measurements (RTX 5070 Ti, Parakeet Ultra int8,
 77 s: processor 1.25 s, GPU encoder 0.52 s) are in the CHANGELOG and the 2026-10-22 spec.
 
-**Whisper and local AI on the graphics card (engine v0.3.0).** On the Mac
+**Whisper and local AI on the graphics card (engine v0.3.1).** On the Mac
 Whisper uses Metal and the local AI helper uses Metal. On Windows x64 local AI
 uses the Vulkan helper `parlato-llm-vulkan.exe` (next to the app exe, only when
 the user's "Use graphics card" setting is on); Whisper stays on the processor
@@ -208,7 +208,7 @@ shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
 non-alphanumerics replaced by `_`), falling back to the catalog text. When
 porting a new model from upstream, add its en/fr/es `modelText` entry too.
 
-**Model folders (engine v0.3.0).** Downloaded models live in one folder shared
+**Model folders (engine v0.3.1).** Downloaded models live in one folder shared
 with Talaan and Ensayo, `%LOCALAPPDATA%/Craft Concepts Digital/Models` (Mac:
 `~/Library/Application Support/Craft Concepts Digital/Models`), managed by `voice-engine-models`. The old folders
 (`Models/`, `ParakeetModels/`, `LlmModels/` under the app's data folder) are only
@@ -216,11 +216,26 @@ read once, at first start, when the files are moved into the shared folder;
 imports stay in `LlmModels/` and `Models/imported/`. Never delete the shared
 folder (the uninstaller does not).
 
-**The engine move to v0.3.0** (2026-10-31, branch `engine-v0.2.2`, plan
-`docs/superpowers/plans/2026-10-30-engine-v0.2.2.md`): `EngineError::Crashed { .. }`, `fallback: Option<Fallback>`
+**The engine move to v0.3.1** (2026-10-31, branch `engine-v0.2.2`, plan
+`docs/superpowers/plans/2026-10-30-engine-v0.2.2.md`). From v0.3.0: `EngineError::Crashed { .. }`, `fallback: Option<Fallback>`
 instead of `fell_back`, `join_segments` for Whisper text (`starts_word`), `complete_within` for the 60 s generation
-limit, `retry_gpu()`. Not adopted: `vad::detect_with` (Parlato's own 30 ms margin matches the engine's padding but
+limit, `retry_gpu()`. From v0.3.1 (drop-in):
+- **`vad::VadDetector`** (`transcription/vad.rs`). The voice detector is loaded once and stays loaded behind a `Mutex`
+  in `VadEngine`, with the `ModelHandle` for `vad`; it is dropped by the keep-alive delay, by the Delete of the vad
+  model and by Delete all data (all call `unload` / `unload_if_under` before the store releases the model). The launch
+  warm-up (`spawn_warm_up`) loads it and tries it on 0.5 s of silence. Voice detection off: nothing is loaded. The
+  30 ms margin and the spans are unchanged.
+- **`driver_version`** in `gpu_key` (`local_ai::gpu_key`): on Windows `parlato-<version> | <card name> | driver
+  <version>`, with `unknown` for a missing card or driver; the Mac keeps `parlato-<version>`. Note that the config
+  has `gpu_failures: None`, so the engine keeps no failure file and the key has no effect yet; it starts to matter
+  the day a `gpu_failures` path is set.
+Not adopted: `vad::detect_with` (Parlato's own 30 ms margin matches the engine's padding but
 clamps in samples, not ms), `loaded_model()` (Parlato's `Loaded` slot tracks more than the path), `plain_format`.
+
+**The Windows installer's "app is running" box** is Tauri's `appRunningOkKill` string. `bundle.windows.nsis.customLanguageFiles`
+points English at `src-tauri/installer-languages/English.nsh`, a full copy of Tauri 2.10.1's file with that one line
+changed (a custom file replaces the built-in one). The installer ships English only (`languages`). After upgrading
+`@tauri-apps/cli`, copy its `English.nsh` again and redo that line. `installer-hooks.nsh` is separate and unchanged.
 
 **Do not bump the engine tag casually.** The llama.cpp and whisper.cpp versions
 come from the engine's `Cargo.lock` at the tag, so a tag move changes both.
