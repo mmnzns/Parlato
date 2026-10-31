@@ -4054,7 +4054,6 @@ dependencies = [
  "objc2-app-kit",
  "objc2-av-foundation",
  "objc2-foundation",
- "parakeet-rs",
  "parking_lot",
  "plist",
  "regex",
@@ -4090,7 +4089,6 @@ dependencies = [
  "voice-engine-models",
  "voice-engine-protocol",
  "voice-engine-stt",
- "whisper-rs",
  "windows 0.60.0",
  "xcap",
 ]

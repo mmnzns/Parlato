@@ -313,8 +313,8 @@ pub struct SpeechThreads {
 pub fn get_speech_threads(app: AppHandle) -> SpeechThreads {
     SpeechThreads {
         value: pipeline::get_speech_threads(&app),
-        auto: crate::transcription::whisper::auto_threads() as usize,
-        max: crate::transcription::whisper::max_threads() as usize,
+        auto: crate::transcription::speech::auto_threads() as usize,
+        max: crate::transcription::speech::max_threads() as usize,
     }
 }
 
@@ -329,11 +329,11 @@ pub fn set_speech_threads(app: AppHandle, threads: usize) -> Result<(), String> 
 pub struct ParakeetGpu {
     /// Choix enregistre (faux par defaut).
     pub enabled: bool,
-    /// Ce build sait utiliser la carte graphique (Windows, ou CUDA).
+    /// Ce build sait utiliser la carte graphique (Windows, DirectML).
     pub available: bool,
     /// La carte graphique a echoue depuis le lancement : le processeur sert.
     pub failed: bool,
-    /// Ce qui a tourne au dernier chargement : "cpu", "directml", "cuda" ou
+    /// Ce qui a tourne au dernier chargement : "cpu", "directml" ou
     /// "cpu-fallback".
     pub provider: String,
 }
@@ -343,9 +343,11 @@ pub fn get_parakeet_gpu(app: AppHandle) -> ParakeetGpu {
     let engine = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>();
     ParakeetGpu {
         enabled: pipeline::get_parakeet_gpu(&app),
-        available: crate::transcription::parakeet::gpu_available(),
+        available: crate::transcription::speech::gpu_available(),
         failed: engine.as_ref().map(|e| e.0.gpu_failed()).unwrap_or(false),
-        provider: engine.map(|e| e.0.provider()).unwrap_or("cpu").to_string(),
+        provider: engine
+            .map(|e| e.0.provider())
+            .unwrap_or_else(|| "cpu".to_string()),
     }
 }
 

@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tracing::info;
 
-use crate::transcription::whisper::{WhisperEngine, WhisperParams};
+use crate::transcription::speech::{self, Source};
+use crate::transcription::whisper::{vocabulary_from_prompt, WhisperEngine};
 
 pub struct WhisperEngineState(pub Arc<WhisperEngine>);
 
@@ -47,8 +48,7 @@ pub async fn transcribe_wav(
     let models = models_state.0.clone();
     let _ = app;
 
-    let model_path: PathBuf = models
-        .path_for_id(&req.model_id)
+    let source = Source::for_id(&models, &req.model_id)
         .ok_or_else(|| format!("modele non telecharge: {}", req.model_id))?;
     // Verrou du dossier partage tant que le modele est charge.
     let handle = models.hold(&req.model_id);
@@ -58,21 +58,24 @@ pub async fn transcribe_wav(
         return Err(format!("fichier WAV introuvable: {}", req.wav_path));
     }
 
-    let params = WhisperParams {
-        language: req.language,
-        initial_prompt: req.initial_prompt,
-        n_threads: req.n_threads.unwrap_or(0),
-    };
+    // Parlato : le prompt libre devient la liste de mots (`vocabulary`) que
+    // le moteur envoie a Whisper comme prompt initial.
+    let vocabulary = req
+        .initial_prompt
+        .as_deref()
+        .map(vocabulary_from_prompt)
+        .unwrap_or_default();
+    let language = req.language;
+    let threads = speech::threads_option(req.n_threads.unwrap_or(0));
 
     let model_id = req.model_id.clone();
     let start = std::time::Instant::now();
     let text = tokio::task::spawn_blocking(move || -> Result<String, String> {
         engine
-            .load(&model_path)
+            .ensure_loaded(&source, threads, handle)
             .map_err(|e| e.to_string())?;
-        engine.hold(handle);
         engine
-            .transcribe_wav(&wav_path, &params)
+            .transcribe_wav(&wav_path, language.as_deref(), &vocabulary)
             .map_err(|e| e.to_string())
     })
     .await

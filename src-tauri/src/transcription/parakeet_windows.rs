@@ -13,6 +13,9 @@
 // TokenDeduplication/SequenceMatcher.swift. Premier portage Rust (plus simple) :
 // Florian (Parla) 8050a42.
 //
+// Les trois familles ONNX (TDT, Unified, Nemotron) passent par ici : le moteur
+// refuse plus de 40 s par appel. Au plus 15 s : un seul appel.
+//
 // Ce qui est porte : fenetres de 14,96 s avec 2 s de recouvrement, debut de
 // fenetre cale sur le silence, derniere fenetre prolongee vers l'arriere avec
 // de l'audio reel, fusion de deux fenetres voisines par appariement des jetons
@@ -34,7 +37,29 @@
 // (80 ms). Tout est en fonctions pures, testees sans modele.
 
 use anyhow::Result;
-use parakeet_rs::TimedToken;
+use voice_engine_stt::Word as EngineWord;
+
+/// Un mot (ou un jeton) horodate, en secondes. Parlato : construit a partir
+/// des mots du moteur (`voice-engine-stt`, un mot entier par jeton, avec un
+/// espace de tete pour que la fusion le traite comme un debut de mot) ; les
+/// tests construisent aussi des morceaux de mot sans espace de tete.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimedToken {
+    pub text: String,
+    pub start: f32,
+    pub end: f32,
+}
+
+impl TimedToken {
+    /// Un mot du moteur (millisecondes sur l'horloge de la fenetre).
+    pub fn from_word(word: &EngineWord) -> Self {
+        TimedToken {
+            text: format!(" {}", word.text),
+            start: word.start_ms as f32 / 1000.0,
+            end: word.end_ms as f32 / 1000.0,
+        }
+    }
+}
 
 pub const SAMPLE_RATE: usize = 16_000;
 /// Une trame de l'encodeur (80 ms).
@@ -667,12 +692,16 @@ pub fn tokens_to_text(tokens: &[TimedToken]) -> String {
         .to_string()
 }
 
-/// Decode `samples` (plus de 15 s) fenetre par fenetre. `decode` recoit une
-/// tranche d'audio et rend les jetons, en secondes relatives a la tranche.
+/// Decode `samples` fenetre par fenetre (un seul appel jusqu'a 15 s).
+/// `decode` recoit une tranche d'audio et rend les jetons, en secondes
+/// relatives a la tranche.
 pub fn transcribe_in_windows<F>(samples: &[f32], mut decode: F) -> Result<(String, usize)>
 where
     F: FnMut(&[f32]) -> Result<Vec<TimedToken>>,
 {
+    if samples.len() <= SINGLE_PASS_MAX_SAMPLES {
+        return Ok((tokens_to_text(&decode(samples)?), 1));
+    }
     let windows = plan_windows(samples);
     let mut outputs: Vec<Vec<TimedToken>> = Vec::with_capacity(windows.len());
     for w in &windows {
@@ -941,6 +970,33 @@ mod tests {
             tok(" du", 1.5),
         ];
         assert_eq!(tokens_to_text(&t), "l'entierete, du");
+    }
+
+    #[test]
+    fn engine_words_open_a_word_each() {
+        let w = EngineWord {
+            text: "Hello,".into(),
+            start_ms: 1500,
+            end_ms: 1900,
+        };
+        let t = TimedToken::from_word(&w);
+        assert_eq!(t.text, " Hello,");
+        assert!((t.start - 1.5).abs() < 1e-6 && (t.end - 1.9).abs() < 1e-6);
+        assert!(splice_safe(&t.text));
+    }
+
+    #[test]
+    fn short_audio_is_one_decode_call() {
+        let samples = vec![0.1f32; 10 * SAMPLE_RATE];
+        let mut calls = 0;
+        let (text, count) = transcribe_in_windows(&samples, |slice| {
+            calls += 1;
+            assert_eq!(slice.len(), samples.len());
+            Ok(vec![tok(" hello", 1.0), tok(" world.", 1.5)])
+        })
+        .unwrap();
+        assert_eq!((calls, count), (1, 1));
+        assert_eq!(text, "hello world.");
     }
 
     #[test]

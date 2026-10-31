@@ -34,18 +34,17 @@ pub fn delete_parakeet_model(
 ) -> Result<(), String> {
     // Decharge le modele si c'est celui qui est actif.
     if let Some(engine) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
-        engine.0.unload_if_dir(&state.0.shared().model_dir(&id));
+        engine.0.unload_if_under(&state.0.shared().model_dir(&id));
     }
     state.0.release(&id).map(|_| ()).map_err(|e| e.to_string())
 }
 
-/// Parlato : ce qui a vraiment servi au dernier chargement du modele :
-/// "cpu", "directml", "cuda" ou "cpu-fallback" (carte graphique demandee, le
-/// processeur a pris le relais).
+/// Parlato : ce qui a vraiment servi au dernier chargement du modele
+/// (`backend()` du moteur) : "cpu", "directml" ou "cpu-fallback" (carte
+/// graphique demandee, le processeur a pris le relais).
 #[command]
 pub fn parakeet_execution_provider(app: AppHandle) -> String {
     app.try_state::<crate::transcription::parakeet::ParakeetEngineState>()
         .map(|e| e.0.provider())
-        .unwrap_or("cpu")
-        .to_string()
+        .unwrap_or_else(|| "cpu".to_string())
 }

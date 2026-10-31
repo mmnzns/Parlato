@@ -1,236 +1,205 @@
-// Wrapper whisper-rs : chargement du modele + transcription d'un WAV 16 kHz mono.
+// Whisper local, sur `voice-engine-stt` (voice-engine v0.2.2) : Metal sur le
+// Mac, le processeur sous Windows (pas de Vulkan dans ce processus).
 //
 // Reference VoiceInk : VoiceInk/Transcription/Core/Whisper/LibWhisper.swift
-// Parametres alignes : translate=false, single_segment=false, print_*=false,
-// suppress_blank=true, language=auto par defaut.
-// La VAD Silero est appliquee en amont via WhisperVadContext (cf vad.rs).
+// Reglages de decodage : ceux de `Timing::Segments` du moteur (glouton, pas de
+// contexte entre deux appels, blancs et sons non verbaux supprimes), langue
+// "auto" quand aucune n'est donnee. La VAD Silero est appliquee en amont
+// (cf vad.rs) ; le texte est le dernier etage, les etapes suivantes (filtre,
+// remplacement de mots, IA) sont dans le pipeline, comme VoiceInk.
 
 use std::path::Path;
-use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Result};
-use parking_lot::Mutex;
-use tracing::{debug, info};
+use anyhow::{Context, Result};
+use tracing::info;
 use voice_engine_models::ModelHandle;
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use voice_engine_stt::{ChunkOptions, Timing};
 
-/// Parametres d'une session de transcription (modeles utiles pour Phase 1c).
-#[derive(Debug, Clone, Default)]
-pub struct WhisperParams {
-    /// Code langue ISO 639-1 (ex "fr", "en"). `None` = auto-detect.
-    pub language: Option<String>,
-    /// Prompt initial pour guider le decodage (jargon, noms propres...).
-    pub initial_prompt: Option<String>,
-    /// Nombre de threads CPU. 0 = auto (cf `auto_threads`).
-    pub n_threads: usize,
-}
+use super::speech::{self, gpu_request, Source, SpeechSlot};
 
-/// Contexte Whisper charge : encapsule le modele en memoire, reutilisable entre
-/// transcriptions. Thread-safe derriere un Mutex.
+/// Whisper charge : reutilisable entre transcriptions, thread-safe.
+#[derive(Default)]
 pub struct WhisperEngine {
-    inner: Arc<Mutex<Option<WhisperContext>>>,
-    loaded_path: Arc<Mutex<Option<String>>>,
-    /// Parlato : verrou du dossier de modeles partage tant que le modele est
-    /// charge (le Delete d'une autre application ne peut pas l'effacer).
-    /// Vide pour un modele importe.
-    handle: Arc<Mutex<Option<ModelHandle>>>,
-}
-
-impl Default for WhisperEngine {
-    fn default() -> Self {
-        Self::new()
-    }
+    slot: SpeechSlot,
 }
 
 impl WhisperEngine {
     pub fn new() -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(None)),
-            loaded_path: Arc::new(Mutex::new(None)),
-            handle: Arc::new(Mutex::new(None)),
-        }
+        Self::default()
     }
 
-    /// Garde `handle` tant que le modele est charge (remplace le precedent).
-    pub fn hold(&self, handle: Option<ModelHandle>) {
-        *self.handle.lock() = handle;
+    /// Charge (ou recharge) le modele si necessaire. `threads` : `None` = la
+    /// regle du moteur. `handle` : le verrou du dossier partage, garde tant
+    /// que le modele est charge (vide pour un modele importe).
+    pub fn ensure_loaded(
+        &self,
+        source: &Source,
+        threads: Option<usize>,
+        handle: Option<ModelHandle>,
+    ) -> Result<()> {
+        self.slot.ensure_loaded(
+            source,
+            threads,
+            gpu_request(voice_engine_models::Kind::Whisper, false),
+            handle,
+        )
     }
 
-    /// Decharge le modele s'il se trouve dans (ou est) `path`. Avant un Delete.
-    pub fn unload_if_under(&self, path: &Path) {
-        let loaded = self.loaded_path.lock().clone();
-        if loaded.is_some_and(|l| Path::new(&l).starts_with(path)) {
-            self.unload();
-        }
+    /// Transcrit un buffer Float32 mono 16 kHz deja decode. `language` : le
+    /// code de la langue ("fr"), `None` detecte. `vocabulary` : mots a
+    /// favoriser (prompt initial de Whisper), vide si aucun.
+    pub fn transcribe_samples(
+        &self,
+        samples: &[f32],
+        language: Option<&str>,
+        vocabulary: &[String],
+    ) -> Result<String> {
+        let opts = ChunkOptions {
+            language: language.map(str::to_string),
+            timing: Timing::Segments,
+            vocabulary: vocabulary.to_vec(),
+            ..ChunkOptions::default()
+        };
+        self.slot.run(|engine, _| {
+            let transcript = engine
+                .transcribe(samples, &opts)
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            let texts: Vec<&str> = transcript
+                .segments
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect();
+            Ok(join_segments(&texts))
+        })
     }
 
-    /// Libere le `WhisperContext` si un modele est charge. Fait chuter la
-    /// RAM de l'equivalent du .bin (150 Mo pour base jusqu'a 3 Go pour
-    /// large-v3). Utilise apres chaque pipeline pour ne pas garder le
-    /// modele resident entre deux dictees (parite VoiceInk
-    /// WhisperModelManager.unloadModel / cleanupResources).
+    /// Transcrit un fichier WAV 16 kHz mono.
+    pub fn transcribe_wav(
+        &self,
+        wav_path: &Path,
+        language: Option<&str>,
+        vocabulary: &[String],
+    ) -> Result<String> {
+        let samples = speech::read_wav_as_f32(wav_path)
+            .with_context(|| format!("lecture WAV {}", wav_path.display()))?;
+        self.transcribe_samples(&samples, language, vocabulary)
+    }
+
+    /// Libere le modele si un modele est charge : la RAM redescend de
+    /// l'equivalent du .bin (150 Mo pour base jusqu'a 3 Go pour large-v3).
+    /// Utilise apres chaque pipeline pour ne pas garder le modele resident
+    /// entre deux dictees (parite VoiceInk WhisperModelManager.unloadModel).
     pub fn unload(&self) {
-        let had_model = self.inner.lock().take().is_some();
-        *self.loaded_path.lock() = None;
-        *self.handle.lock() = None;
-        if had_model {
+        if self.slot.unload() {
             info!("Modele Whisper decharge");
         }
     }
 
-    /// Charge ou recharge un modele si necessaire.
-    pub fn load(&self, model_path: &Path) -> Result<()> {
-        let path_str = model_path.to_string_lossy().to_string();
-        {
-            let guard = self.loaded_path.lock();
-            if guard.as_deref() == Some(path_str.as_str()) {
-                return Ok(());
+    /// Decharge le modele s'il se trouve dans (ou est) `path`. Avant un Delete.
+    pub fn unload_if_under(&self, path: &Path) {
+        if self.slot.unload_if_under(path) {
+            info!("Modele Whisper decharge");
+        }
+    }
+
+    /// Vrai une seule fois apres un repli carte graphique -> processeur.
+    pub fn take_gpu_notice(&self) -> bool {
+        self.slot.take_gpu_notice()
+    }
+}
+
+/// Le prompt libre de la commande `transcribe_wav` en liste de termes pour
+/// `vocabulary` : coupe aux virgules, points-virgules et retours a la ligne,
+/// espaces retires, vides jetes. Un prompt sans separateur reste un seul terme.
+pub fn vocabulary_from_prompt(prompt: &str) -> Vec<String> {
+    prompt
+        .split([',', ';', '\n', '\r'])
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Les segments de Whisper (deja nettoyes par le moteur) en un seul texte :
+/// un espace entre deux segments, sauf entre deux caracteres d'une ecriture
+/// qui s'ecrit sans espaces (chinois, japonais).
+pub fn join_segments(segments: &[&str]) -> String {
+    let mut out = String::new();
+    for text in segments.iter().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        if let (Some(last), Some(first)) = (out.chars().last(), text.chars().next()) {
+            if !(unspaced_script(last) || unspaced_script(first)) {
+                out.push(' ');
             }
         }
-
-        info!(path = %path_str, "Chargement du modele Whisper");
-        let ctx_params = WhisperContextParameters::default();
-        let ctx = WhisperContext::new_with_params(&path_str, ctx_params)
-            .map_err(|e| anyhow!("whisper load: {e}"))?;
-
-        *self.inner.lock() = Some(ctx);
-        *self.loaded_path.lock() = Some(path_str);
-        Ok(())
+        out.push_str(text);
     }
-
-    /// Transcrit un fichier WAV 16 kHz mono Int16 et retourne le texte.
-    /// Le texte n'est pas post-traite (filter, word-replace, enhance) : ces
-    /// etapes sont faites dans le pipeline superieur, comme VoiceInk.
-    pub fn transcribe_wav(&self, wav_path: &Path, params: &WhisperParams) -> Result<String> {
-        let samples = read_wav_as_f32(wav_path)
-            .with_context(|| format!("lecture WAV {}", wav_path.display()))?;
-        self.transcribe_samples(&samples, params)
-    }
-
-    /// Transcrit un buffer Float32 mono 16 kHz deja decode (utile pour VAD).
-    pub fn transcribe_samples(&self, samples: &[f32], params: &WhisperParams) -> Result<String> {
-        let ctx_guard = self.inner.lock();
-        let ctx = ctx_guard
-            .as_ref()
-            .ok_or_else(|| anyhow!("aucun modele Whisper charge"))?;
-        let mut state = ctx
-            .create_state()
-            .map_err(|e| anyhow!("whisper state: {e}"))?;
-
-        let mut whisper_params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-
-        if let Some(lang) = params.language.as_deref() {
-            whisper_params.set_language(Some(lang));
-        } else {
-            whisper_params.set_language(Some("auto"));
-        }
-        whisper_params.set_translate(false);
-        whisper_params.set_single_segment(false);
-        whisper_params.set_print_progress(false);
-        whisper_params.set_print_timestamps(false);
-        whisper_params.set_print_special(false);
-        whisper_params.set_print_realtime(false);
-        whisper_params.set_suppress_blank(true);
-
-        if let Some(prompt) = params.initial_prompt.as_deref() {
-            whisper_params.set_initial_prompt(prompt);
-        }
-
-        let n_threads = if params.n_threads == 0 {
-            auto_threads()
-        } else {
-            params.n_threads as i32
-        };
-        whisper_params.set_n_threads(n_threads);
-
-        // VAD : gere en amont via WhisperVadContext (cf transcription/vad.rs).
-        // Ici on passe les samples bruts ou deja filtres par la VAD externe.
-        debug!(
-            n_samples = samples.len(),
-            n_threads,
-            "Lancement whisper_full"
-        );
-
-        state
-            .full(whisper_params, samples)
-            .map_err(|e| anyhow!("whisper_full: {e}"))?;
-
-        // whisper-rs 0.16 : iterateur de segments. Le Display de WhisperSegment
-        // renvoie le texte (avec remplacement des octets UTF-8 invalides).
-        let mut text = String::new();
-        for segment in state.as_iter() {
-            text.push_str(&format!("{segment}"));
-        }
-        Ok(text.trim().to_string())
-    }
+    out
 }
 
-pub fn read_wav_as_f32(path: &Path) -> Result<Vec<f32>> {
-    let mut reader = hound::WavReader::open(path)?;
-    let spec = reader.spec();
-    let samples: Vec<f32> = match spec.sample_format {
-        hound::SampleFormat::Int => {
-            let bits = spec.bits_per_sample;
-            let max = (1i64 << (bits - 1)) as f32;
-            reader
-                .samples::<i32>()
-                .map(|s| s.map(|v| v as f32 / max).map_err(anyhow::Error::from))
-                .collect::<Result<Vec<_>>>()?
-        }
-        hound::SampleFormat::Float => reader
-            .samples::<f32>()
-            .map(|s| s.map_err(anyhow::Error::from))
-            .collect::<Result<Vec<_>>>()?,
-    };
-
-    // Si le WAV est stereo, on mixdown en moyenne.
-    let samples = if spec.channels > 1 {
-        let ch = spec.channels as usize;
-        samples
-            .chunks_exact(ch)
-            .map(|f| f.iter().sum::<f32>() / ch as f32)
-            .collect()
-    } else {
-        samples
-    };
-
-    Ok(samples)
-}
-
-/// Threads logiques de l'ordinateur.
-pub fn max_threads() -> i32 {
-    std::thread::available_parallelism()
-        .map(|n| n.get() as i32)
-        .unwrap_or(4)
-}
-
-/// Parlato : choix automatique, les trois quarts des threads. Mesure sur un
-/// Ryzen 7 9800X3D (16 threads), ggml-base, 6 s d'audio : 8 threads 3,6 s,
-/// 12 threads 2,9 s, 16 threads 11,6 s (tous les threads se disputent le
-/// processeur avec le reste du systeme). Cf `whisper_threads_smoke`.
-pub fn auto_threads() -> i32 {
-    (max_threads() * 3 / 4).max(1)
+/// Ecritures sans espace entre les mots : han, hiragana, katakana et la
+/// ponctuation pleine chasse qui va avec.
+fn unspaced_script(c: char) -> bool {
+    matches!(c,
+        '\u{3000}'..='\u{303F}'   // ponctuation CJK
+        | '\u{3040}'..='\u{30FF}' // hiragana, katakana
+        | '\u{3400}'..='\u{4DBF}' // han (extension A)
+        | '\u{4E00}'..='\u{9FFF}' // han
+        | '\u{FF00}'..='\u{FFEF}' // pleine chasse
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use voice_engine_stt::whisper_engine::WhisperEngine as EngineWhisper;
+    use voice_engine_stt::LoadOptions;
+
+    #[test]
+    fn segments_are_joined_with_single_spaces() {
+        assert_eq!(join_segments(&[]), "");
+        assert_eq!(join_segments(&["Hello there."]), "Hello there.");
+        assert_eq!(
+            join_segments(&["Hello there.", "  How are you? ", "", "Fine."]),
+            "Hello there. How are you? Fine."
+        );
+    }
+
+    #[test]
+    fn chinese_and_japanese_segments_are_not_spaced() {
+        assert_eq!(join_segments(&["你好。", "再见。"]), "你好。再见。");
+        assert_eq!(join_segments(&["今日は", "晴れです"]), "今日は晴れです");
+        // A Latin word next to Han keeps no extra space either side of the script change.
+        assert_eq!(join_segments(&["ok", "你好"]), "ok你好");
+    }
+
+    #[test]
+    fn prompt_becomes_a_vocabulary_list() {
+        assert_eq!(
+            vocabulary_from_prompt("Parlato, Mogo; Talaan\nEnsayo"),
+            vec!["Parlato", "Mogo", "Talaan", "Ensayo"]
+        );
+        assert_eq!(vocabulary_from_prompt("  ,, ; "), Vec::<String>::new());
+        assert_eq!(vocabulary_from_prompt(""), Vec::<String>::new());
+        assert_eq!(
+            vocabulary_from_prompt("a medical report"),
+            vec!["a medical report"]
+        );
+    }
 
     /// Parlato : temps de Whisper selon le nombre de threads, sur les 6
-    /// premieres secondes (dictee courte) puis sur tout le fichier.
+    /// premieres secondes (dictee courte) puis sur tout le fichier. Ne
+    /// montre que des durees et des nombres, jamais le texte.
     /// `PARLATO_WHISPER_MODEL=<ggml-*.bin> PARLATO_WAV=<16 kHz wav>
     /// cargo test --release --lib whisper_threads_smoke -- --ignored --nocapture`.
-    /// Options : `PARLATO_THREADS=8,12,16` et `PARLATO_SHORT_ONLY=1` pour les
-    /// gros modeles.
+    /// Options : `PARLATO_THREADS=8,12,16`, `PARLATO_SHORT_ONLY=1` pour les
+    /// gros modeles et `PARLATO_GPU=1` pour Metal.
     #[test]
     #[ignore]
     fn whisper_threads_smoke() {
         let model = std::env::var("PARLATO_WHISPER_MODEL").expect("PARLATO_WHISPER_MODEL");
         let wav = std::env::var("PARLATO_WAV").expect("PARLATO_WAV");
-        let all = read_wav_as_f32(Path::new(&wav)).unwrap();
-        let engine = WhisperEngine::new();
-        engine.load(Path::new(&model)).unwrap();
-        println!("system: {}", whisper_rs::print_system_info());
+        let all = speech::read_wav_as_f32(Path::new(&wav)).unwrap();
+        let gpu = std::env::var("PARLATO_GPU").is_ok();
         let threads_list: Vec<usize> = std::env::var("PARLATO_THREADS")
             .map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect())
             .unwrap_or_else(|_| vec![2, 4, 6, 8, 12, 16]);
@@ -240,22 +209,47 @@ mod tests {
         } else {
             vec![short, &all[..]]
         };
-        for samples in clips {
-            println!("audio: {:.1} s", samples.len() as f32 / 16000.0);
-            for &threads in &threads_list {
-                let params = WhisperParams {
-                    language: Some("en".into()),
-                    n_threads: threads,
-                    ..Default::default()
-                };
+        for &threads in &threads_list {
+            let t0 = std::time::Instant::now();
+            let mut engine = EngineWhisper::load(
+                Path::new(&model),
+                LoadOptions {
+                    gpu,
+                    threads: Some(threads),
+                },
+            )
+            .unwrap();
+            let backend = voice_engine_stt::Transcriber::backend(&engine);
+            println!(
+                "threads={threads:>2}: load {} ms, backend {}, fell_back {}",
+                t0.elapsed().as_millis(),
+                backend.backend,
+                backend.fell_back
+            );
+            let opts = ChunkOptions {
+                language: Some("en".into()),
+                timing: Timing::Segments,
+                ..ChunkOptions::default()
+            };
+            for samples in &clips {
                 let mut best = u128::MAX;
+                let mut words = 0;
                 for _ in 0..2 {
                     let st = std::time::Instant::now();
-                    let text = engine.transcribe_samples(samples, &params).unwrap();
+                    let t = voice_engine_stt::Transcriber::transcribe(&mut engine, samples, &opts)
+                        .unwrap();
                     best = best.min(st.elapsed().as_millis());
-                    assert!(!text.is_empty());
+                    words = t
+                        .segments
+                        .iter()
+                        .map(|s| s.text.split_whitespace().count())
+                        .sum();
+                    assert!(words > 0);
                 }
-                println!("threads={threads:>2}: best of 2 = {best} ms");
+                println!(
+                    "threads={threads:>2} audio={:>4.1}s: best of 2 = {best} ms, {words} words",
+                    samples.len() as f32 / 16000.0
+                );
             }
         }
     }

@@ -1,4 +1,5 @@
-// Module transcription - pipeline Whisper local + model manager.
+// Module transcription - pipeline Whisper local, Parakeet, VAD et cloud ;
+// les moteurs locaux sont ceux de voice-engine-stt (speech.rs).
 //
 // Reference VoiceInk :
 // - Transcription/Core/VoiceInkEngine.swift (orchestration)
@@ -14,5 +15,6 @@ pub mod langs;
 pub mod parakeet;
 pub mod parakeet_windows;
 pub mod pipeline;
+pub mod speech;
 pub mod vad;
 pub mod whisper;

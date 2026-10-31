@@ -33,8 +33,7 @@ use crate::transcription::{
         streaming::{StreamingConfig, StreamingHandle, StreamingRegistry},
         CloudRegistry,
     },
-    vad,
-    whisper::{self as whisper_core, WhisperParams},
+    speech, vad,
 };
 
 /// Nom du store Tauri ou est persiste l'ID du modele selectionne.
@@ -335,7 +334,7 @@ pub fn get_speech_threads(app: &AppHandle) -> usize {
         .ok()
         .and_then(|s| s.get(SPEECH_THREADS_KEY))
         .and_then(|v| v.as_u64())
-        .map(|n| n.min(whisper_core::max_threads() as u64) as usize)
+        .map(|n| n.min(speech::max_threads() as u64) as usize)
         .unwrap_or(0)
 }
 
@@ -772,11 +771,6 @@ async fn transcribe_cloud(
 async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Outcome> {
     let source = resolve_source(&app);
     let language = get_language(&app);
-    let params = WhisperParams {
-        language: language.clone(),
-        n_threads: get_speech_threads(&app),
-        ..Default::default()
-    };
 
     let source_label = match &source {
         Source::Local { model_id } => format!("local / {model_id}"),
@@ -792,7 +786,7 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         None,
     );
 
-    // Branche cloud : pas de VAD, pas de WhisperEngine. Upload direct au provider.
+    // Branche cloud : pas de VAD, pas de moteur local. Upload direct au provider.
     if let Source::Cloud { provider, model } = &source {
         if provider.is_empty() || model.is_empty() {
             anyhow::bail!("PARLA_ERR:cloudUnconfigured");
@@ -817,34 +811,29 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         return finalize_text(&app, run, text, duration_ms).await;
     }
 
-    // Branche Parakeet (local via parakeet-rs).
+    // Branche Parakeet (local via voice-engine-stt : TDT, Unified, Nemotron).
     if let Source::Parakeet { model_id } = &source {
         if model_id.is_empty() {
             anyhow::bail!("PARLA_ERR:noParakeet");
         }
         let store = app.state::<crate::models::ModelStoreState>().0.clone();
-        let model_dir = store
-            .path_for_id(model_id)
+        let model_source = speech::Source::for_id(&store, model_id)
             .ok_or_else(|| anyhow!("PARLA_ERR:parakeetIncomplete:{model_id}"))?;
         let engine_state = app
             .state::<crate::transcription::parakeet::ParakeetEngineState>()
             .0
             .clone();
-        let kind = voice_engine_models::catalog::find(model_id)
-            .and_then(|m| crate::transcription::parakeet::ParakeetKind::from_catalog(m.kind))
-            .unwrap_or(crate::transcription::parakeet::ParakeetKind::Tdt);
         // Verrou du dossier partage tant que le modele est charge.
         let handle = store.hold(model_id);
         let wav_path_clone = wav_path.clone();
         let language_clone = language.clone();
         let vad = vad_for(&app);
-        let threads = get_speech_threads(&app);
+        let threads = speech::threads_option(get_speech_threads(&app));
         let gpu = get_parakeet_gpu(&app);
         let start = std::time::Instant::now();
         let engine_for_notice = engine_state.clone();
         let text = task::spawn_blocking(move || -> Result<String> {
-            engine_state.ensure_loaded(&model_dir, kind, threads, gpu)?;
-            engine_state.hold(handle);
+            engine_state.ensure_loaded(&model_source, threads, gpu, handle)?;
             let used_vad = vad.is_some();
             let mut samples = speech_samples(vad, &wav_path_clone)?;
             if samples.is_empty() {
@@ -895,8 +884,7 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         .clone();
     let store = app.state::<crate::models::ModelStoreState>().0.clone();
 
-    let model_path = store
-        .path_for_id(&model_id)
+    let model_source = speech::Source::for_id(&store, &model_id)
         .ok_or_else(|| anyhow!("PARLA_ERR:modelNotDownloaded:{model_id}"))?;
     // Verrou du dossier partage tant que le modele est charge (rien pour un
     // modele importe, qui n'est pas dans le dossier partage).
@@ -904,23 +892,31 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
 
     // VAD optionnelle (matching VoiceInk IsVADEnabled), cf `speech_samples`.
     let vad = vad_for(&app);
+    let threads = speech::threads_option(get_speech_threads(&app));
 
     let wav_path_clone = wav_path.clone();
+    let language_clone = language.clone();
+    let engine_for_notice = engine.clone();
     let start = std::time::Instant::now();
     let text = task::spawn_blocking(move || -> Result<String> {
-        engine.load(&model_path)?;
-        engine.hold(handle);
+        engine.ensure_loaded(&model_source, threads, handle)?;
         let samples = speech_samples(vad, &wav_path_clone)?;
         if samples.is_empty() {
             return Ok(String::new());
         }
-        engine.transcribe_samples(&samples, &params)
+        // Parlato : les mots du dictionnaire ne sont pas envoyes a Whisper
+        // local (parite 0.14, plan decision 7).
+        engine.transcribe_samples(&samples, language_clone.as_deref(), &[])
     })
     .await
     .map_err(|e| anyhow!("task join: {e}"))??;
 
     let duration_ms = start.elapsed().as_millis() as u64;
     info!(chars = text.len(), duration_ms, "Transcription locale terminee");
+    // Parlato : repli Metal -> processeur, a dire une fois dans la bulle.
+    if engine_for_notice.take_gpu_notice() && run.job == Job::Dictation {
+        crate::notice::send_after_dictation(crate::notice::Notice::GpuFallback);
+    }
     mark_transcribed_in_history(
         &app,
         run,
@@ -932,7 +928,8 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
     finalize_text(&app, run, text, duration_ms).await
 }
 
-/// VAD Silero si elle est activee et que son modele est telecharge.
+/// VAD Silero si elle est activee et que son modele est telecharge : le moteur
+/// et le dossier du modele "vad".
 /// Parlato : partagee par Whisper et Parakeet (VoiceInk 2.21 6985c4b
 /// l'applique aussi a FluidAudio).
 fn vad_for(app: &AppHandle) -> Option<(Arc<vad::VadEngine>, PathBuf)> {
@@ -940,21 +937,24 @@ fn vad_for(app: &AppHandle) -> Option<(Arc<vad::VadEngine>, PathBuf)> {
         return None;
     }
     let store = app.state::<crate::models::ModelStoreState>().0.clone();
-    let path = store.path_for_id(crate::commands::vad::VAD_ID)?;
+    let voice_engine_models::Status::Installed { dir, .. } =
+        store.shared().status(crate::commands::vad::VAD_ID)
+    else {
+        return None;
+    };
     let engine = app.state::<crate::commands::vad::VadEngineState>().0.clone();
     // Verrou du dossier partage tant que le modele VAD est charge.
     engine.hold(store.hold(crate::commands::vad::VAD_ID));
-    Some((engine, path))
+    Some((engine, dir))
 }
 
 /// Lit le WAV. Avec la VAD, ne garde que les plages de parole mises bout a
 /// bout (vide si aucune parole).
 fn speech_samples(vad: Option<(Arc<vad::VadEngine>, PathBuf)>, wav: &Path) -> Result<Vec<f32>> {
-    let Some((engine, model_path)) = vad else {
-        return whisper_core::read_wav_as_f32(wav);
+    let Some((engine, model_dir)) = vad else {
+        return speech::read_wav_as_f32(wav);
     };
-    engine.load(&model_path)?;
-    let (samples, ranges) = vad::run_vad_on_wav(&engine, wav)?;
+    let (samples, ranges) = vad::run_vad_on_wav(&engine, &model_dir, wav)?;
     let total: usize = ranges.iter().map(|(s, e)| e - s).sum();
     let mut speech: Vec<f32> = Vec::with_capacity(total);
     for (s, e) in &ranges {
@@ -1205,32 +1205,38 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
 mod tests {
     use super::*;
 
-    /// Smoke test of the shared VAD step in front of Parakeet:
+    /// Smoke test of the shared VAD step in front of Parakeet (counts and
+    /// timings only, never the text):
     /// `PARLATO_VAD_MODEL=<silero .bin> PARLATO_PARAKEET_DIR=<dir>
-    /// PARLATO_WAV=<16 kHz wav> cargo test --lib vad_parakeet_smoke -- --ignored --nocapture`.
+    /// PARLATO_WAV=<16 kHz wav> cargo test --release --lib vad_parakeet_smoke -- --ignored --nocapture`.
+    /// `PARLATO_PARAKEET_ID` picks another TDT catalog id than parakeet-ultra.
     #[test]
     #[ignore]
     fn vad_parakeet_smoke() {
         let vad_model = PathBuf::from(std::env::var("PARLATO_VAD_MODEL").expect("PARLATO_VAD_MODEL"));
-        let dir = std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR");
+        let dir = PathBuf::from(std::env::var("PARLATO_PARAKEET_DIR").expect("PARLATO_PARAKEET_DIR"));
         let wav = PathBuf::from(std::env::var("PARLATO_WAV").expect("PARLATO_WAV"));
-        let all = whisper_core::read_wav_as_f32(&wav).unwrap();
-        let vad = Some((Arc::new(vad::VadEngine::default()), vad_model));
+        let id = std::env::var("PARLATO_PARAKEET_ID").unwrap_or_else(|_| "parakeet-ultra".into());
+        let all = speech::read_wav_as_f32(&wav).unwrap();
+        let (vad_dir, _keep) = vad::tests::vad_dir_for(&vad_model);
+        let vad = Some((Arc::new(vad::VadEngine::default()), vad_dir));
+        let t0 = std::time::Instant::now();
         let speech = speech_samples(vad, &wav).unwrap();
-        let engine = crate::transcription::parakeet::ParakeetEngine::new();
-        engine
-            .ensure_loaded(
-                Path::new(&dir),
-                crate::transcription::parakeet::ParakeetKind::Tdt,
-                0,
-                false,
-            )
-            .unwrap();
+        println!("vad: {} ms", t0.elapsed().as_millis());
+        let engine = crate::transcription::parakeet::ParakeetEngine::default();
+        let source = speech::Source::Catalog {
+            model: voice_engine_models::catalog::find(&id).expect("catalog id"),
+            dir,
+        };
+        engine.ensure_loaded(&source, None, false, None).unwrap();
+        let t1 = std::time::Instant::now();
         let text = engine.transcribe_samples(&speech, None).unwrap();
         println!(
-            "--- {:.1}s audio, {:.1}s kept after VAD ---\n{text}\n---",
+            "--- {:.1}s audio, {:.1}s kept after VAD, {} words in {} ms ---",
             all.len() as f32 / 16000.0,
-            speech.len() as f32 / 16000.0
+            speech.len() as f32 / 16000.0,
+            text.split_whitespace().count(),
+            t1.elapsed().as_millis()
         );
         assert!(speech.len() < all.len());
         assert!(!text.trim().is_empty());
