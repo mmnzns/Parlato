@@ -1,12 +1,11 @@
 // Parla - entree lib.
-// Setup Tauri (tray, GPU info, audio devices, hotkeys, pipeline de
+// Setup Tauri (tray, audio devices, hotkeys, pipeline de
 // transcription, enhancement, Power Mode, capture ecran, historique).
 
 mod audio;
 mod commands;
 mod db;
 mod enhancement;
-mod gpu;
 mod history;
 mod logging;
 mod hotkeys;
@@ -20,6 +19,7 @@ mod services;
 mod text_processing;
 mod transcription;
 mod tray;
+mod use_gpu;
 #[cfg(windows)]
 mod window_subclass;
 
@@ -45,13 +45,13 @@ use commands::settings::{
     get_cloud_transcription_timeout, get_dictation_language, get_selected_input_device,
     get_selected_whisper_model, get_sound_feedback_enabled,
     get_system_mute_enabled, get_text_processing_settings, get_transcription_source,
-    get_model_keep_alive, get_parakeet_gpu, get_speech_threads, get_ui_language, reset_escape_hint, set_append_trailing_space,
+    get_model_keep_alive, get_speech_threads, get_use_gpu, get_ui_language, reset_escape_hint, set_append_trailing_space,
     set_audio_resumption_delay, set_close_to_tray, set_cloud_transcription_timeout, set_hide_dock_icon,
     set_dictation_language, set_filler_words, set_model_keep_alive, set_remove_filler_words,
     set_restore_clipboard_after_paste, set_selected_input_device, set_selected_whisper_model,
     set_sound_feedback_enabled, set_system_mute_enabled,
     set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
-    set_parakeet_gpu, set_speech_threads,
+    set_speech_threads, set_use_gpu,
 };
 use commands::transcription::{transcribe_file, transcribe_wav, WhisperEngineState};
 use commands::cloud::{
@@ -108,20 +108,6 @@ use hotkeys::{
     manager::{dispatch_loop, HotkeyManager},
 };
 
-/// Info GPU exposee au frontend.
-#[derive(serde::Serialize, Clone)]
-pub struct GpuInfo {
-    pub has_nvidia: bool,
-    pub device_name: Option<String>,
-    pub driver_version: Option<String>,
-    pub cuda_version: Option<String>,
-}
-
-#[tauri::command]
-fn get_gpu_info() -> GpuInfo {
-    gpu::detect()
-}
-
 /// Parlato : opens the folder holding parlato.log (Settings > Version), so
 /// a user can attach it to a bug report.
 #[tauri::command]
@@ -141,20 +127,6 @@ fn ping() -> &'static str {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::init();
-
-    let gpu = gpu::detect();
-    if gpu.has_nvidia {
-        info!(
-            device = gpu.device_name.as_deref().unwrap_or("?"),
-            driver = gpu.driver_version.as_deref().unwrap_or("?"),
-            cuda = gpu.cuda_version.as_deref().unwrap_or("?"),
-            "GPU NVIDIA detecte"
-        );
-    } else {
-        // Parlato : a Mac never has an NVIDIA GPU, so this is not a warning there.
-        #[cfg(not(target_os = "macos"))]
-        warn!("Pas de GPU NVIDIA detecte, execution CPU uniquement");
-    }
 
     tauri::Builder::default()
         // Single-instance guard. If the user double-clicks the exe or an
@@ -208,6 +180,9 @@ pub fn run() {
             // des ids, deplacement des anciens modeles, nettoyage. Avant tout
             // ce qui peut charger un modele.
             app.manage(models::ModelStoreState(models::startup::init(&handle)));
+            // Reglage "Utiliser la carte graphique" : migration de l'ancien
+            // reglage, puis recherche de la carte sur un fil (jamais bloquante).
+            use_gpu::init(&handle);
             // L'assistant IA du moteur (IA locale) : le client est cree ici, le
             // modele choisi se charge en arriere-plan.
             enhancement::local_ai::init(&handle);
@@ -312,7 +287,6 @@ pub fn run() {
             ping,
             open_log_folder,
             commands::delete_data::delete_all_data,
-            get_gpu_info,
             list_audio_devices,
             start_recording,
             stop_recording,
@@ -333,8 +307,8 @@ pub fn run() {
             get_dictation_language,
             set_dictation_language,
             get_speech_threads,
-            get_parakeet_gpu,
-            set_parakeet_gpu,
+            get_use_gpu,
+            set_use_gpu,
             get_model_keep_alive,
             set_model_keep_alive,
             set_speech_threads,

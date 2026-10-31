@@ -43,31 +43,6 @@ pub fn threads_option(setting: usize) -> Option<usize> {
 }
 
 // ---------------------------------------------------------------------------
-// Carte graphique (provisoire : l'unite 5 la remplace par `use_gpu`)
-// ---------------------------------------------------------------------------
-
-/// Faut-il demander la carte graphique pour ce modele ? Le seul endroit qui
-/// decide, pour que l'unite 5 le remplace.
-/// - Mac : Whisper sur Metal ; les modeles ONNX n'ont pas de chemin carte
-///   graphique et le moteur dirait `fell_back` : jamais demande.
-/// - Windows : Whisper sur le processeur (pas de Vulkan dans ce processus) ;
-///   Parakeet TDT suit le reglage `parakeet_gpu` (DirectML) ; Unified et
-///   Nemotron sur le processeur.
-pub fn gpu_request(kind: Kind, parakeet_gpu_setting: bool) -> bool {
-    match kind {
-        Kind::Whisper => cfg!(target_os = "macos"),
-        Kind::Parakeet => cfg!(windows) && parakeet_gpu_setting,
-        _ => false,
-    }
-}
-
-/// Ce build sait-il utiliser la carte graphique pour Parakeet ? (le reglage
-/// `parakeet_gpu` n'a de sens que si oui : DirectML sous Windows.)
-pub fn gpu_available() -> bool {
-    cfg!(windows)
-}
-
-// ---------------------------------------------------------------------------
 // Lecture d'un WAV
 // ---------------------------------------------------------------------------
 
@@ -202,7 +177,7 @@ impl SpeechSlot {
     /// Charge le modele si ce n'est pas deja lui (meme dossier, memes threads,
     /// meme demande de carte). Bloquant. `handle` : le verrou du dossier
     /// partage, garde tant que le modele est charge (rien pour un import).
-    /// `threads` : `None` = la regle du moteur. `gpu` : voir `gpu_request`.
+    /// `threads` : `None` = la regle du moteur. `gpu` : la regle de `use_gpu::wants_card`, deja appliquee.
     pub fn ensure_loaded(
         &self,
         source: &Source,
@@ -376,18 +351,6 @@ mod tests {
         let auto = auto_threads();
         assert!((2..=12).contains(&auto));
         assert!(auto <= max_threads().max(2));
-    }
-
-    #[test]
-    fn graphics_card_policy_until_use_gpu() {
-        // The ONNX models other than Parakeet TDT never ask for the card.
-        assert!(!gpu_request(Kind::ParakeetUnified, true));
-        assert!(!gpu_request(Kind::Nemotron, true));
-        assert!(!gpu_request(Kind::Vad, true));
-        // Whisper: Metal on the Mac only. Parakeet: the setting, Windows only.
-        assert_eq!(gpu_request(Kind::Whisper, false), cfg!(target_os = "macos"));
-        assert!(!gpu_request(Kind::Parakeet, false));
-        assert_eq!(gpu_request(Kind::Parakeet, true), cfg!(windows));
     }
 
     #[test]

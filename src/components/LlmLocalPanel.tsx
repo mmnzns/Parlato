@@ -164,7 +164,8 @@ export function LlmLocalPanel() {
           {t("ai.builtinDesc")}{" "}
           {backend === "cpu"
             ? t("ai.runsOnCpu")
-            : t("ai.runsOnGpu", { backend: backend === "metal" ? "Metal" : backend === "vulkan" ? "Vulkan" : backend })}
+            : t("ai.runsOnGpu", { backend: backend === "metal" ? "Metal" : backend === "vulkan" ? "Vulkan" : backend })}{" "}
+          {t("ai.gpuSetting")}
         </span>
       </Block>
 

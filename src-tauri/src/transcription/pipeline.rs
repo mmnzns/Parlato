@@ -41,8 +41,6 @@ const STORE_FILE: &str = "parla.settings.json";
 const SELECTED_MODEL_KEY: &str = "selected_whisper_model";
 const LANGUAGE_KEY: &str = "whisper_language";
 const SPEECH_THREADS_KEY: &str = "speech_threads";
-/// Parlato : Parakeet sur la carte graphique (bool, faux par defaut).
-const PARAKEET_GPU_KEY: &str = "parakeet_gpu";
 /// Parlato : secondes pendant lesquelles les modeles restent charges apres
 /// une dictee (0 = liberes tout de suite, comme VoiceInk).
 const KEEP_ALIVE_KEY: &str = "model_keep_alive_secs";
@@ -147,24 +145,61 @@ fn emit_state(
     );
 }
 
-/// Parlato : nombre de passages en cours. Les modeles ne sont liberes
-/// qu'une fois le dernier termine, sinon la fin d'un fichier dechargerait
-/// le modele sous une dictee en cours.
-static ACTIVE_RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+/// Parlato : ce qui garde les modeles charges. Un enregistrement et un
+/// passage dans le pipeline comptent chacun comme une activite : les modeles
+/// ne sont liberes qu'une fois la derniere terminee (sinon la fin d'un fichier
+/// dechargerait le modele sous une dictee en cours, ou la minuterie le
+/// dechargerait pendant un long enregistrement). Chaque debut change
+/// l'`epoch` : une liberation programmee ne se fait que si rien n'a commence
+/// depuis.
+#[derive(Default)]
+struct Activity {
+    active: std::sync::atomic::AtomicUsize,
+    epoch: std::sync::atomic::AtomicU64,
+}
 
-/// Compteur de passages commences : une liberation programmee ne se fait
-/// que si aucun passage n'a commence entre-temps.
-static RUN_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+impl Activity {
+    const fn new() -> Self {
+        Self {
+            active: std::sync::atomic::AtomicUsize::new(0),
+            epoch: std::sync::atomic::AtomicU64::new(0),
+        }
+    }
+
+    fn begin(&self) {
+        use std::sync::atomic::Ordering::SeqCst;
+        self.epoch.fetch_add(1, SeqCst);
+        self.active.fetch_add(1, SeqCst);
+    }
+
+    /// Termine une activite. Vrai si plus rien n'est actif.
+    fn end(&self) -> bool {
+        use std::sync::atomic::Ordering::SeqCst;
+        self.active.fetch_sub(1, SeqCst).saturating_sub(1) == 0
+    }
+
+    fn epoch(&self) -> u64 {
+        self.epoch.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Une liberation programmee a l'`epoch` donne peut-elle avoir lieu ?
+    fn may_unload(&self, epoch: u64) -> bool {
+        use std::sync::atomic::Ordering::SeqCst;
+        self.active.load(SeqCst) == 0 && self.epoch.load(SeqCst) == epoch
+    }
+}
+
+static ACTIVITY: Activity = Activity::new();
+
+/// Un enregistrement est-il compte comme activite ? (une seule a la fois)
+static RECORDING_COUNTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn begin_run() {
-    RUN_EPOCH.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    ACTIVE_RUNS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    ACTIVITY.begin();
 }
 
 fn end_run(app: &AppHandle) {
-    use std::sync::atomic::Ordering::SeqCst;
-    let left = ACTIVE_RUNS.fetch_sub(1, SeqCst).saturating_sub(1);
-    if left != 0 {
+    if !ACTIVITY.end() {
         return;
     }
     // Parlato : les modeles restent prets quelques minutes, la dictee
@@ -175,15 +210,33 @@ fn end_run(app: &AppHandle) {
         unload_inference_models(app);
         return;
     }
-    let epoch = RUN_EPOCH.load(SeqCst);
+    let epoch = ACTIVITY.epoch();
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(keep));
-        if ACTIVE_RUNS.load(SeqCst) == 0 && RUN_EPOCH.load(SeqCst) == epoch {
+        if ACTIVITY.may_unload(epoch) {
             info!(keep, "modeles liberes apres inactivite");
             unload_inference_models(&app);
         }
     });
+}
+
+/// Un enregistrement vient de demarrer : il compte comme activite jusqu'a la
+/// fin de son passage dans le pipeline, ou jusqu'a son annulation.
+pub fn recording_started() {
+    use std::sync::atomic::Ordering::SeqCst;
+    if !RECORDING_COUNTED.swap(true, SeqCst) {
+        ACTIVITY.begin();
+    }
+}
+
+/// L'enregistrement est termine sans passage dans le pipeline (annule, arret
+/// en echec, ou arret sans transcription) : l'activite se termine.
+pub fn recording_finished(app: &AppHandle) {
+    use std::sync::atomic::Ordering::SeqCst;
+    if RECORDING_COUNTED.swap(false, SeqCst) {
+        end_run(app);
+    }
 }
 
 pub fn get_model_keep_alive(app: &AppHandle) -> u64 {
@@ -347,23 +400,6 @@ pub fn set_speech_threads(app: &AppHandle, threads: usize) -> Result<()> {
     Ok(())
 }
 
-/// Parlato : Parakeet doit-il utiliser la carte graphique ? Faux par defaut
-/// (a mesurer avant d'en faire un choix automatique, cf CLAUDE.md).
-pub fn get_parakeet_gpu(app: &AppHandle) -> bool {
-    app.store(STORE_FILE)
-        .ok()
-        .and_then(|s| s.get(PARAKEET_GPU_KEY))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-}
-
-pub fn set_parakeet_gpu(app: &AppHandle, enabled: bool) -> Result<()> {
-    let store = app.store(STORE_FILE)?;
-    store.set(PARAKEET_GPU_KEY, serde_json::Value::Bool(enabled));
-    store.save()?;
-    Ok(())
-}
-
 pub fn get_restore_clipboard(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
         return true;
@@ -487,6 +523,7 @@ pub fn finish_streaming(
     let pill = mini_recorder::generation();
     let released = std::time::Instant::now();
     begin_run();
+    recording_finished(&app);
     tauri::async_runtime::spawn(async move {
         let run = Run {
             job: Job::Dictation,
@@ -528,6 +565,9 @@ pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
         pill,
     };
     begin_run();
+    // Le passage prend le relais de l'enregistrement (jamais de trou entre
+    // les deux).
+    recording_finished(&app);
     // tauri::async_runtime::spawn fonctionne depuis n'importe quel thread
     // (le hotkey-dispatch est un std::thread sans runtime Tokio attache).
     tauri::async_runtime::spawn(async move {
@@ -671,7 +711,7 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
 /// au lieu de ~800 Mo ou plus selon les modeles utilises. Chaque engine
 /// gere son propre Mutex, donc cette fonction est sans erreur et sans
 /// await : on tombe juste le Arc<Option<T>> a None.
-fn unload_inference_models(app: &AppHandle) {
+pub(crate) fn unload_inference_models(app: &AppHandle) {
     if let Some(st) = app.try_state::<crate::commands::transcription::WhisperEngineState>() {
         st.0.unload();
     }
@@ -834,11 +874,10 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
         let language_clone = language.clone();
         let vad = vad_for(&app);
         let threads = speech::threads_option(get_speech_threads(&app));
-        let gpu = get_parakeet_gpu(&app);
         let start = std::time::Instant::now();
         let engine_for_notice = engine_state.clone();
         let text = task::spawn_blocking(move || -> Result<String> {
-            engine_state.ensure_loaded(&model_source, threads, gpu, handle)?;
+            engine_state.ensure_loaded(&model_source, threads, handle)?;
             let used_vad = vad.is_some();
             let mut samples = speech_samples(vad, &wav_path_clone)?;
             if samples.is_empty() {
@@ -1215,6 +1254,54 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
 
 #[cfg(test)]
 mod tests {
+    // -- Keep-alive : l'activite ---------------------------------------------
+
+    #[test]
+    fn a_scheduled_unload_waits_for_every_activity() {
+        let a = Activity::new();
+        // A dictation ran and ended: an unload is scheduled at that epoch.
+        a.begin();
+        assert!(a.end());
+        let scheduled = a.epoch();
+        assert!(a.may_unload(scheduled));
+        // A new activity cancels it, even after it ended.
+        a.begin();
+        assert!(!a.may_unload(scheduled));
+        assert!(a.end());
+        assert!(!a.may_unload(scheduled));
+        assert!(a.may_unload(a.epoch()));
+    }
+
+    #[test]
+    fn a_long_recording_holds_the_models_until_its_pipeline_ends() {
+        let a = Activity::new();
+        // A previous dictation scheduled an unload.
+        a.begin();
+        assert!(a.end());
+        let scheduled = a.epoch();
+        // The recording starts: from then on the old timer cannot unload.
+        a.begin();
+        assert!(!a.may_unload(scheduled));
+        // Hours later, still recording: a timer scheduled now would not fire either.
+        assert!(!a.may_unload(a.epoch()));
+        // Stop: the pipeline begins before the recording lets go, so there is
+        // never an idle moment between them.
+        a.begin();
+        assert!(!a.end(), "the pipeline still holds the models");
+        assert!(!a.may_unload(a.epoch()));
+        // The pipeline ends: now idle, and only now an unload can be scheduled.
+        assert!(a.end());
+        assert!(a.may_unload(a.epoch()));
+    }
+
+    #[test]
+    fn a_cancelled_recording_leaves_the_models_to_the_timer() {
+        let a = Activity::new();
+        a.begin(); // recording
+        assert!(a.end()); // cancelled: idle again, the caller schedules the unload
+        assert!(a.may_unload(a.epoch()));
+    }
+
     use super::*;
 
     /// Smoke test of the shared VAD step in front of Parakeet (counts and
@@ -1240,7 +1327,7 @@ mod tests {
             model: voice_engine_models::catalog::find(&id).expect("catalog id"),
             dir,
         };
-        engine.ensure_loaded(&source, None, false, None).unwrap();
+        engine.ensure_loaded_with_gpu(&source, None, false, None).unwrap();
         let t1 = std::time::Instant::now();
         let text = engine.transcribe_samples(&speech, None).unwrap();
         println!(

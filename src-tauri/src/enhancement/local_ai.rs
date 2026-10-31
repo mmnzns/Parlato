@@ -68,6 +68,8 @@ pub struct LocalAi {
     client: Arc<LlmClient>,
     /// None dans les tests : aucun verrou de dossier.
     store: Option<Arc<ModelStore>>,
+    /// Une carte graphique peut etre essayee (cf `card_path`).
+    card_path: bool,
     slot: Mutex<Option<Loaded>>,
     /// Compte les `unload` : un chargement parti avant un `unload` n'est pas
     /// note comme charge.
@@ -106,10 +108,13 @@ pub fn helper_paths(dir: &Path, windows_x64: bool) -> (PathBuf, Option<PathBuf>)
     (cpu, gpu)
 }
 
-/// Faut-il demander la carte graphique ? Provisoire : l'unite 5 le remplace
-/// par `use_gpu`. Mac : Metal. Windows : le processeur, pour l'instant.
-pub fn gpu_request() -> bool {
-    cfg!(target_os = "macos")
+/// L'assistant peut-il essayer une carte graphique ? Mac : oui, c'est le meme
+/// assistant (Metal). Windows : seulement avec l'assistant Vulkan ; sans lui
+/// le client n'a que l'assistant processeur, qui ne repond jamais `fell_back`
+/// (rien n'a ete essaye) : on ne demande alors pas la carte, donc aucun avis
+/// "carte graphique en echec" pour un fichier absent.
+fn card_path(vulkan_helper: bool, mac: bool) -> bool {
+    mac || vulkan_helper
 }
 
 fn config_for(cpu: PathBuf, gpu: Option<PathBuf>) -> LlmConfig {
@@ -187,6 +192,7 @@ fn error_kind(e: &EngineError) -> &'static str {
 impl LocalAi {
     pub fn new(config: LlmConfig, store: Option<Arc<ModelStore>>) -> Self {
         Self {
+            card_path: card_path(config.gpu_helper.is_some(), cfg!(target_os = "macos")),
             client: Arc::new(LlmClient::new(config)),
             store,
             slot: Mutex::new(None),
@@ -215,10 +221,13 @@ impl LocalAi {
         })
     }
 
-    /// Demande la carte graphique ? Oui sur le Mac, tant qu'elle n'a pas
-    /// echoue pendant cette session.
+    /// Demande la carte graphique ? La regle commune (`use_gpu`), si une
+    /// carte peut etre essayee, tant qu'elle n'a pas echoue pendant cette
+    /// session.
     fn gpu_wanted(&self) -> bool {
-        gpu_request() && !self.gpu_failed.load(Ordering::Relaxed)
+        self.card_path
+            && crate::use_gpu::wanted_now(crate::use_gpu::Runtime::LocalAi)
+            && !self.gpu_failed.load(Ordering::Relaxed)
     }
 
     /// Ce qu'une reponse du moteur dit de la carte graphique : un repli est
@@ -248,6 +257,11 @@ impl LocalAi {
         }
     }
 
+    /// La carte graphique a-t-elle echoue depuis le lancement ?
+    pub fn gpu_failed(&self) -> bool {
+        self.gpu_failed.load(Ordering::Relaxed)
+    }
+
     /// Vrai une seule fois apres un repli carte -> processeur : la bulle doit
     /// le dire a l'utilisateur.
     pub fn take_gpu_notice(&self) -> bool {
@@ -260,10 +274,10 @@ impl LocalAi {
         if let Some(b) = self.last_backend.lock().clone() {
             return b;
         }
-        if self.gpu_wanted() {
-            "metal".into()
-        } else {
-            "cpu".into()
+        match (self.gpu_wanted(), cfg!(target_os = "macos")) {
+            (true, true) => "metal".into(),
+            (true, false) => "vulkan".into(),
+            _ => "cpu".into(),
         }
     }
 
@@ -569,8 +583,24 @@ mod tests {
     }
 
     #[test]
-    fn gpu_request_follows_the_platform() {
-        assert_eq!(gpu_request(), cfg!(target_os = "macos"));
+    fn the_card_is_only_tried_where_a_card_helper_exists() {
+        // Mac: the one helper is the Metal one. Windows: the Vulkan helper or nothing.
+        assert!(card_path(false, true));
+        assert!(card_path(true, true));
+        assert!(card_path(true, false));
+        assert!(!card_path(false, false));
+    }
+
+    #[test]
+    fn a_processor_only_install_never_asks_for_the_card() {
+        // No Vulkan helper file (Windows) = nothing to try: no request, so no
+        // fallback notice for a missing file.
+        let ai = LocalAi::new(config_for(PathBuf::from("/nowhere"), None), None);
+        assert_eq!(ai.card_path, cfg!(target_os = "macos"));
+        if !cfg!(target_os = "macos") {
+            assert!(!ai.gpu_wanted());
+            assert_eq!(ai.backend(), "cpu");
+        }
     }
 
     #[test]

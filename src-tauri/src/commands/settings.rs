@@ -323,38 +323,57 @@ pub fn set_speech_threads(app: AppHandle, threads: usize) -> Result<(), String> 
     pipeline::set_speech_threads(&app, threads).map_err(|e| e.to_string())
 }
 
-// -- Parakeet on the graphics card (Parlato) -------------------------------
+// -- Use the graphics card (Parlato) ---------------------------------------
 
 #[derive(serde::Serialize)]
-pub struct ParakeetGpu {
-    /// Choix enregistre (faux par defaut).
+pub struct UseGpu {
+    /// La valeur effective : le choix de la personne, sinon le defaut.
     pub enabled: bool,
-    /// Ce build sait utiliser la carte graphique (Windows, DirectML).
-    pub available: bool,
-    /// La carte graphique a echoue depuis le lancement : le processeur sert.
+    /// D'ou vient la valeur : "mac", "discrete_card", "no_card", "checking"
+    /// (la recherche de carte tourne) ou "set_by_person".
+    pub default_reason: &'static str,
+    /// Windows : la carte graphique dediee trouvee, par son nom.
+    pub card_name: Option<String>,
+    /// "macos", "windows" ou "other" : ce que le reglage couvre ici.
+    pub platform: &'static str,
+    /// La carte graphique a echoue depuis le lancement (parole ou IA locale) :
+    /// le processeur sert jusqu'au prochain redemarrage.
     pub failed: bool,
-    /// Ce qui a tourne au dernier chargement : "cpu", "directml" ou
-    /// "cpu-fallback".
-    pub provider: String,
 }
 
 #[tauri::command]
-pub fn get_parakeet_gpu(app: AppHandle) -> ParakeetGpu {
-    let engine = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>();
-    ParakeetGpu {
-        enabled: pipeline::get_parakeet_gpu(&app),
-        available: crate::transcription::speech::gpu_available(),
-        failed: engine.as_ref().map(|e| e.0.gpu_failed()).unwrap_or(false),
-        provider: engine
-            .map(|e| e.0.provider())
-            .unwrap_or_else(|| "cpu".to_string()),
+pub fn get_use_gpu(app: AppHandle) -> UseGpu {
+    let (enabled, reason, card_name) = crate::use_gpu::snapshot();
+    let speech_failed = |slot: Option<bool>| slot.unwrap_or(false);
+    let failed = speech_failed(
+        app.try_state::<crate::transcription::parakeet::ParakeetEngineState>()
+            .map(|e| e.0.gpu_failed()),
+    ) || speech_failed(
+        app.try_state::<crate::commands::transcription::WhisperEngineState>()
+            .map(|e| e.0.gpu_failed()),
+    ) || crate::enhancement::local_ai::local_ai()
+        .map(|ai| ai.gpu_failed())
+        .unwrap_or(false);
+    UseGpu {
+        enabled,
+        default_reason: reason.as_str(),
+        card_name,
+        platform: match crate::use_gpu::Os::current() {
+            crate::use_gpu::Os::Mac => "macos",
+            crate::use_gpu::Os::Windows => "windows",
+            crate::use_gpu::Os::Other => "other",
+        },
+        failed,
     }
 }
 
-/// Le modele se recharge a la prochaine utilisation (comme pour les threads).
+/// Les modeles de parole et d'IA charges sont decharges : le prochain
+/// chargement prend la nouvelle valeur.
 #[tauri::command]
-pub fn set_parakeet_gpu(app: AppHandle, enabled: bool) -> Result<(), String> {
-    pipeline::set_parakeet_gpu(&app, enabled).map_err(|e| e.to_string())
+pub fn set_use_gpu(app: AppHandle, enabled: bool) -> Result<(), String> {
+    crate::use_gpu::set(&app, enabled).map_err(|e| e.to_string())?;
+    pipeline::unload_inference_models(&app);
+    Ok(())
 }
 
 /// Parlato : duree (s) pendant laquelle les modeles restent charges apres

@@ -542,7 +542,7 @@ export function ModelsPage({
 
       {/* Parlato: outside the @container column, whose style containment
           would restart the [01] section numbering. */}
-      {localCompany && <SpeechThreadsPanel parakeet={localCompany.id === "nvidia"} />}
+      {localCompany && <SpeechThreadsPanel />}
     </div>
   );
 }

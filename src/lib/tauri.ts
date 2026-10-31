@@ -1,10 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export type GpuInfo = {
-  has_nvidia: boolean;
-  device_name: string | null;
-  driver_version: string | null;
-  cuda_version: string | null;
+/** The "Use graphics card" setting for speech and local AI together.
+ *  `default_reason` says where `enabled` comes from: the Mac default, a
+ *  discrete card found, no card, the card search still running, or the person. */
+export type UseGpu = {
+  enabled: boolean;
+  default_reason: "mac" | "discrete_card" | "no_card" | "checking" | "set_by_person";
+  card_name: string | null;
+  platform: "macos" | "windows" | "other";
+  /** The card failed since launch: the processor is used until a restart. */
+  failed: boolean;
 };
 
 export type AudioDeviceInfo = {
@@ -323,7 +328,6 @@ export type ParakeetModelState = {
 
 export const api = {
   ping: () => invoke<string>("ping"),
-  getGpuInfo: () => invoke<GpuInfo>("get_gpu_info"),
 
   listAudioDevices: () => invoke<AudioDeviceInfo[]>("list_audio_devices"),
   startRecording: (deviceName: string | null) =>
@@ -361,14 +365,10 @@ export const api = {
   getSpeechThreads: () =>
     invoke<{ value: number; auto: number; max: number }>("get_speech_threads"),
   setSpeechThreads: (threads: number) => invoke<void>("set_speech_threads", { threads }),
-  /** Parlato: Parakeet on the graphics card. `available` is false on builds
-   *  without a GPU provider (Mac); `failed` after a fall back to the
-   *  processor; `provider` is what ran at the last load. */
-  getParakeetGpu: () =>
-    invoke<{ enabled: boolean; available: boolean; failed: boolean; provider: string }>(
-      "get_parakeet_gpu",
-    ),
-  setParakeetGpu: (enabled: boolean) => invoke<void>("set_parakeet_gpu", { enabled }),
+  /** Parlato: one "Use graphics card" switch for speech and local AI. Setting
+   *  it unloads the loaded models; the next load uses the new value. */
+  getUseGpu: () => invoke<UseGpu>("get_use_gpu"),
+  setUseGpu: (enabled: boolean) => invoke<void>("set_use_gpu", { enabled }),
   /** Parlato: seconds the models stay loaded after a dictation (0 = unload). */
   getModelKeepAlive: () =>
     invoke<{ value: number; recommended: number }>("get_model_keep_alive"),

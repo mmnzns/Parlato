@@ -73,9 +73,6 @@ keyring = "3"
 urlencoding = "2"
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 
-# Detection GPU NVIDIA (CUDA runtime presence)
-nvml-wrapper = { version = "0.11", optional = true }
-
 # Shared engine (voice-engine, MIT): models, speech, local AI client. Every
 # engine crate stays on the same tag. Code flows from the engine into Parlato
 # only, never the other way (see CLAUDE.md "One shared engine").
@@ -90,7 +87,8 @@ tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
 # Parakeet on the graphics card through the engine (DirectML), chosen at run
-# time by the `parakeet_gpu` setting. Cargo unifies the features with the
+# time by the `use_gpu` setting (and asked for the card at startup,
+# `discrete_card`). Cargo unifies the features with the
 # entry in [dependencies]. Whisper and Parakeet themselves (whisper-rs,
 # parakeet-rs) come in through voice-engine-stt, not directly.
 voice-engine-stt = { git = "https://github.com/mmnzns/voice-engine", tag = "v0.2.2", features = ["directml"] }
@@ -153,7 +151,4 @@ opt-level = 3
 [profile.dev.package.tokenizers]
 opt-level = 1
 
-[features]
-default = ["gpu-detect"]
-gpu-detect = ["dep:nvml-wrapper"]
 

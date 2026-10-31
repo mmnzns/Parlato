@@ -9,7 +9,7 @@
 // spectrogramme, l'encodeur et le decodeur.
 //
 // Parlato : la carte graphique (DirectML sous Windows, Parakeet TDT
-// seulement, reglage `parakeet_gpu`) est lue a l'execution. Si le moteur dit
+// seulement, reglage `use_gpu`) est lue a l'execution. Si le moteur dit
 // qu'elle n'a pas servi (`fell_back`), le processeur sert jusqu'a la fermeture
 // de l'application et la bulle le dit une fois (cf speech.rs).
 
@@ -22,7 +22,7 @@ use voice_engine_models::{Kind, ModelHandle};
 use voice_engine_stt::{ChunkOptions, Timing, Transcriber, Transcript};
 
 use super::parakeet_windows::{transcribe_in_windows, TimedToken};
-use super::speech::{gpu_request, Source, SpeechSlot};
+use super::speech::{Source, SpeechSlot};
 
 #[derive(Default)]
 pub struct ParakeetEngine {
@@ -31,18 +31,30 @@ pub struct ParakeetEngine {
 
 impl ParakeetEngine {
     /// Charge le modele (un dossier du dossier partage) s'il n'est pas deja
-    /// charge. Bloquant. `threads` : `None` = la regle du moteur. `gpu` : le
-    /// reglage "utiliser la carte graphique" ; seul TDT la demande
-    /// (cf `gpu_request`). `handle` : le verrou du dossier partage.
+    /// charge. Bloquant. `threads` : `None` = la regle du moteur. La carte
+    /// graphique suit la regle commune (`use_gpu`) : seul TDT la demande,
+    /// DirectML sous Windows. `handle` : le verrou du dossier partage.
     pub fn ensure_loaded(
+        &self,
+        source: &Source,
+        threads: Option<usize>,
+        handle: Option<ModelHandle>,
+    ) -> Result<()> {
+        let gpu = crate::use_gpu::wanted_now(crate::use_gpu::runtime_for(source.kind()));
+        self.slot.ensure_loaded(source, threads, gpu, handle)
+    }
+
+    /// Comme `ensure_loaded`, avec la carte demandee a la main (les tests de
+    /// mesure).
+    #[cfg(test)]
+    pub(crate) fn ensure_loaded_with_gpu(
         &self,
         source: &Source,
         threads: Option<usize>,
         gpu: bool,
         handle: Option<ModelHandle>,
     ) -> Result<()> {
-        self.slot
-            .ensure_loaded(source, threads, gpu_request(source.kind(), gpu), handle)
+        self.slot.ensure_loaded(source, threads, gpu, handle)
     }
 
     /// Transcrit un buffer PCM Float32 mono 16 kHz. Bloquant (inference).
@@ -289,7 +301,7 @@ mod tests {
         let engine = ParakeetEngine::default();
         let t0 = std::time::Instant::now();
         engine
-            .ensure_loaded(&source, None, std::env::var("PARLATO_GPU").is_ok(), None)
+            .ensure_loaded_with_gpu(&source, None, std::env::var("PARLATO_GPU").is_ok(), None)
             .unwrap();
         let loaded_in = t0.elapsed().as_secs_f32();
         let samples = crate::transcription::speech::read_wav_as_f32(Path::new(&wav)).unwrap();
@@ -324,7 +336,7 @@ mod tests {
         let samples = crate::transcription::speech::read_wav_as_f32(Path::new(&wav)).unwrap();
         let engine = ParakeetEngine::default();
         engine
-            .ensure_loaded(&smoke_source(), None, false, None)
+            .ensure_loaded_with_gpu(&smoke_source(), None, false, None)
             .unwrap();
         let secs = samples.len() as f32 / SAMPLE_RATE as f32;
         if secs <= 40.0 {
@@ -449,7 +461,7 @@ mod tests {
         for threads in threads_list {
             let engine = ParakeetEngine::default();
             engine
-                .ensure_loaded(&source, Some(threads), false, None)
+                .ensure_loaded_with_gpu(&source, Some(threads), false, None)
                 .unwrap();
             for samples in [short, &all[..]] {
                 let mut best = u128::MAX;

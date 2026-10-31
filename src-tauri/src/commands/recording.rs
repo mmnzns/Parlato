@@ -72,6 +72,8 @@ pub fn stop_recording(
             app.clone(),
             std::path::PathBuf::from(&stopped.wav_path),
         );
+    } else {
+        crate::transcription::pipeline::recording_finished(&app);
     }
     Ok(stopped)
 }
@@ -157,6 +159,9 @@ pub fn start_recording_core_with_chunk(
     let handle = AudioRecorder::start(config, on_chunk)?;
     *guard = Some(handle);
     drop(guard);
+    // Les modeles ne se liberent pas pendant l'enregistrement, aussi long
+    // soit-il : il compte comme activite des son debut.
+    crate::transcription::pipeline::recording_started();
 
     info!(recording_id = %id, path = %wav_path.display(), "Enregistrement demarre");
 
@@ -177,7 +182,15 @@ pub fn stop_recording_core(
         anyhow::bail!("aucun enregistrement en cours");
     };
     drop(guard);
-    let path = handle.stop()?;
+    let stopped = handle.stop();
+    let path = match stopped {
+        Ok(p) => p,
+        Err(e) => {
+            // Plus d'enregistrement, et pas de passage derriere.
+            crate::transcription::pipeline::recording_finished(app);
+            return Err(e);
+        }
+    };
     info!(path = %path.display(), "Enregistrement termine");
     // The stop cue is NOT played here. Like VoiceInk (playStopSound at the
     // paste site), it fires at the end of the pipeline once the text is
@@ -199,7 +212,10 @@ pub fn cancel_recording_core(
         return Ok(());
     };
     drop(guard);
-    let path = handle.stop()?;
+    let stopped = handle.stop();
+    // Annule : plus rien ne le retient, que l'arret ait reussi ou non.
+    crate::transcription::pipeline::recording_finished(app);
+    let path = stopped?;
     if let Err(e) = std::fs::remove_file(&path) {
         warn!("Impossible de supprimer l'enregistrement annule {}: {e}", path.display());
     }

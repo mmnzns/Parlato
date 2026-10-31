@@ -15,7 +15,7 @@ use tracing::info;
 use voice_engine_models::ModelHandle;
 use voice_engine_stt::{ChunkOptions, Timing};
 
-use super::speech::{self, gpu_request, Source, SpeechSlot};
+use super::speech::{self, Source, SpeechSlot};
 
 /// Whisper charge : reutilisable entre transcriptions, thread-safe.
 #[derive(Default)]
@@ -37,12 +37,10 @@ impl WhisperEngine {
         threads: Option<usize>,
         handle: Option<ModelHandle>,
     ) -> Result<()> {
-        self.slot.ensure_loaded(
-            source,
-            threads,
-            gpu_request(voice_engine_models::Kind::Whisper, false),
-            handle,
-        )
+        // La regle commune (`use_gpu`) : Metal sur le Mac si le reglage est
+        // actif, le processeur ailleurs.
+        let gpu = crate::use_gpu::wanted_now(crate::use_gpu::Runtime::Whisper);
+        self.slot.ensure_loaded(source, threads, gpu, handle)
     }
 
     /// Transcrit un buffer Float32 mono 16 kHz deja decode. `language` : le
@@ -100,6 +98,11 @@ impl WhisperEngine {
         if self.slot.unload_if_under(path) {
             info!("Modele Whisper decharge");
         }
+    }
+
+    /// La carte graphique a-t-elle echoue depuis le lancement ?
+    pub fn gpu_failed(&self) -> bool {
+        self.slot.gpu_failed()
     }
 
     /// Vrai une seule fois apres un repli carte graphique -> processeur.
