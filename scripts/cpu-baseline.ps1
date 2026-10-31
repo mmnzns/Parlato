@@ -8,7 +8,7 @@
 # x64 baseline: x86-64-v3 (SSE4.2, AVX, AVX2, FMA, F16C, BMI2; every PC since about 2015), no AVX-512, no AVX-VNNI.
 # ARM64 baseline: plain armv8-a (ggml's own default for the compiler, the same as the engine's helper gets).
 #
-# whisper-rs-sys forwards every GGML_* environment variable as a CMake define. src-tauri/.cargo/config.toml (the engine's
+# whisper-rs-sys forwards every GGML_* environment variable as a CMake define. .cargo/config.toml at the repo root (the engine's
 # "Build settings an app must copy") sets the same values and CMAKE_C/CXX_FLAGS_RELEASE=-O2 -DNDEBUG; this script
 # repeats the ggml ones for the CI jobs and checks the result. Cargo does not rerun the -sys build script when only
 # the environment changed, hence Reset-StaleGgml. For release builds the cache must also carry -O2: cmake-rs strips /O
