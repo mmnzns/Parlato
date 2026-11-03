@@ -278,20 +278,16 @@ fn pill_position(
     (x.round() as i32, y.round() as i32)
 }
 
-/// Parlato : zone utile de l'ecran en pixels physiques. Sur macOS, la
-/// `work_area` de Tauri a une origine Y fausse (voir `mini_recorder_macos.rs`),
-/// on lit donc NSScreen.visibleFrame ; ailleurs (Windows : rcWork, origine en
-/// haut a gauche) on prend celle de Tauri.
+/// Parlato : zone utile de l'ecran en pixels physiques (Windows : rcWork,
+/// origine en haut a gauche). Sur macOS, `reposition` passe d'abord par
+/// NSScreen en points (voir `mini_recorder_macos.rs`) ; ceci n'est que le
+/// repli si AppKit ne renvoie rien.
 fn work_area(
     window: &tauri::WebviewWindow,
     screen: PxRect,
     scale: f64,
     monitor: &tauri::Monitor,
 ) -> PxRect {
-    #[cfg(target_os = "macos")]
-    if let Some(rect) = crate::mini_recorder_macos::visible_frame(window, screen, scale) {
-        return rect;
-    }
     let _ = (window, screen, scale);
     let area = monitor.work_area();
     PxRect {
@@ -308,6 +304,17 @@ fn work_area(
 /// barre de menus, de l'encoche et du Dock.
 fn reposition(window: &tauri::WebviewWindow, style: RecorderStyle) {
     use tauri::PhysicalPosition;
+    // macOS: with mixed-DPI screens, physical pixels are not one global space
+    // and set_position(Physical) uses the window's current monitor scale. Work
+    // in global points (NSScreen / NSEvent) and place with logical units,
+    // which tao passes straight through as points.
+    #[cfg(target_os = "macos")]
+    if let Some((screen, work)) = crate::mini_recorder_macos::screen_under_mouse(window) {
+        let (x, y) = pill_position(screen, work, 1.0, style, BOTTOM_GAP, PILL_BOTTOM_INSET);
+        let _ = window.set_size(LogicalSize::new(WIDTH, HEIGHT));
+        let _ = window.set_position(LogicalPosition::new(x as f64, y as f64));
+        return;
+    }
     let monitor = window
         .cursor_position()
         .ok()
@@ -421,6 +428,43 @@ mod tests {
     /// Visible pill bottom, in physical pixels, for a window at `y`.
     fn pill_bottom(y: i32, scale: f64) -> i32 {
         y + ((HEIGHT - PILL_BOTTOM_INSET) * scale).round() as i32
+    }
+
+    /// Mixed-DPI Mac (global points, top-left origin; Cocoa y flipped with the
+    /// primary screen height 1692): the pill must sit inside each screen.
+    #[test]
+    fn mixed_dpi_mac_pill_stays_on_each_screen() {
+        let primary_h = 1692;
+        // (frame, visible) from NSScreen (x, y bottom-left, w, h).
+        let flip = |x: i32, y: i32, w: i32, h: i32| r(x, primary_h - (y + h), w, h);
+        let screens = [
+            // Gigabyte M32U, main, menu bar 30 pt on top, Dock 63 pt below.
+            (flip(0, 0, 3008, 1692), flip(0, 63, 3008, 1599)),
+            // DELL U2414H, portrait, right of main.
+            (flip(3008, -112, 1080, 1920), flip(3008, -112, 1080, 1920)),
+            // MSI G27C6, left of main.
+            (flip(-1920, 272, 1920, 1080), flip(-1920, 272, 1920, 1080)),
+        ];
+        for (screen, work) in screens {
+            for style in [RecorderStyle::Mini, RecorderStyle::Notch] {
+                let (x, y) = pill_position(screen, work, 1.0, style, GAP, INSET);
+                let (x, y) = (x as f64, y as f64);
+                assert!(x >= screen.x as f64, "{screen:?} x={x}");
+                assert!(
+                    x + WIDTH <= (screen.x + screen.w) as f64,
+                    "{screen:?} x={x}"
+                );
+                assert!(y >= screen.y as f64, "{screen:?} y={y}");
+                // Only the transparent bottom padding may hang below.
+                assert!(
+                    y + HEIGHT - INSET <= (screen.y + screen.h) as f64,
+                    "{screen:?} y={y}"
+                );
+            }
+            // Mini: visible pill bottom GAP points above the work area bottom.
+            let (_, y) = pill_position(screen, work, 1.0, RecorderStyle::Mini, GAP, INSET);
+            assert_eq!(y + (HEIGHT - INSET) as i32, work.y + work.h - GAP as i32);
+        }
     }
 
     #[test]

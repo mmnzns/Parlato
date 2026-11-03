@@ -1,34 +1,41 @@
-// Mini-recorder placement on macOS: the visible frame of a screen (menu bar
-// and Dock excluded), in the same coordinates as Tauri's monitor rectangles.
+// Mini-recorder placement on macOS: the screen under the mouse and its visible
+// frame (menu bar and Dock excluded), in global POINTS with a top-left origin.
 //
-// Why this exists: Tauri's `Monitor::work_area()` on macOS (tauri-runtime-wry
-// monitor/macos.rs) takes the SIZE of NSScreen.visibleFrame but only shifts
-// the X origin; the Y origin stays at the top of the screen. NSScreen's
-// coordinates are bottom-left based, so the menu bar height is lost and the
-// computed bottom edge ends up one menu-bar height (~34 pt) above the real
-// Dock top. Here the rectangle is converted properly.
+// Why this exists, two problems with Tauri's physical-pixel monitor API:
+// - Mixed DPI: tao builds each monitor's physical rectangle as its points
+//   multiplied by THAT monitor's own scale factor, so physical coordinates are
+//   not one consistent global space when screens have different scales. And
+//   `set_position(PhysicalPosition)` converts back to points using the scale of
+//   the window's CURRENT monitor, not the target's. A pill last shown on a 1x
+//   screen and targeted at a 2x screen therefore lands off every screen.
+//   `cursor_position()` / `monitor_from_point()` share the same ambiguity.
+// - `Monitor::work_area()` (tauri-runtime-wry monitor/macos.rs) takes the SIZE
+//   of NSScreen.visibleFrame but only shifts the X origin; the menu bar height
+//   is lost.
+// So we ask AppKit directly (NSEvent mouse location, NSScreen frames), which
+// is one consistent space in points, and position the window in logical units.
 //
 // Reference VoiceInk : MiniRecorderPanel.swift positions the panel from
 // NSScreen.visibleFrame (`screen.visibleFrame.minY + padding`).
 
-use objc2_app_kit::NSScreen;
+use objc2_app_kit::{NSEvent, NSScreen};
 use objc2_foundation::MainThreadMarker;
 use tauri::WebviewWindow;
 
 use crate::mini_recorder::PxRect;
 
-/// Visible frame (physical pixels, top-left origin, global desktop
-/// coordinates) of the screen whose frame is `screen` (a Tauri monitor
-/// rectangle). `None` when no NSScreen matches.
-pub fn visible_frame(window: &WebviewWindow, screen: PxRect, scale: f64) -> Option<PxRect> {
+/// Frame and visible frame (global points, top-left origin) of the screen
+/// containing the mouse, or of the main screen when none matches. Returns
+/// `(frame, visible_frame)`; `None` when there is no screen at all.
+pub fn screen_under_mouse(window: &WebviewWindow) -> Option<(PxRect, PxRect)> {
     if let Some(mtm) = MainThreadMarker::new() {
-        return compute(mtm, screen, scale);
+        return compute(mtm);
     }
     // NSScreen is main-thread only: hop there and wait for the answer.
     let (tx, rx) = std::sync::mpsc::channel();
     window
         .run_on_main_thread(move || {
-            let result = MainThreadMarker::new().and_then(|mtm| compute(mtm, screen, scale));
+            let result = MainThreadMarker::new().and_then(compute);
             let _ = tx.send(result);
         })
         .ok()?;
@@ -37,27 +44,27 @@ pub fn visible_frame(window: &WebviewWindow, screen: PxRect, scale: f64) -> Opti
         .flatten()
 }
 
-fn compute(mtm: MainThreadMarker, screen: PxRect, scale: f64) -> Option<PxRect> {
+fn compute(mtm: MainThreadMarker) -> Option<(PxRect, PxRect)> {
     let screens = NSScreen::screens(mtm);
     // The first screen is the one with the menu bar; its height is the Y flip
-    // between Cocoa (bottom-left origin) and Tauri (top-left origin).
+    // between Cocoa (bottom-left origin) and top-left origin.
     let primary_h = screens.firstObject()?.frame().size.height;
-    let want_x = screen.x as f64 / scale;
-    let want_y = screen.y as f64 / scale;
-    for s in screens.iter() {
-        let frame = s.frame();
-        let top = primary_h - (frame.origin.y + frame.size.height);
-        if (frame.origin.x - want_x).abs() > 1.5 || (top - want_y).abs() > 1.5 {
-            continue;
-        }
-        let vis = s.visibleFrame();
-        let vis_top = primary_h - (vis.origin.y + vis.size.height);
-        return Some(PxRect {
-            x: (vis.origin.x * scale).round() as i32,
-            y: (vis_top * scale).round() as i32,
-            w: (vis.size.width * scale).round() as i32,
-            h: (vis.size.height * scale).round() as i32,
-        });
-    }
-    None
+    let mouse = NSEvent::mouseLocation();
+    let chosen = screens
+        .iter()
+        .find(|s| {
+            let f = s.frame();
+            mouse.x >= f.origin.x
+                && mouse.x < f.origin.x + f.size.width
+                && mouse.y >= f.origin.y
+                && mouse.y < f.origin.y + f.size.height
+        })
+        .or_else(|| screens.firstObject())?;
+    let to_rect = |r: objc2_foundation::NSRect| PxRect {
+        x: r.origin.x.round() as i32,
+        y: (primary_h - (r.origin.y + r.size.height)).round() as i32,
+        w: r.size.width.round() as i32,
+        h: r.size.height.round() as i32,
+    };
+    Some((to_rect(chosen.frame()), to_rect(chosen.visibleFrame())))
 }
