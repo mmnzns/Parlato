@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Mac, Parakeet on Windows and local AI.
 
 ### Changed
+- The dictation shortcut can now be any single key, not only a combination:
+  choose **Custom key or combination…** and press one key. A key that types,
+  such as a letter or Space, still types its character, so Parlato warns you
+  and asks before using it. The other shortcuts (paste, copy, retry, history,
+  cancel) still need a combination, because they block their key everywhere.
 - Failed dictations in History now keep only a short, translated reason. The
   service's reply and the output of a command-line AI tool are no longer
   stored, and older failed entries are cleaned the first time Parlato starts.
@@ -56,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Parlato is running! Click OK to kill it".
 
 ### Fixed
+- Making the window narrow no longer adds scrollbars to the whole window or a
+  blank area below the app; only the page scrolls.
+- Punctuation and numpad keys now have readable names in the shortcut recorder
+  (for example "/" instead of "VK_BF").
 - The log no longer says the local AI model was loaded twice at every launch.
 
 ### Removed
