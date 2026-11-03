@@ -159,6 +159,15 @@
   body,
   #root {
     height: 100%;
+    width: 100%;
+  }
+  /* The app shell is exactly the window: only the content pane scrolls.
+     (w-screen/100vw includes the scrollbar width and caused window-level
+     scrollbars at narrow sizes.) */
+  html,
+  body {
+    margin: 0;
+    overflow: hidden;
   }
   /* Accessibility (design handoff section 6): visible focus on every control. */
   :focus-visible {
