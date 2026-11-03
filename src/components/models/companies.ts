@@ -25,9 +25,9 @@ export const LOCAL_COMPANIES: {
     name: "NVIDIA",
     family: "Parakeet, Nemotron",
     picks: [
-      { label: "speech.pickBestEnglish", id: "parakeet-unified-en-0.6b-int8" },
-      { label: "speech.pickManyLanguages", id: "parakeet-ultra-0.6b-int8" },
-      { label: "speech.pickMostLanguages", id: "nemotron-3.5-asr-streaming-0.6b" },
+      { label: "speech.pickBestEnglish", id: "parakeet-unified-en" },
+      { label: "speech.pickManyLanguages", id: "parakeet-ultra" },
+      { label: "speech.pickMostLanguages", id: "nemotron-3.5" },
     ],
   },
   {
@@ -35,9 +35,9 @@ export const LOCAL_COMPANIES: {
     name: "OpenAI",
     family: "Whisper",
     picks: [
-      { label: "speech.pickFastest", id: "ggml-base", en: "ggml-base.en" },
-      { label: "speech.pickBalanced", id: "ggml-large-v3-turbo-q5_0" },
-      { label: "speech.pickMostAccurate", id: "ggml-large-v3-q5_0" },
+      { label: "speech.pickFastest", id: "whisper-base", en: "whisper-base-en" },
+      { label: "speech.pickBalanced", id: "whisper-turbo" },
+      { label: "speech.pickMostAccurate", id: "whisper-large-v3" },
     ],
   },
 ];

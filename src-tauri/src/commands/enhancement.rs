@@ -18,7 +18,11 @@ pub fn get_enhancement_enabled(app: AppHandle) -> bool {
 
 #[command]
 pub fn set_enhancement_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
-    prompts::set_enhancement_enabled(&app, enabled).map_err(|e| e.to_string())
+    prompts::set_enhancement_enabled(&app, enabled).map_err(|e| e.to_string())?;
+    if enabled {
+        crate::enhancement::local_ai::preload_if_wanted(&app);
+    }
+    Ok(())
 }
 
 // ---- Prompts CRUD ---------------------------------------------------------
@@ -177,7 +181,18 @@ pub fn set_llm_selection(
     provider_id: String,
     model: String,
 ) -> Result<(), String> {
-    service::set_selection(&app, &provider_id, &model).map_err(|e| e.to_string())
+    let was_local = service::get_selection(&app).is_some_and(|s| s.provider_id == "llamacpp");
+    service::set_selection(&app, &provider_id, &model).map_err(|e| e.to_string())?;
+    // Parlato : the local AI model loads when the local engine is picked and
+    // is freed when another provider replaces it.
+    if provider_id == "llamacpp" {
+        crate::enhancement::local_ai::preload_if_wanted(&app);
+    } else if was_local {
+        if let Some(ai) = crate::enhancement::local_ai::local_ai() {
+            ai.unload_in_background();
+        }
+    }
+    Ok(())
 }
 
 // ---- Ollama ---------------------------------------------------------------

@@ -27,7 +27,7 @@ steps below show how to get past that warning. Everything Parlato runs is built 
 ## Windows
 
 **You need:** Windows 10 (22H2) or Windows 11, on an x64 PC or a Windows on
-ARM laptop. No graphics card needed.
+ARM laptop. A graphics card isn't needed.
 
 ### 1. Download
 
@@ -169,9 +169,6 @@ These work on Windows and are coming to the Mac later:
 - Letting AI cleanup read the window you're typing in
 - The command-line AI cleanup engine
 
-Speech and AI cleanup run on the Mac's processor for now, not its graphics
-chip. Short dictations are quick; the largest Whisper models and local AI
-cleanup are slower than they will be once graphics-chip support arrives.
 
 ---
 
@@ -202,6 +199,8 @@ cleanup are slower than they will be once graphics-chip support arrives.
   settings**.
 - On Windows, versions before 0.11.1 ran the Whisper models much slower
   than they should. Updating fixes it.
+- Check **Use graphics card** is on (on by default on the Mac, and on Windows
+  PCs with a dedicated card).
 - The largest Whisper models can still take a few seconds on the processor.
   For English, **Parakeet Unified** is faster; for other European
   languages, **Parakeet Ultra**.
@@ -225,14 +224,15 @@ The log records timings and errors, never what you dictate.
 
 ## Removing Parlato
 
-Parlato keeps its speech models, history and settings in its own folders on
-your computer. The models are the big part: each one you downloaded is
-between about 75 MB and 3 GB. Removing the app alone does not remove them,
-so follow every step below to leave nothing behind.
+Parlato keeps its history and settings in its own folders on your computer.
+Downloaded models are kept in a folder shared with Talaan and Ensayo, the
+big part: each one is between about 75 MB and 6 GB. Removing the app alone
+does not remove them, so follow every step below to leave nothing behind.
 
 **Easiest, on both platforms:** open Parlato's
 **Settings** > **Delete all Parlato data** > **Delete everything**. It
-removes every downloaded model, your history and recordings, settings,
+removes the models only Parlato uses (a model Talaan or Ensayo also uses
+stays for them), your history and recordings, settings,
 logs, start at login and saved account keys (and, on a Mac, Parlato's
 privacy permissions), then quits Parlato. Then remove the app itself:
 uninstall it on Windows (step 1 below, answer either way), or drag it to the
@@ -248,7 +248,8 @@ have a version older than 0.9.1 (which has no such button).
    click **...** > **Uninstall**.
 2. The uninstaller asks **"Do you also want to delete all Parlato user
    data?"** Click **Yes** to remove everything Parlato stored:
-   - speech and AI models
+   - imported model files (downloaded models are in the shared folder, see
+     below)
    - history and recordings
    - settings, prompts and power modes
    - logs
@@ -267,6 +268,10 @@ folders (paste each path into File Explorer's address bar):
 - `%APPDATA%\com.craftconceptsdigital.parlato`
 - `%LOCALAPPDATA%\com.craftconceptsdigital.parlato`
 
+Downloaded models are in `%LOCALAPPDATA%/Craft Concepts Digital/Models`,
+shared with Talaan and Ensayo. The uninstaller never deletes it. Delete it
+yourself only if you use none of those apps.
+
 ### Mac
 
 On a Mac, dragging an app to the Trash removes only the app. Parlato's
@@ -280,7 +285,10 @@ models, history and settings stay until you delete them too:
    - **Finder:** choose **Go** > **Go to Folder...** (Shift+Cmd+G), paste
      each path below, and drag the folder that opens to the Trash:
      - `~/Library/Application Support/com.craftconceptsdigital.parlato`
-       (models, history, recordings, settings: the big one)
+       (history, recordings, settings)
+     - `~/Library/Application Support/Craft Concepts Digital/Models`
+       (downloaded models, the big one; shared with Talaan and Ensayo, so
+       keep it if you use them)
      - `~/Library/Logs/com.craftconceptsdigital.parlato`
      - `~/Library/Caches/com.craftconceptsdigital.parlato`
      - `~/Library/WebKit/com.craftconceptsdigital.parlato`

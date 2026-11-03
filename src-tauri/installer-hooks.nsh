@@ -14,14 +14,26 @@
 ;     parla.power_mode.json        store plugin - Power Mode profiles
 ;     parla.power_mode.backup.json store plugin - backup of the profiles
 ;   %LOCALAPPDATA%\com.craftconceptsdigital.parlato\
-;     Models\                      Whisper .bin files + Silero VAD (ggml)
-;     ParakeetModels\              Parakeet ONNX files
-;     LlmModels\                   llama.cpp GGUF files
+;     LlmModels\                   GGUF files the user imported
+;     Models\imported\             speech model files the user imported
+;     (Models\, ParakeetModels\ and LlmModels\ from before 0.15 are only read
+;     once, when the app moves them into the shared folder below)
 ;     Recordings\                  WAV audio captures
 ;     parla.db                     history DB (SQLite)
 ;     logs\                        tracing output
 ;   HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Parlato
 ;     autostart registration (if user enabled it)
+;
+; Downloaded models are NOT in the folders above. They live in the folder
+; shared by Parlato, Talaan and Ensayo, managed by the voice-engine crate:
+;   %LOCALAPPDATA%\Craft Concepts Digital\Models\
+; The uninstaller must never delete it (other apps use the same files). The
+; wipe below only removes the two com.craftconceptsdigital.parlato folders.
+;
+; Local AI runs in a helper next to the app: parlato-llm.exe, and on Windows
+; x64 parlato-llm-vulkan.exe. A running helper keeps its file locked, so the
+; pre-install hook closes both (voice-engine docs/building-helpers.md,
+; "Closing a running helper before an update").
 ;
 ; Credential Manager (API keys): keyring-rs names each one
 ; "<user>.<service>", service "Parlato", user from keychain_user() in
@@ -30,6 +42,13 @@
 ; keychain_user() (Parlato, 2026-09-30).
 
 !macro NSIS_HOOK_PREINSTALL
+  ; The helpers exit when the app closes their stdin, but a running one would
+  ; make the update fail with "file in use". Stop them by name; "not found"
+  ; is fine (nsExec::Exec returns the exit code and we ignore it).
+  nsExec::Exec 'taskkill /F /IM parlato-llm.exe'
+  Pop $0
+  nsExec::Exec 'taskkill /F /IM parlato-llm-vulkan.exe'
+  Pop $0
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
@@ -57,7 +76,8 @@
     ; User stores (tauri-plugin-store JSON files)
     RMDir /r "$APPDATA\com.craftconceptsdigital.parlato"
 
-    ; Models, history DB, recordings, logs
+    ; Imported models, history DB, recordings, logs. NOT the shared model
+    ; folder (%LOCALAPPDATA%\Craft Concepts Digital\Models): Talaan and Ensayo use it too.
     RMDir /r "$LOCALAPPDATA\com.craftconceptsdigital.parlato"
 
     ; Autostart entry (if enabled via Settings > General)

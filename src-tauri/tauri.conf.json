@@ -35,6 +35,7 @@
     "active": true,
     "createUpdaterArtifacts": false,
     "targets": ["nsis"],
+    "externalBin": ["binaries/parlato-llm"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -49,7 +50,11 @@
     "longDescription": "Parlato is a voice dictation app for Windows and Mac with local Whisper models, NVIDIA Parakeet via ONNX Runtime, cloud providers (Groq, Deepgram, ElevenLabs, Mistral, Soniox, Speechmatics, Gemini, xAI, Cartesia, AssemblyAI) and LLM-powered enhancement (local llama.cpp, Ollama, Anthropic, OpenAI, Gemini, Mistral, Groq, Cerebras, OpenRouter, Custom).",
     "windows": {
       "nsis": {
-        "installerHooks": "./installer-hooks.nsh"
+        "installerHooks": "./installer-hooks.nsh",
+        "languages": ["English"],
+        "customLanguageFiles": {
+          "English": "./installer-languages/English.nsh"
+        }
       }
     }
   },

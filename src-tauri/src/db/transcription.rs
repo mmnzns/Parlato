@@ -68,7 +68,10 @@ fn row_to_record(row: &Row<'_>) -> rusqlite::Result<TranscriptionRecord> {
         transcription_duration_sec: row.get("transcription_duration_sec")?,
         enhancement_duration_sec: row.get("enhancement_duration_sec")?,
         audio_file_name: row.get("audio_file_name")?,
-        transcription_model_name: row.get("transcription_model_name")?,
+        // Old rows keep their old ids in the database; show the catalog id.
+        transcription_model_name: row
+            .get::<_, Option<String>>("transcription_model_name")?
+            .map(|n| crate::models::ids::display_label(&n)),
         ai_enhancement_model_name: row.get("ai_enhancement_model_name")?,
         prompt_name: row.get("prompt_name")?,
         ai_request_system_message: row.get("ai_request_system_message")?,

@@ -63,8 +63,9 @@ Mac version.
 - **A Mac with Apple silicon** (M1 or newer) running macOS 13 Ventura or
   later. Macs with an Intel chip are not supported.
 
-No graphics card needed: everything runs on the processor. Linux isn't
-supported.
+No graphics card needed: Parlato uses one when it can (Mac graphics chip,
+Windows PC with a dedicated card; the **Use graphics card** setting) and
+otherwise runs on the processor. Linux isn't supported.
 
 ### Which speech model should I pick?
 
@@ -156,7 +157,7 @@ services you set up yourself.
 ### Does AI cleanup cost money?
 
 Not if it runs on your computer: Parlato offers free local models (IBM
-Granite, Llama, Gemma, Phi), and works with [Ollama](https://ollama.com).
+Granite, Qwen), and works with [Ollama](https://ollama.com).
 Online AI cleanup uses your own account with that company (OpenAI, Anthropic,
 Google and others), so their pricing applies. Parlato never charges anything.
 
@@ -191,7 +192,7 @@ update, installs it and restarts. Your settings, models and history stay.
 
 Open Parlato's **Settings** > **Delete all Parlato data** > **Delete
 everything**, then uninstall the app (Windows) or drag it to the Trash
-(Mac). That removes every model, your history, settings and saved keys. The
+(Mac). That removes the models only Parlato uses, your history, settings and saved keys. The
 [removal guide](INSTALL.md#removing-parlato) has the details.
 
 ---

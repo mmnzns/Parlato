@@ -33,6 +33,8 @@ pub fn add_power_config(app: AppHandle, config: PowerModeConfig) -> Result<Power
     release_slot(&mut all, c.shortcut_slot);
     all.push(c.clone());
     config::save_all(&app, &all).map_err(|e| e.to_string())?;
+    crate::models::mark_used(&app, c.whisper_model_id.as_deref());
+    crate::models::mark_used(&app, c.parakeet_model_id.as_deref());
     crate::tray::refresh(&app);
     Ok(c)
 }
@@ -61,6 +63,8 @@ pub fn update_power_config(app: AppHandle, config: PowerModeConfig) -> Result<()
         }
     }
     config::save_all(&app, &all).map_err(|e| e.to_string())?;
+    crate::models::mark_used(&app, all[pos].whisper_model_id.as_deref());
+    crate::models::mark_used(&app, all[pos].parakeet_model_id.as_deref());
     crate::tray::refresh(&app);
     Ok(())
 }

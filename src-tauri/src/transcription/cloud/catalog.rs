@@ -5,7 +5,7 @@
 
 use serde::Serialize;
 
-use super::super::model::WHISPER_FULL_LANGS;
+use super::super::langs::WHISPER_FULL_LANGS;
 
 // Listes de codes ISO supportes par provider, alignees sur VoiceInk
 // Cloud/*Provider.swift `languageCodes`. "auto" en tete = auto-detect.

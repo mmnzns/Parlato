@@ -1,33 +1,18 @@
 // Provider llama.cpp embarque.
 //
-// Backend : crate `llama-cpp-2` (ffi llama.cpp).
-// CUDA : active via la feature Parla `cuda-llama` qui propage
-// `llama-cpp-2/cuda`. Quand active et qu'un GPU NVIDIA est detecte, on
-// pousse toutes les layers sur GPU (n_gpu_layers=1000).
+// Le modele tourne dans l'assistant IA du moteur (voice-engine v0.2.2), pas
+// dans ce processus : voir enhancement/local_ai.rs (client, cycle de vie du
+// modele, carte graphique). Ce fichier garde les reglages (modele choisi,
+// contexte, tokens max), `clean_output` (filet de securite sur la reponse) et
+// le fournisseur du trait LLMProvider.
 //
-// Prompt (Parlato) : chat template du GGUF, sans thinking, voir build_prompt.
+// Prompt : l'assistant applique le chat template du GGUF (thinking coupe).
 //
-// Generation : non-streamee (parity avec les autres providers). Le modele
-// est maintenu charge en memoire dans un Arc<Mutex<...>> (singleton cote
-// service) et rechargement paresseux si l'ID selectionne change.
-
-use std::num::NonZeroU32;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+// Generation : non-streamee (parite avec les autres providers).
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use parking_lot::Mutex;
 use tauri_plugin_store::StoreExt;
-use tracing::{info, warn};
-
-use llama_cpp_2::context::params::LlamaContextParams;
-use llama_cpp_2::llama_backend::LlamaBackend;
-use llama_cpp_2::llama_batch::LlamaBatch;
-use llama_cpp_2::model::params::LlamaModelParams;
-use llama_cpp_2::model::{AddBos, LlamaChatMessage, LlamaModel};
-use llama_cpp_2::sampling::LlamaSampler;
-use llama_cpp_2::token::LlamaToken;
 
 use crate::enhancement::provider::{
     EnhancementRequest, EnhancementResponse, LLMProvider,
@@ -35,21 +20,11 @@ use crate::enhancement::provider::{
 
 const STORE_FILE: &str = "parla.settings.json";
 const KEY_SELECTED_GGUF: &str = "llm_selected_gguf";
-const KEY_N_GPU_LAYERS: &str = "llm_gguf_n_gpu_layers";
 const KEY_MAX_TOKENS: &str = "llm_gguf_max_tokens";
 const KEY_CONTEXT_SIZE: &str = "llm_gguf_context_size";
 
 const DEFAULT_MAX_TOKENS: u32 = 1024;
-/// Parlato : duree maximale d'une generation (hors chargement du modele).
-/// Au-dela, le nettoyage est abandonne et le texte brut est colle, au lieu
-/// de laisser la dictee en attente sans fin sur une machine lente.
-const GENERATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(60);
 const DEFAULT_CONTEXT_SIZE: u32 = 4096;
-
-#[cfg(feature = "cuda-llama")]
-const DEFAULT_GPU_LAYERS: u32 = 1000;
-#[cfg(not(feature = "cuda-llama"))]
-const DEFAULT_GPU_LAYERS: u32 = 0;
 
 // -- Settings helpers -------------------------------------------------------
 
@@ -108,242 +83,11 @@ pub fn set_context_size(app: &tauri::AppHandle, v: u32) -> Result<()> {
     store.save().map_err(|e| anyhow!("store save: {e}"))
 }
 
-pub fn get_n_gpu_layers(app: &tauri::AppHandle) -> u32 {
-    get_u32(app, KEY_N_GPU_LAYERS, DEFAULT_GPU_LAYERS)
-}
-
-pub fn set_n_gpu_layers(app: &tauri::AppHandle, v: u32) -> Result<()> {
-    let store = app.store(STORE_FILE).map_err(|e| anyhow!("store: {e}"))?;
-    store.set(
-        KEY_N_GPU_LAYERS,
-        serde_json::Value::Number(serde_json::Number::from(v)),
-    );
-    store.save().map_err(|e| anyhow!("store save: {e}"))
-}
-
-// -- Runtime singleton ------------------------------------------------------
-
-/// Singleton runtime llama.cpp : backend + modele charge.
-/// Le backend doit etre unique dans le process (cf llama.cpp ggml_init).
-struct LoadedModel {
-    path: PathBuf,
-    n_gpu_layers: u32,
-    context_size: u32,
-    model: LlamaModel,
-}
-
-pub struct LlamaRuntime {
-    backend: Arc<LlamaBackend>,
-    current: Mutex<Option<LoadedModel>>,
-}
-
-impl LlamaRuntime {
-    pub fn new() -> Result<Self> {
-        let backend = LlamaBackend::init().map_err(|e| anyhow!("llama backend init: {e}"))?;
-        Ok(Self {
-            backend: Arc::new(backend),
-            current: Mutex::new(None),
-        })
-    }
-
-    /// Charge ou recharge le modele si necessaire. Bloquant (IO + mmap).
-    fn ensure_loaded(&self, path: &Path, n_gpu_layers: u32, context_size: u32) -> Result<()> {
-        let mut guard = self.current.lock();
-        if let Some(cur) = guard.as_ref() {
-            if cur.path == path && cur.n_gpu_layers == n_gpu_layers && cur.context_size == context_size {
-                return Ok(());
-            }
-        }
-        // Drop l'ancien avant de charger (libere la VRAM / RAM).
-        *guard = None;
-
-        let params = LlamaModelParams::default().with_n_gpu_layers(n_gpu_layers);
-        info!(
-            path = %path.display(),
-            n_gpu_layers,
-            context_size,
-            "Chargement modele GGUF"
-        );
-        let model = LlamaModel::load_from_file(&self.backend, path, &params)
-            .map_err(|e| anyhow!("llama load: {e}"))?;
-        *guard = Some(LoadedModel {
-            path: path.to_path_buf(),
-            n_gpu_layers,
-            context_size,
-            model,
-        });
-        Ok(())
-    }
-
-    /// Genere la reponse a un couple system / user. Bloquant (CPU/GPU intensif).
-    pub fn generate(
-        &self,
-        path: &Path,
-        n_gpu_layers: u32,
-        context_size: u32,
-        system: &str,
-        user: &str,
-        max_tokens: u32,
-    ) -> Result<String> {
-        self.ensure_loaded(path, n_gpu_layers, context_size)?;
-        let started = std::time::Instant::now();
-        let guard = self.current.lock();
-        let loaded = guard.as_ref().ok_or_else(|| anyhow!("modele non charge"))?;
-        let model = &loaded.model;
-
-        let prompt = build_prompt(model, system, user);
-
-        let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(context_size));
-        let mut ctx = model
-            .new_context(&self.backend, ctx_params)
-            .map_err(|e| anyhow!("llama context: {e}"))?;
-
-        let mut tokens_list = model
-            .str_to_token(&prompt, AddBos::Always)
-            .map_err(|e| anyhow!("tokenize: {e}"))?;
-        // Parlato : certains templates ecrivent deja le BOS dans le texte ;
-        // AddBos::Always en ajoute alors un second, qu'on retire.
-        let bos = model.token_bos();
-        if tokens_list.len() > 1 && tokens_list[0] == bos && tokens_list[1] == bos {
-            tokens_list.remove(0);
-        }
-
-        if tokens_list.is_empty() {
-            return Err(anyhow!("prompt vide apres tokenization"));
-        }
-
-        if (tokens_list.len() as u32) + max_tokens > context_size {
-            warn!(
-                prompt_tokens = tokens_list.len(),
-                max_tokens,
-                context_size,
-                "Prompt + generation risquent de depasser le contexte"
-            );
-        }
-
-        let batch_capacity = tokens_list.len().max(512);
-        let mut batch = LlamaBatch::new(batch_capacity, 1);
-        let last_index = tokens_list.len() - 1;
-        for (i, token) in tokens_list.iter().enumerate() {
-            batch
-                .add(*token, i as i32, &[0], i == last_index)
-                .map_err(|e| anyhow!("batch add prompt: {e}"))?;
-        }
-        ctx.decode(&mut batch).map_err(|e| anyhow!("decode prompt: {e}"))?;
-
-        // Greedy sampling : on veut un output deterministe pour l'enhancement.
-        let mut sampler = LlamaSampler::greedy();
-
-        let mut generated: Vec<LlamaToken> = Vec::new();
-        let mut n_cur = tokens_list.len() as i32;
-        let n_max = n_cur + max_tokens as i32;
-
-        while n_cur < n_max {
-            if started.elapsed() > GENERATION_LIMIT {
-                return Err(anyhow!(
-                    "llama.cpp: generation stopped after {} s",
-                    GENERATION_LIMIT.as_secs()
-                ));
-            }
-            let token = sampler.sample(&ctx, batch.n_tokens() - 1);
-            sampler.accept(token);
-            if model.is_eog_token(token) {
-                break;
-            }
-            generated.push(token);
-
-            batch.clear();
-            batch
-                .add(token, n_cur, &[0], true)
-                .map_err(|e| anyhow!("batch add tok: {e}"))?;
-            ctx.decode(&mut batch).map_err(|e| anyhow!("decode step: {e}"))?;
-            n_cur += 1;
-        }
-
-        // Detokenize : octets de chaque token concatenes puis decodes en une
-        // fois, pour ne pas couper les sequences multi-byte UTF-8.
-        // Parlato : le buffer est agrandi si un token depasse 8 octets
-        // (tokens_to_str echouait en "Insufficient Buffer Space"), et un
-        // token sans texte (UnknownTokenType) est simplement ignore.
-        use llama_cpp_2::TokenToStringError as TokErr;
-        let mut bytes: Vec<u8> = Vec::new();
-        for token in &generated {
-            let piece = match model.token_to_piece_bytes(*token, 8, false, None) {
-                Err(TokErr::InsufficientBufferSpace(n)) => {
-                    model.token_to_piece_bytes(*token, n.unsigned_abs() as usize, false, None)
-                }
-                other => other,
-            };
-            match piece {
-                Ok(b) => bytes.extend_from_slice(&b),
-                Err(TokErr::UnknownTokenType) => {}
-                Err(e) => return Err(anyhow!("detokenize: {e}")),
-            }
-        }
-        let output = String::from_utf8_lossy(&bytes).into_owned();
-
-        Ok(clean_output(&output))
-    }
-
-    /// Libere le modele charge (utile quand l'utilisateur change de GGUF
-    /// ou desactive l'enhancement).
-    pub fn unload(&self) {
-        let mut guard = self.current.lock();
-        *guard = None;
-    }
-}
-
-// -- Prompt -----------------------------------------------------------------
-//
-// Parlato : le prompt suit le chat template embarque dans le GGUF, rendu par
-// le moteur de templates integre de llama.cpp (reconnait ChatML/Qwen, Gemma,
-// Granite, Llama 3, Phi...). Repli sur le format generique historique de
-// Parla si le GGUF n'a pas de template ou si le motif n'est pas reconnu.
-//
-// Thinking (Qwen 3 / 3.5) : le moteur integre n'applique pas l'option
-// enable_thinking des templates Jinja. On reproduit ce que fait le template
-// Qwen avec enable_thinking = false : un bloc <think> vide pre-rempli apres
-// l'ouverture de la reponse. clean_output retire tout reste de reflexion.
-
-/// Format generique historique (repli si le modele n'a pas de template).
-fn generic_prompt(system: &str, user: &str) -> String {
-    format!("<|system|>\n{system}\n<|user|>\n{user}\n<|assistant|>\n")
-}
-
-/// Bloc de reflexion vide : "pas de thinking" pour les modeles Qwen.
-const EMPTY_THINK: &str = "<think>\n\n</think>\n\n";
-
-fn build_prompt(model: &LlamaModel, system: &str, user: &str) -> String {
-    let system = system.trim();
-    let user = user.trim();
-    let Ok(tmpl) = model.chat_template(None) else {
-        return generic_prompt(system, user);
-    };
-    let chat = [
-        LlamaChatMessage::new("system".into(), system.into()),
-        LlamaChatMessage::new("user".into(), user.into()),
-    ];
-    let [Ok(s), Ok(u)] = chat else {
-        return generic_prompt(system, user);
-    };
-    match model.apply_chat_template(&tmpl, &[s, u], true) {
-        Ok(mut p) => {
-            let thinks = tmpl.to_str().map(|t| t.contains("<think>")).unwrap_or(false);
-            if thinks && !p.trim_end().ends_with("</think>") {
-                p.push_str(EMPTY_THINK);
-            }
-            p
-        }
-        Err(e) => {
-            warn!(error = %e, "chat template non reconnu, format generique");
-            generic_prompt(system, user)
-        }
-    }
-}
+// -- Reponse ----------------------------------------------------------------
 
 /// Retire les blocs de reflexion qu'un modele "thinking" ecrirait malgre
 /// le bloc vide pre-rempli.
-fn clean_output(raw: &str) -> String {
+pub fn clean_output(raw: &str) -> String {
     let mut out = raw.to_string();
     while let Some(start) = out.find("<think>") {
         match out[start..].find("</think>") {
@@ -362,6 +106,20 @@ fn clean_output(raw: &str) -> String {
 // -- Provider ---------------------------------------------------------------
 
 pub struct LlamaCppProvider;
+
+/// La config que le service passe par `endpoint_override` (un seul champ
+/// libre dans le trait) : `{id du modele}|{contexte}|{tokens max}`.
+pub fn pack_config(id: &str, context_size: u32, max_tokens: u32) -> String {
+    format!("{id}|{context_size}|{max_tokens}")
+}
+
+fn unpack_config(config: &str) -> Option<(&str, u32, u32)> {
+    let mut parts = config.rsplitn(3, '|');
+    let max_tokens = parts.next()?.parse().ok()?;
+    let context_size = parts.next()?.parse().ok()?;
+    let id = parts.next().filter(|i| !i.is_empty())?;
+    Some((id, context_size, max_tokens))
+}
 
 #[async_trait]
 impl LLMProvider for LlamaCppProvider {
@@ -394,33 +152,21 @@ impl LLMProvider for LlamaCppProvider {
         _api_key: &str,
         req: &EnhancementRequest,
     ) -> Result<EnhancementResponse> {
-        // endpoint_override porte le chemin GGUF + config packee JSON par le
-        // service (pragmatique : un seul champ libre dans le trait).
-        // Format : `{gguf_path}|{n_gpu_layers}|{context_size}|{max_tokens}`
         let config = req
             .endpoint_override
             .as_deref()
             .ok_or_else(|| anyhow!("llama.cpp: aucun modele GGUF selectionne"))?;
-        let parts: Vec<&str> = config.splitn(4, '|').collect();
-        if parts.len() != 4 {
-            return Err(anyhow!("llama.cpp: config invalide"));
-        }
-        let path = PathBuf::from(parts[0]);
-        let n_gpu_layers: u32 = parts[1].parse().unwrap_or(DEFAULT_GPU_LAYERS);
-        let context_size: u32 = parts[2].parse().unwrap_or(DEFAULT_CONTEXT_SIZE);
-        let max_tokens: u32 = parts[3].parse().unwrap_or(DEFAULT_MAX_TOKENS);
-
-        // Prompt : rendu par build_prompt avec le chat template du modele.
-
-        // Inference bloquante : spawn_blocking pour ne pas monopoliser le
-        // runtime async Tokio.
-        let runtime = crate::enhancement::service::llama_runtime()
-            .ok_or_else(|| anyhow!("llama runtime absent"))?;
+        let (id, context_size, max_tokens) =
+            unpack_config(config).ok_or_else(|| anyhow!("llama.cpp: config invalide"))?;
+        let ai = crate::enhancement::local_ai::local_ai()
+            .ok_or_else(|| anyhow!("llama.cpp: l'assistant IA n'est pas demarre"))?;
+        let model = ai.resolve(id)?;
         let system = req.system_prompt.clone();
         let user = req.user_message.clone();
-        let path_owned = path;
+        // Requete bloquante : spawn_blocking pour ne pas monopoliser le
+        // runtime async Tokio.
         tokio::task::spawn_blocking(move || {
-            runtime.generate(&path_owned, n_gpu_layers, context_size, &system, &user, max_tokens)
+            ai.complete(&model, context_size, max_tokens, &system, &user)
         })
         .await
         .map_err(|e| anyhow!("join: {e}"))?
@@ -431,6 +177,18 @@ impl LLMProvider for LlamaCppProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+    use crate::enhancement::local_ai::{default_config, LocalAi, ModelRef};
+    use crate::enhancement::prompts;
+
+    #[test]
+    fn config_round_trips_even_with_a_bar_in_the_id() {
+        let packed = pack_config("granite-4.2-3b", 4096, 1024);
+        assert_eq!(unpack_config(&packed), Some(("granite-4.2-3b", 4096, 1024)));
+        assert_eq!(unpack_config("a|b|c"), None);
+        assert_eq!(unpack_config("|1|2"), None);
+        assert_eq!(unpack_config("x"), None);
+    }
 
     #[test]
     fn clean_output_strips_think_blocks() {
@@ -454,19 +212,57 @@ mod tests {
         assert_eq!(clean_output("  Plain text.\n"), "Plain text.");
     }
 
-    /// Smoke test against a real GGUF : `PARLATO_GGUF=<path> cargo test
-    /// --lib llamacpp_smoke -- --ignored --nocapture`.
+    /// Smoke test against a real GGUF and the real helper, in release:
+    /// `PARLATO_GGUF=<file> [PARLATO_LLM_HELPER=<helper>] cargo test --release
+    /// --lib llamacpp_smoke -- --ignored --nocapture`. Parlato's default
+    /// cleanup prompt, a 50-word dictation, 3 runs. Prints counts and times
+    /// only, never the prompt or the reply.
     #[test]
     #[ignore]
     fn llamacpp_smoke() {
-        let path = std::env::var("PARLATO_GGUF").expect("PARLATO_GGUF");
-        let rt = LlamaRuntime::new().unwrap();
-        let system = "You clean up dictated text. Fix grammar and punctuation, remove filler words. Output only the cleaned text.";
-        let user = "um so i was thinking we could uh meet on tuesday at like three pm to go over the the budget";
+        let path = PathBuf::from(std::env::var("PARLATO_GGUF").expect("PARLATO_GGUF"));
+        let helper = std::env::var_os("PARLATO_LLM_HELPER")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("binaries")
+                    .join("parlato-llm-aarch64-apple-darwin")
+            });
+        let mut config = default_config();
+        config.cpu_helper = helper;
+        let ai = LocalAi::new(config, None);
+
+        let system = prompts::predefined_seed()
+            .into_iter()
+            .next()
+            .expect("the Default prompt")
+            .final_prompt_text();
+        let dictation = "um so i think we should uh move the meeting to thursday because like john is travelling and uh sarah cant make it on wednesday also can you send the budget numbers to the team before friday and uh make sure the hiring plan is in there you know okay";
+        assert_eq!(dictation.split_whitespace().count(), 50);
+        let user = crate::enhancement::service::build_user_message(dictation);
+
+        let model = ModelRef { id: "smoke".into(), path };
         let t0 = std::time::Instant::now();
-        let out = rt.generate(Path::new(&path), 0, 4096, system, user, 256).unwrap();
-        println!("--- {:.1}s ---\n{out}\n---", t0.elapsed().as_secs_f32());
-        assert!(!out.is_empty());
-        assert!(!out.contains("<think>") && !out.contains("</think>"));
+        let load_s = ai.ensure_loaded(&model, 4096).expect("load");
+        println!(
+            "load: {load_s:.2}s reported, {:.2}s wall, backend {}",
+            t0.elapsed().as_secs_f32(),
+            ai.backend()
+        );
+        for run in 1..=3 {
+            let t = std::time::Instant::now();
+            let out = ai.complete(&model, 4096, 1024, &system, &user).expect("complete");
+            println!(
+                "run {run}: reply {:.2}s, {} words, backend {}, fell_back {}",
+                t.elapsed().as_secs_f32(),
+                out.split_whitespace().count(),
+                ai.backend(),
+                ai.last_fell_back()
+            );
+            assert!(!out.is_empty());
+            assert!(!out.contains("<think>") && !out.contains("</think>"));
+        }
+        ai.unload();
+        ai.shutdown();
     }
 }

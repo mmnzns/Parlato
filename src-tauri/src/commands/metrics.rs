@@ -52,12 +52,64 @@ pub fn get_model_performance_metrics(
 ) -> Result<ModelPerformanceMetrics, String> {
     let cutoff = period_cutoff(period);
     let conn = db.0.lock();
-    let transcription_models =
-        aggregate_transcription_metrics(&conn, cutoff).map_err(|e| e.to_string())?;
+    let transcription_models = merge_renamed(
+        aggregate_transcription_metrics(&conn, cutoff).map_err(|e| e.to_string())?,
+    );
     let enhancement_models =
         aggregate_enhancement_metrics(&conn, cutoff).map_err(|e| e.to_string())?;
     Ok(ModelPerformanceMetrics {
         transcription_models,
         enhancement_models,
     })
+}
+
+/// Rows saved before the move to the engine's model ids carry the old id;
+/// show them under the catalog id and add them to the new rows of the same
+/// model.
+fn merge_renamed(rows: Vec<TranscriptionModelMetric>) -> Vec<TranscriptionModelMetric> {
+    let mut out: Vec<TranscriptionModelMetric> = Vec::with_capacity(rows.len());
+    for mut row in rows {
+        row.name = crate::models::ids::display_label(&row.name);
+        match out.iter_mut().find(|m| m.name == row.name) {
+            Some(existing) => {
+                existing.session_count += row.session_count;
+                existing.total_audio_sec += row.total_audio_sec;
+                existing.total_processing_sec += row.total_processing_sec;
+            }
+            None => out.push(row),
+        }
+    }
+    // Same order as the query: fastest average first.
+    let avg = |m: &TranscriptionModelMetric| m.total_processing_sec / m.session_count.max(1) as f64;
+    out.sort_by(|a, b| avg(a).total_cmp(&avg(b)));
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn metric(name: &str, n: i64, audio: f64, proc_: f64) -> TranscriptionModelMetric {
+        TranscriptionModelMetric {
+            name: name.into(),
+            session_count: n,
+            total_audio_sec: audio,
+            total_processing_sec: proc_,
+        }
+    }
+
+    #[test]
+    fn old_and_new_ids_add_up() {
+        let rows = vec![
+            metric("local / ggml-large-v3-turbo-q5_0", 2, 20.0, 4.0),
+            metric("groq / whisper", 1, 5.0, 1.0),
+            metric("local / whisper-turbo", 3, 30.0, 6.0),
+        ];
+        let merged = merge_renamed(rows);
+        assert_eq!(merged.len(), 2);
+        let turbo = merged.iter().find(|m| m.name == "local / whisper-turbo").unwrap();
+        assert_eq!(turbo.session_count, 5);
+        assert_eq!(turbo.total_audio_sec, 50.0);
+        assert_eq!(turbo.total_processing_sec, 10.0);
+    }
 }

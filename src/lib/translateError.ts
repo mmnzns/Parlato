@@ -37,6 +37,21 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:fileNoAudio$/, { i18nKey: "errors.fileNoAudio" }],
   [/^PARLA_ERR:fileTooLong$/, { i18nKey: "errors.fileTooLong" }],
   [/^PARLA_ERR:noParakeet$/, { i18nKey: "errors.noParakeet" }],
+  // Model downloads (shared model folder, models/download.rs).
+  [/^PARLA_ERR:downloadOffline$/, { i18nKey: "errors.downloadOffline" }],
+  [/^PARLA_ERR:downloadDiskFull$/, { i18nKey: "errors.downloadDiskFull" }],
+  [/^PARLA_ERR:downloadChecksum$/, { i18nKey: "errors.downloadChecksum" }],
+  [/^PARLA_ERR:downloadStalled$/, { i18nKey: "errors.downloadStalled" }],
+  [/^PARLA_ERR:downloadFailed$/, { i18nKey: "errors.downloadFailed" }],
+  [/^PARLA_ERR:downloadRunning$/, { i18nKey: "errors.downloadRunning" }],
+  [/^PARLA_ERR:downloadingElsewhere$/, { i18nKey: "errors.downloadingElsewhere" }],
+  [
+    /^PARLA_ERR:downloadRefused:(\d+)$/,
+    {
+      i18nKey: "errors.downloadRefused",
+      args: (g) => ({ status: g[1] }),
+    },
+  ],
   [
     /^PARLA_ERR:modelNotDownloaded:(.+)$/,
     {

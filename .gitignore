@@ -63,3 +63,7 @@ coverage/
 !src-tauri/sounds/
 !src-tauri/sounds/*.wav
 !src-tauri/sounds/*.mp3
+
+# Local AI helper sidecars built from the engine (scripts/fetch-helpers.sh);
+# CI and release create them too.
+src-tauri/binaries/

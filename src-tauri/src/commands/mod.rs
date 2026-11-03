@@ -13,6 +13,7 @@ pub mod permissions;
 pub mod permissions_macos;
 pub mod power_mode;
 pub mod recording;
+pub mod remove_model;
 pub mod screen_context;
 pub mod settings;
 pub mod streaming;
