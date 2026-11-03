@@ -183,16 +183,20 @@ fn action_id(action: UtilityAction) -> &'static str {
     }
 }
 
-/// Touches acceptees seules (sans modificateur) : F1-F24, Pause,
-/// PrintScreen, Insert, Delete, Home, End, PageUp/Down. Miroir de
-/// STANDALONE_VKS dans src/components/HotkeyRecorder.tsx et de la regle
-/// VoiceInk `isFunctionKeyCode` (F-keys autorisees sans modificateur).
+/// Touches acceptees seules (sans modificateur) pour les raccourcis
+/// utilitaires (avales globalement) : F1-F24, Pause, PrintScreen, Insert,
+/// Delete, Home, End, PageUp/Down. Miroir de STANDALONE_VKS dans
+/// src/components/HotkeyRecorder.tsx et de la regle VoiceInk
+/// `isFunctionKeyCode` (F-keys autorisees sans modificateur). Les
+/// declencheurs d'enregistrement (primary/secondary) acceptent n'importe
+/// quelle touche seule sauf Echap (voir `validate`).
 fn standalone_allowed(vk: u32) -> bool {
     matches!(vk, 0x13 | 0x21 | 0x22 | 0x23 | 0x24 | 0x2C | 0x2D | 0x2E) || (0x70..=0x87).contains(&vk)
 }
 
 /// Verifie la config avant persistance. Codes d'erreur stables :
-///  - `PARLA_ERR:shortcutNeedsModifier:<action>` : touche textuelle seule.
+///  - `PARLA_ERR:shortcutNeedsModifier:<action>` : touche textuelle seule
+///    pour un raccourci utilitaire, ou Echap seul pour primary/secondary.
 ///  - `PARLA_ERR:shortcutReserved:<action>` : Alt+chiffre (selection de
 ///    profil Power Mode pendant l'enregistrement).
 ///  - `PARLA_ERR:shortcutConflict:<action a>:<action b>` : meme trigger
@@ -224,7 +228,15 @@ pub fn validate(cfg: &HotkeyConfig) -> Result<(), String> {
             // Echap seul est accepte uniquement pour l'annulation (VoiceInk
             // ShortcutValidator : `.cancelRecorder` + kVK_Escape sans flags).
             let escape_for_cancel = *name == "cancelRecording" && *vk == 0x1B;
-            if !has_modifier && !standalone_allowed(*vk) && !escape_for_cancel {
+            // Declencheurs d'enregistrement : n'importe quelle touche seule
+            // (non avalee par le listener), sauf Echap qui annule le recorder.
+            let is_record_trigger = matches!(*name, "primary" | "secondary");
+            let allowed_alone = if is_record_trigger {
+                *vk != 0x1B
+            } else {
+                standalone_allowed(*vk) || escape_for_cancel
+            };
+            if !has_modifier && !allowed_alone {
                 return Err(format!("PARLA_ERR:shortcutNeedsModifier:{name}"));
             }
             let is_top_row_digit = (0x30..=0x39).contains(vk);
@@ -344,5 +356,68 @@ mod tests {
         let mut cfg = HotkeyConfig::defaults();
         cfg.actions.open_history = combo(0x1B, false, false, false);
         assert!(validate(&cfg).is_err());
+    }
+
+    #[test]
+    fn record_triggers_accept_any_single_key_except_escape() {
+        for vk in [0x52u32, 0x20, 0x31, 0xBE, 0x60, 0x25, 0x5D] {
+            let mut cfg = HotkeyConfig::defaults();
+            cfg.primary.trigger = combo(vk, false, false, false);
+            assert!(validate(&cfg).is_ok(), "primary vk {vk:#x}");
+            let mut cfg = HotkeyConfig::defaults();
+            cfg.secondary.trigger = combo(vk, false, false, false);
+            assert!(validate(&cfg).is_ok(), "secondary vk {vk:#x}");
+        }
+        let mut cfg = HotkeyConfig::defaults();
+        cfg.primary.trigger = combo(0x1B, false, false, false);
+        assert_eq!(
+            validate(&cfg).unwrap_err(),
+            "PARLA_ERR:shortcutNeedsModifier:primary"
+        );
+        let mut cfg = HotkeyConfig::defaults();
+        cfg.secondary.trigger = combo(0x1B, false, false, false);
+        assert_eq!(
+            validate(&cfg).unwrap_err(),
+            "PARLA_ERR:shortcutNeedsModifier:secondary"
+        );
+    }
+
+    #[test]
+    fn record_trigger_single_key_keeps_alt_digit_and_conflict_rules() {
+        let mut cfg = HotkeyConfig::defaults();
+        cfg.primary.trigger = combo(0x31, false, true, false); // Alt+1
+        assert_eq!(
+            validate(&cfg).unwrap_err(),
+            "PARLA_ERR:shortcutReserved:primary"
+        );
+        let mut cfg = HotkeyConfig::defaults();
+        cfg.primary.trigger = combo(0x52, false, false, false);
+        cfg.secondary.trigger = combo(0x52, false, false, false);
+        assert_eq!(
+            validate(&cfg).unwrap_err(),
+            "PARLA_ERR:shortcutConflict:primary:secondary"
+        );
+    }
+
+    #[test]
+    fn utility_actions_still_refuse_text_keys_alone() {
+        for vk in [0x48u32, 0x20, 0x31, 0xBE] {
+            let mut cfg = HotkeyConfig::defaults();
+            cfg.actions.paste_last_transcription = combo(vk, false, false, false);
+            assert_eq!(
+                validate(&cfg).unwrap_err(),
+                "PARLA_ERR:shortcutNeedsModifier:pasteLast",
+                "vk {vk:#x}"
+            );
+        }
+        let mut cfg = HotkeyConfig::defaults();
+        cfg.actions.cancel_recording = combo(0x48, false, false, false);
+        assert_eq!(
+            validate(&cfg).unwrap_err(),
+            "PARLA_ERR:shortcutNeedsModifier:cancelRecording"
+        );
+        let mut cfg = HotkeyConfig::defaults();
+        cfg.actions.cancel_recording = combo(0x1B, false, false, false);
+        assert!(validate(&cfg).is_ok());
     }
 }

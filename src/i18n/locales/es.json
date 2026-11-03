@@ -431,7 +431,14 @@
     "downloadStalled": "La descarga se detuvo. Inténtalo de nuevo: continúa donde se quedó.",
     "downloadFailed": "No se pudo descargar o guardar el modelo. Inténtalo de nuevo.",
     "downloadRunning": "Este modelo ya se está descargando.",
-    "downloadingElsewhere": "Otra aplicación (Talaan o Ensayo) está descargando este modelo ahora. Espera a que termine."
+    "downloadingElsewhere": "Otra aplicación (Talaan o Ensayo) está descargando este modelo ahora. Espera a que termine.",
+    "providerTimeout": "El servicio tardó demasiado en responder. Inténtalo de nuevo.",
+    "providerNetwork": "No se pudo contactar con el servicio. Revisa tu conexión a internet e inténtalo de nuevo.",
+    "providerHttp": "El servicio rechazó la solicitud (error {{status}}). Revisa tu clave y el modelo, y vuelve a intentarlo.",
+    "transcriptionFailed": "La transcripción falló. Usa Transcribir de nuevo para intentarlo otra vez.",
+    "cliNotFound": "No se encontró el comando. Revisa la línea de comandos de tu limpieza con IA.",
+    "cliFailed": "El comando terminó con un error (código {{code}}). Revisa la línea de comandos de tu limpieza con IA.",
+    "cliEmpty": "El comando no devolvió nada. Revisa la línea de comandos de tu limpieza con IA."
   },
   "prompts": {
     "default": {
@@ -455,7 +462,7 @@
       "rightWin": "Windows derecho",
       "rightShift": "Mayús derecha",
       "leftShift": "Mayús izquierda",
-      "custom": "Combinación personalizada..."
+      "custom": "Tecla o combinación personalizada..."
     },
     "modes": {
       "toggle": "Toggle",
@@ -463,13 +470,16 @@
       "hybrid": "Híbrido"
     },
     "record": {
-      "title": "Grabar una combinación personalizada",
-      "hint": "Pulsa las teclas que quieras usar. Necesitas al menos un modificador y una tecla final (ej. Ctrl + Alt + R, F13, Win + Espacio). Esc cancela.",
-      "waiting": "Pulsa tu combinación...",
-      "needsModifier": "Una tecla sola solo se admite para F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Si no, agrega Ctrl, Alt, Shift o Win.",
+      "title": "Grabar una tecla o combinación personalizada",
+      "hint": "Pulsa la tecla o combinación que quieras usar (ej. F13, R, Ctrl + Alt + R, Win + Espacio). Esc cancela.",
+      "waiting": "Pulsa una tecla o una combinación...",
+      "needsModifier": "En los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se admite para F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Si no, agrega Ctrl, Alt, Shift o Win. Los atajos de dictado aceptan cualquier tecla sola.",
+      "typesTextWarning": "Esta tecla seguirá escribiendo su carácter, y al pulsarla en cualquier sitio también se iniciará el dictado.",
+      "useThisKey": "Usar esta tecla",
+      "chooseAnother": "Elegir otra",
       "macReserved": "Los atajos con Comando pertenecen a macOS y a tus apps (copiar, pegar, salir...). Agrega Control u Opción, ej. Control + Opción + R."
     },
-    "editCombo": "Clic para cambiar la combinación",
+    "editCombo": "Clic para cambiar la tecla o la combinación",
     "additional": {
       "cardTitle": "Atajos adicionales",
       "cardDescription": "Atajos globales para la última transcripción y para cancelar una grabación. Sin definir por defecto.",
@@ -515,7 +525,7 @@
     "shortcutTitle": "Atajo de dictado",
     "shortcutDescription": "Tu tecla principal. El modo Power predeterminado la usa, y los demás modos pueden añadir la suya.",
     "keyLabel": "Tecla",
-    "keyHint": "Cámbiala cuando quieras. Personalizado te deja grabar una combinación.",
+    "keyHint": "Cámbiala cuando quieras. Personalizado te deja grabar una tecla sola o una combinación.",
     "holdTitle": "Mantener para hablar",
     "holdDesc": "Mantén la tecla mientras hablas y suéltala para pegar. Ideal para notas rápidas.",
     "toggleTitle": "Pulsar para empezar, pulsar para parar",
@@ -1025,7 +1035,7 @@
       "shortcutNeedsModifier": "Esta tecla necesita un modificador (Control, Opción, Mayúsculas o Comando) ({{action}})."
     },
     "hotkey": {
-      "altGrTip": "En un Mac, Opción también escribe caracteres especiales (como é o ©). Si Opción derecha te molesta, elige Comando derecho o una combinación personalizada.",
+      "altGrTip": "En un Mac, Opción también escribe caracteres especiales (como é o ©). Si Opción derecha te molesta, elige Comando derecho o una tecla o combinación personalizada.",
       "options": {
         "rightAlt": "Opción derecha",
         "leftAlt": "Opción izquierda",
@@ -1034,8 +1044,8 @@
         "rightWin": "Comando derecho"
       },
       "record": {
-        "hint": "Pulsa las teclas que quieras usar. Necesitas al menos un modificador y una tecla final (ej. Control + Opción + R, Control + Opción + Espacio, F13). Esc cancela.",
-        "needsModifier": "Una tecla sola solo se admite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, agrega Control, Opción, Mayúsculas o Comando."
+        "hint": "Pulsa la tecla o combinación que quieras usar (ej. F13, R, Control + Opción + R, Control + Opción + Espacio). Esc cancela.",
+        "needsModifier": "En los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se admite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, agrega Control, Opción, Mayúsculas o Comando. Los atajos de dictado aceptan cualquier tecla sola."
       }
     },
     "settings": {

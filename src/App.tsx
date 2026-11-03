@@ -103,10 +103,10 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-background text-foreground">
+    <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
       <Sidebar current={view} onSelect={setView} />
       <main
-        className="min-w-0 flex-1 overflow-auto"
+        className="relative min-w-0 flex-1 overflow-auto"
         style={{ backgroundImage: "var(--dot-grid)", backgroundSize: "18px 18px" }}
       >
         <UpdateChecker />

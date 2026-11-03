@@ -1,9 +1,10 @@
-// Modal qui capture une combinaison de touches libre pour creer un
-// trigger Custom (ex Ctrl+Alt+R, Win+Shift+Space, F13).
+// Modal qui capture une touche seule ou une combinaison pour creer un
+// trigger Custom (ex Ctrl+Alt+R, Win+Shift+Space, F13, ou "R" seul pour la
+// dictée).
 //
 // Implementation : un dialog plein ecran avec un keydown listener au
-// niveau document. On capture la premiere combinaison qui inclut au
-// moins un modifier ET une touche finale non-modifier. ESC annule.
+// niveau document. On capture la premiere touche finale non-modifier (avec
+// ou sans modifier selon `rule`). ESC annule.
 //
 // Reference VoiceInk : KeyboardShortcuts.Recorder fait exactement la
 // meme chose dans Settings. On ne capture pas les touches sticky
@@ -35,11 +36,13 @@ const MODIFIER_VKS = new Set([
   ...(isMac ? [0x5d] : []),
 ]);
 
-// Touches autorisees comme combo "sans modifier". Sans cette whitelist,
-// l'utilisateur pourrait enregistrer "F" seul, qui se declencherait alors
-// chaque fois qu'il tape F dans n'importe quel champ texte. On limite aux
-// touches non-textuelles : F1-F24, Pause, PrintScreen, Insert, Delete,
-// Home, End, PageUp/Down.
+// Touches autorisees comme combo "sans modifier" pour les raccourcis
+// utilitaires (copier, coller, reessayer, historique, annuler). Ces
+// raccourcis sont avales globalement : "F" seul rendrait la lettre F
+// intapable partout. On limite aux touches non-textuelles : F1-F24, Pause,
+// PrintScreen, Insert, Delete, Home, End, PageUp/Down.
+// Les raccourcis de dictée (primary/secondary) acceptent n'importe quelle
+// touche seule (voir `typesText` pour l'avertissement).
 const STANDALONE_VKS = new Set<number>([
   0x13, // Pause
   0x21, 0x22, // PageUp, PageDown
@@ -50,6 +53,22 @@ const STANDALONE_VKS = new Set<number>([
   0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
   0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
 ]);
+
+// Parlato: true when pressing `vk` alone does something in the focused app,
+// i.e. it types a character (letters, digits, Space, punctuation/OEM keys,
+// numpad digits and operators) or edits text (Enter, Tab, Backspace). False
+// for the old STANDALONE_VKS keys (F1-F24, Pause, PrintScreen, Insert,
+// Delete, Home, End, PageUp/Down), arrows, the Menu key, Escape and the
+// media/browser keys. The listener does not swallow the dictation key, so a
+// key for which this is true keeps typing when used as the dictation shortcut.
+export function typesText(vk: number): boolean {
+  if (STANDALONE_VKS.has(vk)) return false;
+  if (vk >= 0x25 && vk <= 0x28) return false; // arrows
+  if (vk === 0x5d) return false; // Menu / Apps
+  if (vk === 0x1b) return false; // Escape
+  if (vk >= 0xa6 && vk <= 0xb7) return false; // browser / media / launch keys
+  return true;
+}
 
 // Parlato: on macOS the hotkey listener matches physical key positions (US
 // layout), while WebKit's e.keyCode follows the typed character (AZERTY,
@@ -87,19 +106,28 @@ type Captured = {
   label: string;
 };
 
+// Parlato: "dictation" = primary/secondary record triggers (any single key,
+// text keys need a confirmation); "utility" = additional shortcuts, which are
+// swallowed globally, so a text key alone is refused.
+export type RecorderRule = "dictation" | "utility";
+
 export function HotkeyRecorder({
   open,
   onCancel,
   onCapture,
+  rule = "utility",
 }: {
   open: boolean;
   onCancel: () => void;
   onCapture: (trigger: Extract<HotkeyTrigger, { kind: "combo" }>) => void;
+  rule?: RecorderRule;
 }) {
   const { t } = useTranslation();
   const [captured, setCaptured] = useState<Captured | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<Extract<HotkeyTrigger, { kind: "combo" }> | null>(null);
   const finishedRef = useRef(false);
+  const pendingRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // Reset l'etat a chaque ouverture.
@@ -107,14 +135,28 @@ export function HotkeyRecorder({
     if (open) {
       setCaptured(null);
       setError(null);
+      setPending(null);
+      pendingRef.current = false;
       finishedRef.current = false;
     }
   }, [open]);
+
+  function chooseAnother() {
+    setCaptured(null);
+    setError(null);
+    setPending(null);
+    pendingRef.current = false;
+    finishedRef.current = false;
+    dialogRef.current?.focus();
+  }
 
   useEffect(() => {
     if (!open) return;
 
     function onKey(e: KeyboardEvent) {
+      // Waiting for "Use this key" / "Choose another": leave every key but
+      // Escape alone so the buttons work from the keyboard.
+      if (pendingRef.current && e.key !== "Escape") return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -139,11 +181,11 @@ export function HotkeyRecorder({
       if (finishedRef.current) return;
 
       const hasModifier = e.ctrlKey || e.altKey || e.shiftKey || e.metaKey;
-      // Refuse une touche textuelle (lettre/chiffre/espace) sans modifier :
-      // sinon le recorder se declenche a chaque frappe normale dans tout
-      // editeur. Les F-keys et touches systeme (Insert, Delete, ...) sont
-      // OK seules car elles ne produisent pas de texte.
-      if (!hasModifier && !STANDALONE_VKS.has(vk)) {
+      // Utility shortcuts: refuse a text key (letter/digit/space) without a
+      // modifier, they are swallowed globally. F-keys and system keys
+      // (Insert, Delete, ...) are fine alone. Dictation shortcuts accept any
+      // single key.
+      if (rule === "utility" && !hasModifier && !STANDALONE_VKS.has(vk)) {
         setError(t("hotkey.record.needsModifier"));
         return;
       }
@@ -171,6 +213,14 @@ export function HotkeyRecorder({
       const label = formatCombo(trigger);
       setCaptured({ ...trigger, label });
 
+      // A bare key that types text keeps typing (the dictation key is not
+      // swallowed): ask for confirmation instead of closing.
+      if (rule === "dictation" && !hasModifier && typesText(vk)) {
+        pendingRef.current = true;
+        setPending(trigger);
+        return;
+      }
+
       // On laisse 600ms a l'utilisateur pour voir ce qu'il a capture
       // avant de fermer + commit.
       window.setTimeout(() => onCapture(trigger), 600);
@@ -180,7 +230,7 @@ export function HotkeyRecorder({
     return () => {
       document.removeEventListener("keydown", onKey, { capture: true });
     };
-  }, [open, onCancel, onCapture, t]);
+  }, [open, onCancel, onCapture, rule, t]);
 
   // Parlato: focus the dialog so screen readers announce it; every key
   // goes to the recorder anyway (captured on the document).
@@ -238,10 +288,26 @@ export function HotkeyRecorder({
           )}
         </div>
 
+        {pending && (
+          <p role="alert" className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            {t("hotkey.record.typesTextWarning")}
+          </p>
+        )}
+
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onCancel}>
             {t("common.cancel")}
           </Button>
+          {pending && (
+            <>
+              <Button variant="outline" size="sm" onClick={chooseAnother}>
+                {t("hotkey.record.chooseAnother")}
+              </Button>
+              <Button size="sm" onClick={() => onCapture(pending)}>
+                {t("hotkey.record.useThisKey")}
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -280,10 +346,21 @@ const MAC_VK_KEYS: Record<number, string> = {
   0x0c: "clear",
 };
 
+// Parlato: punctuation / numpad / Menu labels (US layout names, the same on
+// every language).
+const SYMBOL_LABELS: Record<number, string> = {
+  0xba: ";", 0xbb: "=", 0xbc: ",", 0xbd: "-", 0xbe: ".", 0xbf: "/",
+  0xc0: "`", 0xdb: "[", 0xdc: "\\", 0xdd: "]", 0xde: "'", 0xe2: "<>",
+  0x6a: "Num *", 0x6b: "Num +", 0x6d: "Num -", 0x6e: "Num .", 0x6f: "Num /",
+  0x5d: "Menu",
+};
+
 export function vkLabel(vk: number): string {
   if (isMac && MAC_VK_KEYS[vk]) return i18n.t(`keys.${MAC_VK_KEYS[vk]}`);
   if (VK_KEYS[vk]) return i18n.t(`keys.${VK_KEYS[vk]}`);
   if (vk >= 0x70 && vk <= 0x87) return `F${vk - 0x6f}`; // F1..F24
+  if (vk >= 0x60 && vk <= 0x69) return `Num ${vk - 0x60}`; // numpad 0..9
+  if (SYMBOL_LABELS[vk]) return SYMBOL_LABELS[vk];
   if (vk >= 0x30 && vk <= 0x39) return String.fromCharCode(vk); // 0..9
   if (vk >= 0x41 && vk <= 0x5a) return String.fromCharCode(vk); // A..Z
   return `VK_${vk.toString(16).toUpperCase().padStart(2, "0")}`;

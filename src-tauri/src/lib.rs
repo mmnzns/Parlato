@@ -10,6 +10,8 @@ mod history;
 mod logging;
 mod hotkeys;
 mod mini_recorder;
+#[cfg(target_os = "macos")]
+mod mini_recorder_macos;
 mod models;
 mod notice;
 mod paste;

@@ -127,7 +127,7 @@ core-foundation = "0.10"
 objc2 = "0.6"
 block2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSArray", "NSData"] }
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication", "NSPasteboard", "NSPasteboardItem"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication", "NSPasteboard", "NSPasteboardItem", "NSScreen"] }
 objc2-av-foundation = { version = "0.3", default-features = false, features = ["std", "block2", "AVCaptureDevice", "AVMediaFormat"] }
 # Info.plist of the installed apps (bundle identifier and name), already in the
 # tree through Tauri.

@@ -16,7 +16,8 @@ import type { TFunction } from "i18next";
 
 type ErrorMapping = {
   i18nKey: string;
-  /** Builds interpolation args from the captured groups in the regex. */
+  /** Builds interpolation args from the regex match (g[0] is the whole match,
+   *  g[1] the first captured group). */
   args?: (groups: string[], t: TFunction) => Record<string, unknown>;
 };
 
@@ -74,6 +75,25 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
     },
   ],
   [/^PARLA_ERR:cloudUnconfigured$/, { i18nKey: "errors.cloudUnconfigured" }],
+  [/^PARLA_ERR:providerTimeout$/, { i18nKey: "errors.providerTimeout" }],
+  [/^PARLA_ERR:providerNetwork$/, { i18nKey: "errors.providerNetwork" }],
+  [
+    /^PARLA_ERR:providerHttp:(\d+)$/,
+    {
+      i18nKey: "errors.providerHttp",
+      args: (g) => ({ status: g[1] }),
+    },
+  ],
+  [/^PARLA_ERR:transcriptionFailed$/, { i18nKey: "errors.transcriptionFailed" }],
+  [/^PARLA_ERR:cliNotFound$/, { i18nKey: "errors.cliNotFound" }],
+  [
+    /^PARLA_ERR:cliFailed:(-?\d+)$/,
+    {
+      i18nKey: "errors.cliFailed",
+      args: (g) => ({ code: g[1] }),
+    },
+  ],
+  [/^PARLA_ERR:cliEmpty$/, { i18nKey: "errors.cliEmpty" }],
   // Raccourcis (commands/hotkey.rs validate). Les noms d'action sont
   // traduits via hotkey.additional.actionNames.*.
   [
@@ -114,7 +134,7 @@ export function translateError(t: TFunction, raw: string | null | undefined): st
   for (const [pattern, mapping] of ERROR_MAP) {
     const match = pattern.exec(raw);
     if (!match) continue;
-    const args = mapping.args ? mapping.args(match.slice(1), t) : undefined;
+    const args = mapping.args ? mapping.args(match, t) : undefined;
     return t(mapping.i18nKey, args);
   }
   return raw;

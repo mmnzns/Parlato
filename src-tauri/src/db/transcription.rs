@@ -172,7 +172,9 @@ pub fn mark_enhanced(conn: &Connection, id: &str, f: &EnhanceFields<'_>) -> Resu
 
 pub fn mark_failed(conn: &Connection, id: &str, err: &str) -> Result<()> {
     // VoiceInk encode l'erreur dans text si la transcription elle-meme a
-    // echoue. On suit la meme convention.
+    // echoue. On suit la meme convention. Parlato : on ne garde qu'un code
+    // court, jamais le texte du provider (corps de reponse, URL...).
+    let err = crate::transcription::error_code::storable_error_code(err);
     conn.execute(
         "UPDATE transcriptions
          SET status = 'failed', text = ?1
@@ -180,6 +182,32 @@ pub fn mark_failed(conn: &Connection, id: &str, err: &str) -> Result<()> {
         params![format!("Transcription Failed: {err}"), id],
     )?;
     Ok(())
+}
+
+/// Parlato : rows written by older versions may hold a provider's raw error
+/// text after "Transcription Failed: ". Replace it with the short code.
+/// Idempotent. Returns the number of rows rewritten.
+pub fn scrub_failure_texts(conn: &Connection) -> Result<usize> {
+    const PREFIX: &str = "Transcription Failed: ";
+    let rows: Vec<(String, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, text FROM transcriptions
+             WHERE status = 'failed'
+               AND text LIKE 'Transcription Failed: %'
+               AND text NOT LIKE 'Transcription Failed: PARLA_ERR:%'",
+        )?;
+        let it = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        it.collect::<rusqlite::Result<_>>()?
+    };
+    for (id, text) in &rows {
+        let raw = text.strip_prefix(PREFIX).unwrap_or(text);
+        let code = crate::transcription::error_code::storable_error_code(raw);
+        conn.execute(
+            "UPDATE transcriptions SET text = ?1 WHERE id = ?2",
+            params![format!("{PREFIX}{code}"), id],
+        )?;
+    }
+    Ok(rows.len())
 }
 
 /// Parlato : au demarrage, aucune dictee n'est en cours. Une ligne encore
@@ -576,5 +604,46 @@ mod tests {
         );
         assert_eq!(status_text(&done), ("completed".into(), "hello".into()));
         assert_eq!(fail_interrupted(&conn).unwrap(), 0);
+    }
+
+    #[test]
+    fn mark_failed_stores_a_code_not_the_provider_text() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let id = insert_pending(&conn, None, None).unwrap();
+        mark_failed(&conn, &id, "HTTP 422 Unprocessable: {\"detail\":\"my private words\"}").unwrap();
+        let text: String = conn
+            .query_row("SELECT text FROM transcriptions WHERE id = ?1", params![id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(text, "Transcription Failed: PARLA_ERR:providerHttp:422");
+    }
+
+    #[test]
+    fn scrub_rewrites_old_raw_errors_only() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let old = insert_pending(&conn, None, None).unwrap();
+        let coded = insert_pending(&conn, None, None).unwrap();
+        let ok = insert_pending(&conn, None, None).unwrap();
+        for (id, status, text) in [
+            (&old, "failed", "Transcription Failed: provider said: my private words"),
+            (&coded, "failed", "Transcription Failed: PARLA_ERR:noWhisper"),
+            (&ok, "completed", "Transcription Failed: is what I dictated"),
+        ] {
+            conn.execute(
+                "UPDATE transcriptions SET status = ?1, text = ?2 WHERE id = ?3",
+                params![status, text, id],
+            )
+            .unwrap();
+        }
+        assert_eq!(scrub_failure_texts(&conn).unwrap(), 1);
+        let text = |id: &str| -> String {
+            conn.query_row("SELECT text FROM transcriptions WHERE id = ?1", params![id], |r| r.get(0))
+                .unwrap()
+        };
+        assert_eq!(text(&old), "Transcription Failed: PARLA_ERR:transcriptionFailed");
+        assert_eq!(text(&coded), "Transcription Failed: PARLA_ERR:noWhisper");
+        assert_eq!(text(&ok), "Transcription Failed: is what I dictated");
+        assert_eq!(scrub_failure_texts(&conn).unwrap(), 0);
     }
 }

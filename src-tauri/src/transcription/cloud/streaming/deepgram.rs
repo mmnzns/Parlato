@@ -28,6 +28,11 @@ use super::session::{
 
 pub struct DeepgramStreaming;
 
+/// Parlato : Deepgram only accepts `keyterm` as a query parameter (checked
+/// against the Deepgram docs, 2026-10-30): the pre-recorded body is the audio
+/// itself, a WebSocket has no body, and there is no header for it. So the
+/// dictionary words stay in the URL. Never log or print this URL, and never
+/// put it in an error message (`map_http_err` and `connect_ws` strip it).
 /// URL du flux. Cap comme VoiceInk DeepgramStreamingProvider L107 : 50
 /// keyterms max. `mip_opt_out=true` comme LLMkit DeepgramStreamingClient.
 fn listen_url(model: &str, language: Option<&str>, keyterms: &[String]) -> String {

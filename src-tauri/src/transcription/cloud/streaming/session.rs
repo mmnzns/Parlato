@@ -22,6 +22,13 @@ use tokio_tungstenite::tungstenite::handshake::client::Request as WsRequest;
 /// Une fois connecte, le flux peut durer indefiniment (pas de timeout global).
 pub const WS_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Parlato : URL sans query string, pour les messages d'erreur et les logs.
+/// Le query string peut contenir des mots du dictionnaire (Deepgram
+/// `keyterm`), jamais a ecrire dans une erreur ou un log.
+pub fn without_query(url: &str) -> String {
+    url.split(['?', '#']).next().unwrap_or("").to_string()
+}
+
 /// Etablit une connexion WebSocket avec un timeout de handshake.
 /// Remplace l'appel direct a `tokio_tungstenite::connect_async` pour eviter
 /// les hangs indefinis si le handshake bloque (firewall, proxy, DNS lent).
@@ -32,7 +39,7 @@ pub async fn connect_ws(
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
     >,
 > {
-    let url_for_err = req.uri().to_string();
+    let url_for_err = without_query(&req.uri().to_string());
     match tokio::time::timeout(WS_CONNECT_TIMEOUT, tokio_tungstenite::connect_async(req)).await {
         Ok(Ok((stream, _))) => Ok(stream),
         Ok(Err(e)) => Err(anyhow!("ws connect {url_for_err}: {e}")),
@@ -54,7 +61,7 @@ pub async fn connect_ws_url(
 > {
     let req = url
         .into_client_request()
-        .map_err(|e| anyhow!("ws url parse {url}: {e}"))?;
+        .map_err(|e| anyhow!("ws url parse {}: {e}", without_query(url)))?;
     connect_ws(req).await
 }
 
@@ -175,4 +182,18 @@ pub fn i16_to_le_bytes(chunk: &[i16]) -> Vec<u8> {
 pub fn i16_to_base64(chunk: &[i16]) -> String {
     use base64::{engine::general_purpose::STANDARD as B64, Engine};
     B64.encode(i16_to_le_bytes(chunk))
+}
+
+#[cfg(test)]
+mod url_redaction_tests {
+    use super::without_query;
+
+    #[test]
+    fn without_query_drops_keyterms() {
+        assert_eq!(
+            without_query("wss://api.deepgram.com/v1/listen?model=nova-3&keyterm=Secret"),
+            "wss://api.deepgram.com/v1/listen"
+        );
+        assert_eq!(without_query("wss://a.b/c"), "wss://a.b/c");
+    }
 }

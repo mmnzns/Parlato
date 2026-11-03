@@ -20,6 +20,11 @@ use super::provider::{CloudTranscriptionProvider, TranscribeRequest};
 
 pub struct DeepgramProvider;
 
+/// Parlato : Deepgram only accepts `keyterm` as a query parameter (checked
+/// against the Deepgram docs, 2026-10-30): the pre-recorded body is the audio
+/// itself, a WebSocket has no body, and there is no header for it. So the
+/// dictionary words stay in the URL. Never log or print this URL, and never
+/// put it in an error message (`map_http_err` and `connect_ws` strip it).
 /// Batch request URL. `mip_opt_out=true` keeps the audio out of Deepgram's
 /// model improvement program (LLMkit DeepgramClient f35a17a).
 fn listen_url(model: &str, language: Option<&str>, keyterms: &[String]) -> String {
@@ -100,7 +105,7 @@ impl CloudTranscriptionProvider for DeepgramProvider {
             .map_err(map_http_err)?;
 
         let status = resp.status();
-        let body = resp.bytes().await?;
+        let body = resp.bytes().await.map_err(map_http_err)?;
         if !status.is_success() {
             anyhow::bail!("HTTP {status}: {}", String::from_utf8_lossy(&body));
         }

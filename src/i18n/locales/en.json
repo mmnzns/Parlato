@@ -431,7 +431,14 @@
     "downloadStalled": "The download stalled. Try again: it picks up where it stopped.",
     "downloadFailed": "The model could not be downloaded or saved. Try again.",
     "downloadRunning": "This model is already downloading.",
-    "downloadingElsewhere": "Another app (Talaan or Ensayo) is downloading this model right now. Wait for it to finish."
+    "downloadingElsewhere": "Another app (Talaan or Ensayo) is downloading this model right now. Wait for it to finish.",
+    "providerTimeout": "The service took too long to answer. Try again.",
+    "providerNetwork": "Could not reach the service. Check your internet connection and try again.",
+    "providerHttp": "The service refused the request (error {{status}}). Check your key and model, then try again.",
+    "transcriptionFailed": "The transcription failed. Use Transcribe again to try once more.",
+    "cliNotFound": "The command was not found. Check the command line for your AI cleanup.",
+    "cliFailed": "The command stopped with an error (code {{code}}). Check the command line for your AI cleanup.",
+    "cliEmpty": "The command returned nothing. Check the command line for your AI cleanup."
   },
   "prompts": {
     "default": {
@@ -455,7 +462,7 @@
       "rightWin": "Right Win",
       "rightShift": "Right Shift",
       "leftShift": "Left Shift",
-      "custom": "Custom combination..."
+      "custom": "Custom key or combination..."
     },
     "modes": {
       "toggle": "Toggle",
@@ -463,13 +470,16 @@
       "hybrid": "Hybrid"
     },
     "record": {
-      "title": "Record a custom combination",
-      "hint": "Press the keys you want to use. Need at least one modifier and a final key (e.g. Ctrl + Alt + R, F13, Win + Space). Esc cancels.",
-      "waiting": "Press your combination...",
-      "needsModifier": "A standalone key is only allowed for F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Otherwise add Ctrl, Alt, Shift or Win.",
+      "title": "Record a custom key or combination",
+      "hint": "Press the key or combination you want to use (e.g. F13, R, Ctrl + Alt + R, Win + Space). Esc cancels.",
+      "waiting": "Press a key or a combination...",
+      "needsModifier": "For additional shortcuts (copy, paste, retry, history, cancel), a standalone key is only allowed for F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Otherwise add Ctrl, Alt, Shift or Win. Dictation shortcuts accept any single key.",
+      "typesTextWarning": "This key will still type its character, and pressing it anywhere will also start dictation.",
+      "useThisKey": "Use this key",
+      "chooseAnother": "Choose another",
       "macReserved": "Command shortcuts belong to macOS and your apps (copy, paste, quit...). Add Control or Option, e.g. Control + Option + R."
     },
-    "editCombo": "Click to change the combination",
+    "editCombo": "Click to change the key or combination",
     "additional": {
       "cardTitle": "Additional shortcuts",
       "cardDescription": "Global shortcuts for the last transcription and for cancelling a recording. Not set by default.",
@@ -515,7 +525,7 @@
     "shortcutTitle": "Dictation shortcut",
     "shortcutDescription": "Your main key. The Default power mode uses it, and other power modes can add their own.",
     "keyLabel": "Key",
-    "keyHint": "Change it any time. Custom lets you record a key combination.",
+    "keyHint": "Change it any time. Custom lets you record a single key or a key combination.",
     "holdTitle": "Hold to talk",
     "holdDesc": "Hold the key while you speak, let go to paste. Best for quick notes.",
     "toggleTitle": "Tap to start, tap to stop",
@@ -1025,7 +1035,7 @@
       "shortcutNeedsModifier": "This key needs a modifier (Control, Option, Shift or Command) ({{action}})."
     },
     "hotkey": {
-      "altGrTip": "On a Mac, Option also types special characters (like é or ©). If Right Option gets in the way, pick Right Command or a custom combination.",
+      "altGrTip": "On a Mac, Option also types special characters (like é or ©). If Right Option gets in the way, pick Right Command or a custom key or combination.",
       "options": {
         "rightAlt": "Right Option",
         "leftAlt": "Left Option",
@@ -1034,8 +1044,8 @@
         "rightWin": "Right Command"
       },
       "record": {
-        "hint": "Press the keys you want to use. Need at least one modifier and a final key (e.g. Control + Option + R, Control + Option + Space, F13). Esc cancels.",
-        "needsModifier": "A standalone key is only allowed for F1-F24, Home, End, PageUp/Down and Forward Delete. Otherwise add Control, Option, Shift or Command."
+        "hint": "Press the key or combination you want to use (e.g. F13, R, Control + Option + R, Control + Option + Space). Esc cancels.",
+        "needsModifier": "For additional shortcuts (copy, paste, retry, history, cancel), a standalone key is only allowed for F1-F24, Home, End, PageUp/Down and Forward Delete. Otherwise add Control, Option, Shift or Command. Dictation shortcuts accept any single key."
       }
     },
     "settings": {
