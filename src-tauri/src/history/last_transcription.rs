@@ -31,6 +31,8 @@ use crate::transcription::pipeline;
 /// Ctrl+V synthetique ne soit pas combine avec un modificateur encore
 /// enfonce.
 const PASTE_DELAY: Duration = Duration::from_millis(150);
+/// Max wait for the shortcut's modifier keys to be released (macOS).
+const MODIFIER_RELEASE_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// Derniere transcription enregistree (la plus recente par timestamp).
 pub fn last_record(app: &AppHandle) -> Result<history_repo::TranscriptionRecord> {
@@ -91,6 +93,8 @@ pub fn paste_last(app: &AppHandle, enhanced: bool) -> Result<()> {
         .name("parla-paste-last".into())
         .spawn(move || {
             std::thread::sleep(PASTE_DELAY);
+            // A still-held Control would merge into Cmd+V at the HID tap.
+            paste::wait_for_modifiers_released(MODIFIER_RELEASE_TIMEOUT);
             match paste::paste_at_cursor(&text, restore, None) {
                 Ok(()) => info!(enhanced, chars = text.len(), "Last transcription pasted"),
                 Err(e) => {

@@ -68,6 +68,16 @@ pub fn remember_foreground() {
 #[cfg(not(any(windows, target_os = "macos")))]
 pub fn remember_foreground() {}
 
+/// Parlato : waits for the user to let go of the shortcut's modifier keys
+/// before a paste is posted (macOS only, no-op elsewhere).
+#[cfg(target_os = "macos")]
+pub fn wait_for_modifiers_released(timeout: Duration) {
+    macos::wait_for_modifiers_released(timeout);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn wait_for_modifiers_released(_timeout: Duration) {}
+
 /// Parlato : nombre d'essais quand une autre application tient le
 /// presse-papiers (gestionnaire d'historique, bureau a distance...).
 const CLIPBOARD_ATTEMPTS: u32 = 5;

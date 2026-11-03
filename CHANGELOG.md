@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The Keep audio recordings menu in Settings shows its choices (After 1 day,
+  After 7 days...) instead of internal names. The Delete old dictations menu
+  had the same problem and is fixed too.
+- On the Mac, Paste last transcription works when its shortcut uses Control,
+  Option or Shift: Parlato now waits for you to let go of the keys before
+  pasting.
+
 ## [0.15.1] - 2026-11-03
 
 ### Fixed

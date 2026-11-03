@@ -8,7 +8,7 @@
 
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
@@ -92,6 +92,46 @@ pub fn send_return(key: super::AutoSendKey) -> Result<()> {
     up.post(CGEventTapLocation::HID);
     debug!(?key, "Return posted via CGEvent");
     Ok(())
+}
+
+extern "C" {
+    /// Current modifier flags of an event source state (core-graphics 0.25
+    /// has no wrapper for it).
+    fn CGEventSourceFlagsState(state_id: CGEventSourceStateID) -> u64;
+}
+
+/// Waits until no Control / Option / Shift / Command key is physically down,
+/// or `timeout` passes. Cmd+V is posted at the HID tap, where a modifier the
+/// user still holds (the one from their shortcut) merges into the event, so
+/// the app would see Ctrl+Cmd+V instead of Cmd+V.
+pub fn wait_for_modifiers_released(timeout: Duration) {
+    const POLL: Duration = Duration::from_millis(10);
+    let mask = (CGEventFlags::CGEventFlagControl
+        | CGEventFlags::CGEventFlagAlternate
+        | CGEventFlags::CGEventFlagShift
+        | CGEventFlags::CGEventFlagCommand)
+        .bits();
+    let start = Instant::now();
+    loop {
+        let flags = unsafe { CGEventSourceFlagsState(CGEventSourceStateID::HIDSystemState) };
+        if flags & mask == 0 {
+            debug!(
+                waited_ms = start.elapsed().as_millis() as u64,
+                timed_out = false,
+                "modifier keys released"
+            );
+            return;
+        }
+        if start.elapsed() >= timeout {
+            debug!(
+                waited_ms = start.elapsed().as_millis() as u64,
+                timed_out = true,
+                "modifier keys still held, pasting anyway"
+            );
+            return;
+        }
+        sleep(POLL);
+    }
 }
 
 pub fn send_cmd_v() -> Result<()> {
