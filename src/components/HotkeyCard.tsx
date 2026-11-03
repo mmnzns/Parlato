@@ -276,6 +276,7 @@ export function HotkeyCard() {
         open={recorderTarget !== null}
         onCancel={() => setRecorderTarget(null)}
         onCapture={onComboCaptured}
+        rule="dictation"
       />
     </Section>
   );

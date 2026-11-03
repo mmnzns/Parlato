@@ -462,7 +462,7 @@
       "rightWin": "Windows droit",
       "rightShift": "Maj droite",
       "leftShift": "Maj gauche",
-      "custom": "Combinaison personnalisée..."
+      "custom": "Touche ou combinaison personnalisée..."
     },
     "modes": {
       "toggle": "Toggle",
@@ -470,13 +470,16 @@
       "hybrid": "Hybride"
     },
     "record": {
-      "title": "Enregistrer une combinaison personnalisée",
-      "hint": "Presse les touches que tu veux utiliser. Il faut au moins un modifier et une touche finale (ex Ctrl + Alt + R, F13, Win + Espace). Esc annule.",
-      "waiting": "Presse ta combinaison...",
-      "needsModifier": "Une touche seule n'est autorisée que pour F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Sinon ajoute Ctrl, Alt, Shift ou Win.",
+      "title": "Enregistrer une touche ou combinaison personnalisée",
+      "hint": "Presse la touche ou la combinaison que tu veux utiliser (ex F13, R, Ctrl + Alt + R, Win + Espace). Esc annule.",
+      "waiting": "Presse une touche ou une combinaison...",
+      "needsModifier": "Pour les raccourcis additionnels (copier, coller, réessayer, historique, annuler), une touche seule n'est autorisée que pour F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Sinon ajoute Ctrl, Alt, Shift ou Win. Les raccourcis de dictée acceptent n'importe quelle touche seule.",
+      "typesTextWarning": "Cette touche continuera d'écrire son caractère, et l'appuyer n'importe où lancera aussi la dictée.",
+      "useThisKey": "Utiliser cette touche",
+      "chooseAnother": "En choisir une autre",
       "macReserved": "Les raccourcis Commande appartiennent à macOS et à vos apps (copier, coller, quitter...). Ajoutez Contrôle ou Option, ex Contrôle + Option + R."
     },
-    "editCombo": "Cliquer pour modifier la combinaison",
+    "editCombo": "Cliquer pour modifier la touche ou la combinaison",
     "additional": {
       "cardTitle": "Raccourcis additionnels",
       "cardDescription": "Raccourcis globaux pour la dernière transcription et pour annuler un enregistrement. Non définis par défaut.",
@@ -522,7 +525,7 @@
     "shortcutTitle": "Raccourci de dictée",
     "shortcutDescription": "Votre touche principale. Le mode Power par défaut l'utilise, et les autres modes peuvent ajouter les leurs.",
     "keyLabel": "Touche",
-    "keyHint": "Modifiable à tout moment. Personnalisé permet d'enregistrer une combinaison.",
+    "keyHint": "Modifiable à tout moment. Personnalisé permet d'enregistrer une touche seule ou une combinaison.",
     "holdTitle": "Maintenir pour parler",
     "holdDesc": "Maintenez la touche pendant que vous parlez, relâchez pour coller. Idéal pour les notes rapides.",
     "toggleTitle": "Appuyer pour démarrer, appuyer pour arrêter",
@@ -1032,7 +1035,7 @@
       "shortcutNeedsModifier": "Cette touche nécessite un modificateur (Contrôle, Option, Maj ou Commande) ({{action}})."
     },
     "hotkey": {
-      "altGrTip": "Sur Mac, Option sert aussi à taper des caractères spéciaux (comme é ou ©). Si Option droite te gêne, choisis Commande droite ou une combinaison personnalisée.",
+      "altGrTip": "Sur Mac, Option sert aussi à taper des caractères spéciaux (comme é ou ©). Si Option droite te gêne, choisis Commande droite ou une touche ou combinaison personnalisée.",
       "options": {
         "rightAlt": "Option droite",
         "leftAlt": "Option gauche",
@@ -1041,8 +1044,8 @@
         "rightWin": "Commande droite"
       },
       "record": {
-        "hint": "Presse les touches que tu veux utiliser. Il faut au moins un modifier et une touche finale (ex Contrôle + Option + R, Contrôle + Option + Espace, F13). Esc annule.",
-        "needsModifier": "Une touche seule n'est autorisée que pour F1-F24, Home, End, PageUp/Down et Suppr. Sinon ajoute Contrôle, Option, Maj ou Commande."
+        "hint": "Presse la touche ou la combinaison que tu veux utiliser (ex F13, R, Contrôle + Option + R, Contrôle + Option + Espace). Esc annule.",
+        "needsModifier": "Pour les raccourcis additionnels (copier, coller, réessayer, historique, annuler), une touche seule n'est autorisée que pour F1-F24, Home, End, PageUp/Down et Suppr. Sinon ajoute Contrôle, Option, Maj ou Commande. Les raccourcis de dictée acceptent n'importe quelle touche seule."
       }
     },
     "settings": {
