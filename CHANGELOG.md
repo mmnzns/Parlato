@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- The recorder pill no longer shows your words while you speak, and the
+  "Show words as you speak" setting is gone. The pasted text never came from
+  that preview, so dictation results are the same. Online models that
+  transcribe while you speak still do, so their text is still ready the
+  moment you stop; their notes now say that instead of promising words on
+  screen.
+
 ## [0.14.1] - 2026-10-28
 
 ### Changed

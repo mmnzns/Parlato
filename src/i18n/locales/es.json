@@ -107,7 +107,6 @@
     "recorderStyleInfo": "'Mini' muestra una píldora flotante en la parte inferior de la pantalla. 'Notch' desciende desde arriba como la muesca del MacBook Pro.",
     "recorderStyleMini": "Mini (píldora flotante, abajo)",
     "recorderStyleNotch": "Notch (anclado arriba)",
-    "liveTranscriptInfo": "Muestra tus palabras mientras grabas. Funciona con NVIDIA Parakeet Unified en este ordenador y con los servicios en línea que admiten texto en vivo. El texto pegado sigue saliendo de la pasada completa al final.",
     "sectionGeneral": "General",
     "sectionDictating": "Mientras dictas",
     "sectionAfterPaste": "Después de pegar",
@@ -136,8 +135,6 @@
     "muteHint": "Silencia música y vídeos para que no acaben en tu texto.",
     "resumeLabel": "Reanudar el audio tras",
     "resumeHint": "Cuánto esperar antes de reactivar el sonido al terminar el dictado.",
-    "liveLabel": "Mostrar las palabras mientras hablas",
-    "liveHint": "Con Parakeet Unified en este ordenador, o modelos en línea que admiten texto en vivo.",
     "recorderPosLabel": "Posición de la grabadora",
     "recorderPosHint": "Dónde aparece la pequeña barra de grabación.",
     "formatLabel": "Ordenar párrafos",
@@ -429,7 +426,7 @@
     "fileTooLong": "Este archivo dura más de 2 horas. Divídelo en partes más cortas.",
     "interrupted": "Parlato se cerró antes de terminar este dictado. Usa «Transcribir de nuevo» para intentarlo otra vez.",
     "pasteFailed": "No se pudo pegar en esta aplicación. El texto está en el portapapeles, listo para pegar.",
-    "assemblyaiRealtimeOnly": "Universal-3.6 Pro solo admite este idioma en vivo, con «Mostrar las palabras mientras hablas» activado. Para transcribir esta grabación, elige otro idioma u otro modelo."
+    "assemblyaiRealtimeOnly": "Universal-3.6 Pro solo admite este idioma en vivo, y la conexión en vivo falló. Para transcribir esta grabación, elige otro idioma u otro modelo."
   },
   "prompts": {
     "default": {
@@ -638,7 +635,7 @@
     "englishOnly": "Solo inglés",
     "languages": "{{count}} idiomas",
     "downloaded": "descargado",
-    "liveWords": "palabras en vivo",
+    "liveWords": "en vivo",
     "perfTitle": "¿Qué tan rápidos son tus modelos",
     "perfDesc": "Medido en tus propios dictados.",
     "faster": "más rápido que tu voz",
@@ -887,7 +884,7 @@
       "notes": "Whisper v3 Turbo en los servidores de Groq. Muy rápido."
     },
     "scribe_v2": {
-      "notes": "Muestra tus palabras en vivo mientras hablas."
+      "notes": "Transcribe mientras hablas: el texto está listo en cuanto paras."
     },
     "scribe_v2_medical": {
       "notes": "Optimizado para el habla y la terminología médica. Transcribe cuando terminas de hablar."
@@ -902,13 +899,13 @@
       "notes": "Transcribe cuando terminas de hablar. Detecta el idioma por sí solo."
     },
     "voxtral_mini_transcribe_realtime_2602": {
-      "notes": "Muestra tus palabras en vivo mientras hablas."
+      "notes": "Transcribe mientras hablas: el texto está listo en cuanto paras."
     },
     "stt_async_v5": {
       "notes": "Transcribe cuando terminas de hablar. 60 idiomas."
     },
     "stt_rt_v5": {
-      "notes": "Muestra tus palabras en vivo, una a una, mientras hablas."
+      "notes": "Transcribe palabra por palabra mientras hablas: el texto está listo en cuanto paras."
     },
     "speechmatics_enhanced": {
       "notes": "Funciona en vivo o después de hablar."
@@ -923,13 +920,13 @@
       "notes": "Solo en vivo, el más rápido de Cartesia. Solo inglés, sin detección automática del idioma."
     },
     "universal_3_6_pro": {
-      "notes": "El modelo más reciente de AssemblyAI, 32 idiomas. Muestra tus palabras en vivo; sin el modo en vivo, usa Universal-3.5 Pro o Universal-2 según el idioma."
+      "notes": "El modelo más reciente de AssemblyAI, 32 idiomas. Transcribe mientras hablas; si no es posible, usa Universal-3.5 Pro o Universal-2 según el idioma."
     },
     "universal_3_5_pro": {
-      "notes": "El modelo más preciso de AssemblyAI. Puede mostrar tus palabras en vivo."
+      "notes": "El modelo más preciso de AssemblyAI. Puede transcribir mientras hablas."
     },
     "universal_2": {
-      "notes": "Más de 90 idiomas. Más rápido que Universal-3.5 Pro, pero sin palabras en vivo."
+      "notes": "Más de 90 idiomas. Más rápido que Universal-3.5 Pro, pero solo después de hablar."
     },
     "qwen2_5_3b_instruct_q4": {
       "notes": "Versátil, con una excelente relación calidad / tamaño."
