@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- On the Mac, Parlato asks for Keychain access at most once per launch when you
+  use online AI cleanup or cloud transcription, instead of on every dictation.
+
 ## [0.15.0] - 2026-11-02
 
 ### Added
