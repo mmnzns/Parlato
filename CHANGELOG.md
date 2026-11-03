@@ -5,17 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.15.1] - 2026-11-03
 
 ### Fixed
 - On a Mac with several screens of different sharpness (for example a Retina
   screen next to a regular monitor), the dictation pill now always appears on
   the screen with the mouse, instead of sometimes on the wrong screen or
   nowhere.
-
-## [0.15.1] - 2026-11-02
-
-### Fixed
 - On the Mac, Parlato asks for Keychain access at most once per launch when you
   use online AI cleanup or cloud transcription, instead of on every dictation.
 
