@@ -149,10 +149,14 @@ export function StartsSection({
         </div>
         {/* Parlato (Mac): websites are read from the browser with AppleScript,
             which macOS gates behind the Automation permission. */}
-        {isMac && (
+        {isMac && (c.url_triggers.length > 0 || siteDraft !== null || deniedBrowser) && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs leading-[17px] text-pretty text-muted-foreground">{t("pm.macSiteNote")}</span>
-            <span className="text-xs leading-[17px] text-pretty text-muted-foreground">{t("pm.macFirefox")}</span>
+            {(c.url_triggers.length > 0 || siteDraft !== null) && (
+              <>
+                <span className="text-xs leading-[17px] text-pretty text-muted-foreground">{t("pm.macSiteNote")}</span>
+                <span className="text-xs leading-[17px] text-pretty text-muted-foreground">{t("pm.macFirefox")}</span>
+              </>
+            )}
             {deniedBrowser && (
               <div
                 role="alert"

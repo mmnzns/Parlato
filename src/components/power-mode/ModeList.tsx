@@ -90,11 +90,15 @@ export function ModeList({
               />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm font-semibold">{c.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{summary}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="min-w-0 truncate text-xs text-muted-foreground">{summary}</span>
+                  {key && (
+                    <kbd className="flex-none rounded-sm border px-1.5 py-px font-mono text-[10px] text-muted-foreground">
+                      {key}
+                    </kbd>
+                  )}
+                </span>
               </span>
-              {key && (
-                <kbd className="rounded-sm border px-1.5 py-px font-mono text-[10px] text-muted-foreground">{key}</kbd>
-              )}
             </button>
             <button
               type="button"
