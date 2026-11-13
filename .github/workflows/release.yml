@@ -62,7 +62,8 @@ jobs:
           cache: "npm"
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # Pinned: Rust 1.100 changed the build-dir layout and ort-sys 2.0.0-rc.13's DirectML DLL copy fails on Windows. Unpin when the engine's ort is updated (see mmnzns/voice-engine issue).
+        uses: dtolnay/rust-toolchain@1.99.1
         with:
           targets: ${{ matrix.rust-target }}
 
@@ -250,7 +251,8 @@ jobs:
           cache: "npm"
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # Pinned: Rust 1.100 changed the build-dir layout and ort-sys 2.0.0-rc.13's DirectML DLL copy fails on Windows. Unpin when the engine's ort is updated (see mmnzns/voice-engine issue).
+        uses: dtolnay/rust-toolchain@1.99.1
         with:
           targets: aarch64-apple-darwin
 
