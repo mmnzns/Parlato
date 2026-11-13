@@ -499,6 +499,7 @@ fn setup_hotkeys(app: AppHandle) {
         cfg.actions.cancel_recording,
         hotkeys::keyboard_hook::HotkeyTrigger::None
     ));
+    manager.set_double_tap(cfg.double_tap);
 
     info!(
         primary = ?cfg.primary.trigger,

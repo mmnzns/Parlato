@@ -5,16 +5,14 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatCombo } from "@/components/HotkeyRecorder";
+import { formatTrigger } from "@/components/HotkeyRecorder";
 import { api, type HotkeyMode, type HotkeyTrigger } from "@/lib/tauri";
 
 export function triggerLabel(
   trigger: HotkeyTrigger | null,
-  t: (key: string) => string,
+  _t?: (key: string) => string,
 ): string | null {
-  if (!trigger || trigger.kind === "none") return null;
-  if (trigger.kind === "modifier") return t(`hotkey.options.${trigger.option}`);
-  return formatCombo(trigger);
+  return formatTrigger(trigger);
 }
 
 /// Parlato: which block of `shortcutWording.*` matches the shortcut mode.

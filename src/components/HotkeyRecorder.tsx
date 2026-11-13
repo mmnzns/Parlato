@@ -4,7 +4,10 @@
 //
 // Implementation : un dialog plein ecran avec un keydown listener au
 // niveau document. On capture la premiere touche finale non-modifier (avec
-// ou sans modifier selon `rule`). ESC annule.
+// ou sans modifier selon `rule`). ESC annule (sauf pour les raccourcis de
+// dictee, 0.16 : Echap peut etre la touche, on ferme avec le bouton).
+// 0.16, raccourcis de dictee : deux modifiers appuyes ensemble puis relaches
+// sans touche finale (Ctrl + Win) sont captures comme "modifiers".
 //
 // Reference VoiceInk : KeyboardShortcuts.Recorder fait exactement la
 // meme chose dans Settings. On ne capture pas les touches sticky
@@ -14,7 +17,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { HotkeyTrigger } from "@/lib/tauri";
+import { Switch } from "@/components/ui/section";
+import type { HotkeyTrigger, KeySide, KeySides } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 import i18n from "@/i18n";
@@ -97,12 +101,45 @@ function macVkFromCode(code: string): number | null {
 
 const MAC_MODIFIER_CODE = /^(Shift|Control|Alt|Meta|OS|CapsLock|Fn)/;
 
+export type ComboTrigger = Extract<HotkeyTrigger, { kind: "combo" }>;
+export type ChordTrigger = Extract<HotkeyTrigger, { kind: "modifiers" }>;
+
+type ModKind = "ctrl" | "alt" | "shift" | "win";
+const MOD_KINDS: ModKind[] = ["ctrl", "alt", "shift", "win"];
+
+// Parlato 0.16: which modifier (and which side) a keyboard event code is.
+// `e.code` tells left from right on both Windows and the Mac.
+function modifierOfCode(code: string): { kind: ModKind; side: "left" | "right" } | null {
+  const m = /^(Control|Alt|Shift|Meta|OS)(Left|Right)$/.exec(code);
+  if (!m) return null;
+  const kind: ModKind =
+    m[1] === "Control" ? "ctrl" : m[1] === "Alt" ? "alt" : m[1] === "Shift" ? "shift" : "win";
+  return { kind, side: m[2] === "Left" ? "left" : "right" };
+}
+
+// Parlato 0.16: the side of each modifier among the keys held, as a trigger
+// stores it. Both sides held (or none seen) stays "any".
+function sidesFromHeld(held: Set<string>, wanted: Record<ModKind, boolean>): KeySides | undefined {
+  const out: KeySides = { ctrl: "any", alt: "any", shift: "any", win: "any" };
+  let any = false;
+  for (const kind of MOD_KINDS) {
+    if (!wanted[kind]) continue;
+    let left = false;
+    let right = false;
+    for (const code of held) {
+      const m = modifierOfCode(code);
+      if (m?.kind !== kind) continue;
+      if (m.side === "left") left = true;
+      else right = true;
+    }
+    const side: KeySide = left && !right ? "left" : right && !left ? "right" : "any";
+    out[kind] = side;
+    if (side !== "any") any = true;
+  }
+  return any ? out : undefined;
+}
+
 type Captured = {
-  vk: number;
-  ctrl: boolean;
-  alt: boolean;
-  shift: boolean;
-  win: boolean;
   label: string;
 };
 
@@ -119,13 +156,22 @@ export function HotkeyRecorder({
 }: {
   open: boolean;
   onCancel: () => void;
-  onCapture: (trigger: Extract<HotkeyTrigger, { kind: "combo" }>) => void;
+  onCapture: (trigger: ComboTrigger | ChordTrigger) => void;
   rule?: RecorderRule;
 }) {
   const { t } = useTranslation();
   const [captured, setCaptured] = useState<Captured | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<Extract<HotkeyTrigger, { kind: "combo" }> | null>(null);
+  const [pending, setPending] = useState<ComboTrigger | null>(null);
+  // Parlato 0.16: store which side (left / right) of each modifier was used.
+  const [tellSides, setTellSides] = useState(false);
+  const tellSidesRef = useRef(false);
+  tellSidesRef.current = tellSides;
+  // Modifier keys currently held (event codes), and the biggest set held
+  // since the first one went down, to capture "two modifiers alone".
+  const heldRef = useRef<Set<string>>(new Set());
+  const peakRef = useRef<Set<string>>(new Set());
+  const usedFinalRef = useRef(false);
   const finishedRef = useRef(false);
   const pendingRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -136,15 +182,24 @@ export function HotkeyRecorder({
       setCaptured(null);
       setError(null);
       setPending(null);
+      setTellSides(false);
+      resetModifiers();
       pendingRef.current = false;
       finishedRef.current = false;
     }
   }, [open]);
 
+  function resetModifiers() {
+    heldRef.current = new Set();
+    peakRef.current = new Set();
+    usedFinalRef.current = false;
+  }
+
   function chooseAnother() {
     setCaptured(null);
     setError(null);
     setPending(null);
+    resetModifiers();
     pendingRef.current = false;
     finishedRef.current = false;
     dialogRef.current?.focus();
@@ -154,14 +209,34 @@ export function HotkeyRecorder({
     if (!open) return;
 
     function onKey(e: KeyboardEvent) {
-      // Waiting for "Use this key" / "Choose another": leave every key but
-      // Escape alone so the buttons work from the keyboard.
-      if (pendingRef.current && e.key !== "Escape") return;
+      // Waiting for "Use this key" / "Choose another": leave every key alone
+      // so the buttons work from the keyboard. (Escape too for a dictation
+      // shortcut, where Esc is a key you can pick: close with Cancel.)
+      if (pendingRef.current && (rule === "dictation" || e.key !== "Escape")) return;
       e.preventDefault();
       e.stopPropagation();
 
-      if (e.key === "Escape" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      // Parlato 0.16: Escape closes the window, except when recording a
+      // dictation shortcut: Esc is allowed there (the Cancel button closes).
+      if (
+        e.key === "Escape" &&
+        rule !== "dictation" &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
         onCancel();
+        return;
+      }
+
+      // Parlato 0.16: remember which modifiers are held, for the side of
+      // each one and for "two modifiers alone".
+      const mod = modifierOfCode(e.code);
+      if (mod) {
+        heldRef.current.add(e.code);
+        if (heldRef.current.size >= peakRef.current.size) {
+          peakRef.current = new Set(heldRef.current);
+        }
         return;
       }
 
@@ -179,6 +254,7 @@ export function HotkeyRecorder({
       if (MODIFIER_VKS.has(vk)) return;
 
       if (finishedRef.current) return;
+      usedFinalRef.current = true;
 
       const hasModifier = e.ctrlKey || e.altKey || e.shiftKey || e.metaKey;
       // Utility shortcuts: refuse a text key (letter/digit/space) without a
@@ -201,21 +277,31 @@ export function HotkeyRecorder({
       setError(null);
       finishedRef.current = true;
 
-      const trigger: Extract<HotkeyTrigger, { kind: "combo" }> = {
+      const sides = tellSidesRef.current
+        ? sidesFromHeld(heldRef.current, {
+            ctrl: e.ctrlKey,
+            alt: e.altKey,
+            shift: e.shiftKey,
+            win: e.metaKey,
+          })
+        : undefined;
+      const trigger: ComboTrigger = {
         kind: "combo",
         vk,
         ctrl: e.ctrlKey,
         alt: e.altKey,
         shift: e.shiftKey,
         win: e.metaKey,
+        ...(sides ? { sides } : {}),
       };
 
       const label = formatCombo(trigger);
-      setCaptured({ ...trigger, label });
+      setCaptured({ label });
 
       // A bare key that types text keeps typing (the dictation key is not
-      // swallowed): ask for confirmation instead of closing.
-      if (rule === "dictation" && !hasModifier && typesText(vk)) {
+      // swallowed): ask for confirmation instead of closing. Esc too: it is
+      // easy to press it just to close the window.
+      if (rule === "dictation" && !hasModifier && (typesText(vk) || vk === 0x1b)) {
         pendingRef.current = true;
         setPending(trigger);
         return;
@@ -226,9 +312,57 @@ export function HotkeyRecorder({
       window.setTimeout(() => onCapture(trigger), 600);
     }
 
+    // Parlato 0.16: two modifiers alone. When the first of them is let go
+    // and no other key was pressed in between, the biggest set held (two or
+    // more kinds) is the shortcut. Dictation shortcuts only.
+    function onKeyUp(e: KeyboardEvent) {
+      const mod = modifierOfCode(e.code);
+      if (!mod) return;
+      if (pendingRef.current || finishedRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const peak = peakRef.current;
+      const wasHeld = heldRef.current.delete(e.code);
+      if (rule === "dictation" && wasHeld && !usedFinalRef.current) {
+        const kinds = new Set<ModKind>();
+        for (const code of peak) {
+          const m = modifierOfCode(code);
+          if (m) kinds.add(m.kind);
+        }
+        if (kinds.size >= 2) {
+          finishedRef.current = true;
+          const wanted = {
+            ctrl: kinds.has("ctrl"),
+            alt: kinds.has("alt"),
+            shift: kinds.has("shift"),
+            win: kinds.has("win"),
+          };
+          const sides = tellSidesRef.current ? sidesFromHeld(peak, wanted) : undefined;
+          const trigger: ChordTrigger = { kind: "modifiers", ...wanted, ...(sides ? { sides } : {}) };
+          setError(null);
+          setCaptured({ label: formatChord(trigger) });
+          window.setTimeout(() => onCapture(trigger), 600);
+          return;
+        }
+      }
+      if (heldRef.current.size === 0) {
+        peakRef.current = new Set();
+        usedFinalRef.current = false;
+      }
+    }
+
+    // A window that loses focus never sees the key-ups.
+    function onBlur() {
+      resetModifiers();
+    }
+
     document.addEventListener("keydown", onKey, { capture: true });
+    document.addEventListener("keyup", onKeyUp, { capture: true });
+    window.addEventListener("blur", onBlur);
     return () => {
       document.removeEventListener("keydown", onKey, { capture: true });
+      document.removeEventListener("keyup", onKeyUp, { capture: true });
+      window.removeEventListener("blur", onBlur);
     };
   }, [open, onCancel, onCapture, rule, t]);
 
@@ -268,7 +402,7 @@ export function HotkeyRecorder({
           {t("hotkey.record.title")}
         </h2>
         <p id="hotkey-record-hint" className="mt-1 text-xs text-muted-foreground">
-          {t("hotkey.record.hint")}
+          {t(rule === "dictation" ? "hotkey.record.hintDictation" : "hotkey.record.hint")}
         </p>
 
         <div
@@ -290,8 +424,15 @@ export function HotkeyRecorder({
 
         {pending && (
           <p role="alert" className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            {t("hotkey.record.typesTextWarning")}
+            {t(pending.vk === 0x1b ? "hotkey.record.escWarning" : "hotkey.record.typesTextWarning")}
           </p>
+        )}
+
+        {!pending && (
+          <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch checked={tellSides} onChange={setTellSides} label={t("hotkey.record.tellSides")} />
+            <span>{t("hotkey.record.tellSides")}</span>
+          </label>
         )}
 
         <div className="mt-4 flex justify-end gap-2">
@@ -324,6 +465,7 @@ const VK_KEYS: Record<number, string> = {
   0x10: "shift",
   0x11: "ctrl",
   0x12: "alt",
+  0x13: "pause",
   0x14: "capsLock",
   0x1b: "esc",
   0x20: "space",
@@ -338,6 +480,15 @@ const VK_KEYS: Record<number, string> = {
   0x2c: "printScreen",
   0x2d: "insert",
   0x2e: "delete",
+  0x5d: "menu",
+  0x90: "numLock",
+  0x91: "scrollLock",
+  0xad: "volumeMute",
+  0xae: "volumeDown",
+  0xaf: "volumeUp",
+  0xb0: "nextTrack",
+  0xb1: "prevTrack",
+  0xb3: "playPause",
 };
 
 // Parlato: Mac-only keys, translated through macOverrides.keys.
@@ -346,16 +497,17 @@ const MAC_VK_KEYS: Record<number, string> = {
   0x0c: "clear",
 };
 
-// Parlato: punctuation / numpad / Menu labels (US layout names, the same on
-// every language).
+// Parlato: punctuation / numpad labels (US layout names, the same on every
+// language).
 const SYMBOL_LABELS: Record<number, string> = {
   0xba: ";", 0xbb: "=", 0xbc: ",", 0xbd: "-", 0xbe: ".", 0xbf: "/",
   0xc0: "`", 0xdb: "[", 0xdc: "\\", 0xdd: "]", 0xde: "'", 0xe2: "<>",
   0x6a: "Num *", 0x6b: "Num +", 0x6d: "Num -", 0x6e: "Num .", 0x6f: "Num /",
-  0x5d: "Menu",
 };
 
 export function vkLabel(vk: number): string {
+  // Parlato: WebKit reports the Mac's Right Command as 0x5d, which is the Menu
+  // key on Windows; on the Mac it is never a final key, so it never shows up.
   if (isMac && MAC_VK_KEYS[vk]) return i18n.t(`keys.${MAC_VK_KEYS[vk]}`);
   if (VK_KEYS[vk]) return i18n.t(`keys.${VK_KEYS[vk]}`);
   if (vk >= 0x70 && vk <= 0x87) return `F${vk - 0x6f}`; // F1..F24
@@ -366,14 +518,44 @@ export function vkLabel(vk: number): string {
   return `VK_${vk.toString(16).toUpperCase().padStart(2, "0")}`;
 }
 
-export function formatCombo(
-  combo: Extract<HotkeyTrigger, { kind: "combo" }>,
-): string {
-  const parts: string[] = [];
-  if (combo.ctrl) parts.push(i18n.t("keys.ctrl"));
-  if (combo.alt) parts.push(i18n.t("keys.alt"));
-  if (combo.shift) parts.push(i18n.t("keys.shift"));
-  if (combo.win) parts.push(i18n.t("keys.win"));
+// Parlato 0.16: name of one modifier, with its side when the trigger asks for
+// one ("Left Ctrl", "Ctrl gauche"): the same words as the single-key picker.
+const SIDE_OPTION: Record<ModKind, { left: string; right: string }> = {
+  ctrl: { left: "leftCtrl", right: "rightCtrl" },
+  alt: { left: "leftAlt", right: "rightAlt" },
+  shift: { left: "leftShift", right: "rightShift" },
+  win: { left: "leftWin", right: "rightWin" },
+};
+
+function modifierName(kind: ModKind, side: KeySide | undefined): string {
+  if (side === "left" || side === "right") {
+    return i18n.t(`hotkey.options.${SIDE_OPTION[kind][side]}`);
+  }
+  return i18n.t(`keys.${kind}`);
+}
+
+function modifierParts(
+  flags: Record<ModKind, boolean>,
+  sides: KeySides | undefined,
+): string[] {
+  return MOD_KINDS.filter((k) => flags[k]).map((k) => modifierName(k, sides?.[k]));
+}
+
+export function formatCombo(combo: ComboTrigger): string {
+  const parts = modifierParts(combo, combo.sides);
   parts.push(vkLabel(combo.vk));
   return parts.join(" + ");
+}
+
+/** Two or more modifiers alone, e.g. "Ctrl + Win". */
+export function formatChord(chord: ChordTrigger): string {
+  return modifierParts(chord, chord.sides).join(" + ");
+}
+
+/** Readable name of any trigger (sidebar, cards, onboarding). Null for none. */
+export function formatTrigger(trigger: HotkeyTrigger | null): string | null {
+  if (!trigger || trigger.kind === "none") return null;
+  if (trigger.kind === "modifier") return i18n.t(`hotkey.options.${trigger.option}`);
+  if (trigger.kind === "modifiers") return formatChord(trigger);
+  return formatCombo(trigger);
 }

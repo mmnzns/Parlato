@@ -716,7 +716,16 @@ export type HotkeyOptionId =
   | "rightCtrl"
   | "rightWin"
   | "rightShift"
-  | "leftShift";
+  | "leftShift"
+  // 0.16: LeftWin and Menu are Windows only, Fn (Globe) is Mac only.
+  | "leftWin"
+  | "capsLock"
+  | "menu"
+  | "fn";
+
+/** Which physical key of a modifier pair a trigger needs ("any" = either). */
+export type KeySide = "any" | "left" | "right";
+export type KeySides = { ctrl: KeySide; alt: KeySide; shift: KeySide; win: KeySide };
 
 export type HotkeyTrigger =
   | { kind: "none" }
@@ -728,6 +737,17 @@ export type HotkeyTrigger =
       alt: boolean;
       shift: boolean;
       win: boolean;
+      /** 0.16: absent = either side (every config saved before 0.16). */
+      sides?: KeySides;
+    }
+  // 0.16: two or more modifiers alone (Ctrl + Win), dictation shortcuts only.
+  | {
+      kind: "modifiers";
+      ctrl: boolean;
+      alt: boolean;
+      shift: boolean;
+      win: boolean;
+      sides?: KeySides;
     };
 
 export type HotkeyMode = "toggle" | "pushToTalk" | "hybrid";
@@ -755,6 +775,8 @@ export type HotkeyConfig = {
   primary: HotkeySlotConfig;
   secondary: HotkeySlotConfig;
   actions: UtilityShortcuts;
+  /** 0.16: "Double-tap to keep recording" (on by default). */
+  double_tap: boolean;
 };
 
 export type HotkeyOptionInfo = {

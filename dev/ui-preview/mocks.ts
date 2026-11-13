@@ -83,6 +83,7 @@ const settings: Record<string, unknown> = {
       open_history: { kind: "none" },
       cancel_recording: { kind: "none" },
     },
+    double_tap: true,
   },
   vad: { downloaded: true, path: "/mock/Models/vad/ggml-silero-v6.2.0.bin", on_disk_bytes: 885_000, other_apps: [] as string[] },
 };
@@ -792,6 +793,10 @@ const commands: Record<string, Handler> = {
     { id: "rightWin", vk: 0x5c },
     { id: "rightShift", vk: 0xa1 },
     { id: "leftShift", vk: 0xa0 },
+    { id: "leftWin", vk: 0x5b },
+    { id: "capsLock", vk: 0x14 },
+    { id: "menu", vk: 0x5d },
+    { id: "fn", vk: null },
   ],
   reset_escape_hint: noop,
 

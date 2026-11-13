@@ -13,9 +13,18 @@
 //  - Toggle      : tap ou hold -> toggle recorder.
 //  - PushToTalk  : down -> start, up -> stop.
 //  - Hybrid      : si press > 500 ms : PTT (stop au release). Si tap court : toggle on + hands-free.
+//
+// Double-tap (Parlato 0.16, reglage "Double-tap to keep recording", actif par
+// defaut) : en Hold-to-talk, un tap court (< 250 ms) ne coupe plus tout de
+// suite, il attend 300 ms. Un deuxieme appui dans ce delai convertit
+// l'enregistrement en cours en hands-free (le prochain appui l'arrete) ; sans
+// deuxieme appui, l'arret part a la fin du delai (`on_tick`). Le demarrage a
+// la premiere pression n'est jamais retarde. Toggle et Hybrid font deja du
+// hands-free sur un tap : ils ne changent pas.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
+use std::sync::mpsc::RecvTimeoutError;
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -30,6 +39,12 @@ const HYBRID_PRESS_THRESHOLD: Duration = Duration::from_millis(500);
 const ACTION_COOLDOWN: Duration = Duration::from_millis(500);
 /// Fenetre pour double-tap Escape (VoiceInk `escapeDoublePressThreshold`).
 const ESC_DOUBLE_TAP_WINDOW: Duration = Duration::from_millis(1500);
+/// Parlato 0.16 : delai entre le relachement du premier tap et le deuxieme
+/// appui pour compter un double-tap.
+pub const DOUBLE_TAP_WINDOW: Duration = Duration::from_millis(300);
+/// Parlato 0.16 : un appui plus court que ca est un "tap" (au-dela, c'est
+/// quelqu'un qui parle en maintenant la touche).
+pub const TAP_MAX_PRESS: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +73,14 @@ pub enum HotkeyAction {
     Utility(UtilityAction),
 }
 
+/// Premier tap court en Hold-to-talk : l'arret est en attente d'un deuxieme tap.
+#[derive(Debug, Clone, Copy)]
+struct PendingTap {
+    slot: HotkeySlot,
+    /// Fin de la fenetre (relachement du tap + DOUBLE_TAP_WINDOW).
+    deadline: Instant,
+}
+
 #[derive(Default)]
 struct State {
     is_recording: bool,
@@ -65,6 +88,22 @@ struct State {
     key_down_since: Option<Instant>,
     last_action_at: Option<Instant>,
     esc_first_press_at: Option<Instant>,
+    /// Parlato 0.16 : arret differe en attente d'un double-tap.
+    pending_tap: Option<PendingTap>,
+    /// Parlato 0.16 : session passee en hands-free par un double-tap en
+    /// Hold-to-talk (le prochain appui l'arrete).
+    dt_hands_free: bool,
+    /// Parlato 0.16 : le relachement qui suit le 2e tap ne doit pas arreter.
+    ignore_release: bool,
+}
+
+impl State {
+    /// Efface tout ce qui concerne le double-tap (fin de session).
+    fn clear_double_tap(&mut self) {
+        self.pending_tap = None;
+        self.dt_hands_free = false;
+        self.ignore_release = false;
+    }
 }
 
 pub struct HotkeyManager {
@@ -78,6 +117,8 @@ pub struct HotkeyManager {
     /// n'est enregistre que si `ShortcutStore.shortcut(for: .cancelRecorder)`
     /// est nil).
     custom_cancel: AtomicBool,
+    /// Parlato 0.16 : reglage "Double-tap to keep recording".
+    double_tap: AtomicBool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -95,7 +136,14 @@ impl HotkeyManager {
                 secondary: mode_secondary,
             }),
             custom_cancel: AtomicBool::new(false),
+            double_tap: AtomicBool::new(true),
         }
+    }
+
+    /// Active / desactive le double-tap (reglage, applique a chaud). Un tap
+    /// deja en attente d'un deuxieme appui se termine normalement.
+    pub fn set_double_tap(&self, enabled: bool) {
+        self.double_tap.store(enabled, Ordering::Relaxed);
     }
 
     pub fn update_modes(&self, primary: HotkeyMode, secondary: HotkeyMode) {
@@ -121,6 +169,7 @@ impl HotkeyManager {
             state.is_hands_free = false;
             state.key_down_since = None;
             state.esc_first_press_at = None;
+            state.clear_double_tap();
         }
     }
 
@@ -169,6 +218,31 @@ impl HotkeyManager {
     fn on_pressed(&self, slot: HotkeySlot, timestamp: Instant) -> Option<HotkeyAction> {
         let mut state = self.state.lock();
 
+        // Parlato 0.16 : deuxieme appui d'un double-tap. Avant le cooldown :
+        // le premier appui a lance l'enregistrement moins de 500 ms plus tot.
+        if let Some(pending) = state.pending_tap {
+            if pending.slot == slot {
+                state.pending_tap = None;
+                if state.is_recording {
+                    if timestamp <= pending.deadline {
+                        state.is_hands_free = true;
+                        state.dt_hands_free = true;
+                        state.ignore_release = true;
+                        state.key_down_since = Some(timestamp);
+                        state.last_action_at = Some(timestamp);
+                        info!("PTT: double-tap, hands-free");
+                        return Some(HotkeyAction::EnterHandsFree);
+                    }
+                    // Fenetre depassee (evenement arrive en retard) : le tap
+                    // attendu etait seul, on l'arrete maintenant.
+                    state.is_recording = false;
+                    state.last_action_at = Some(pending.deadline - DOUBLE_TAP_WINDOW);
+                    info!("PTT: stop (tap seul, deuxieme appui trop tard)");
+                    return Some(HotkeyAction::StopRecording);
+                }
+            }
+        }
+
         // Cooldown.
         if let Some(last) = state.last_action_at {
             if timestamp.duration_since(last) < ACTION_COOLDOWN {
@@ -187,6 +261,15 @@ impl HotkeyManager {
                     state.last_action_at = Some(timestamp);
                     info!("PTT: start");
                     Some(HotkeyAction::StartRecording)
+                } else if state.dt_hands_free {
+                    // Parlato 0.16 : session hands-free issue d'un double-tap,
+                    // un appui l'arrete.
+                    state.is_recording = false;
+                    state.is_hands_free = false;
+                    state.clear_double_tap();
+                    state.last_action_at = Some(timestamp);
+                    info!("PTT: stop (exit double-tap hands-free)");
+                    Some(HotkeyAction::StopRecording)
                 } else {
                     None
                 }
@@ -230,7 +313,27 @@ impl HotkeyManager {
                 None
             }
             HotkeyMode::PushToTalk => {
+                // Parlato 0.16 : relachement qui suit le 2e tap d'un double-tap.
+                if state.ignore_release {
+                    state.ignore_release = false;
+                    return None;
+                }
                 if state.is_recording {
+                    // Parlato 0.16 : un tap court n'arrete pas tout de suite,
+                    // il attend un eventuel deuxieme tap (sauf session lancee
+                    // hors raccourci, deja hands-free : comportement inchange).
+                    if self.double_tap.load(Ordering::Relaxed)
+                        && !state.is_hands_free
+                        && pressed_at.is_some()
+                        && press_duration < TAP_MAX_PRESS
+                    {
+                        state.pending_tap = Some(PendingTap {
+                            slot,
+                            deadline: timestamp + DOUBLE_TAP_WINDOW,
+                        });
+                        debug!("PTT: tap court, arret differe (double-tap possible)");
+                        return None;
+                    }
                     state.is_recording = false;
                     state.last_action_at = Some(timestamp);
                     info!("PTT: stop");
@@ -260,6 +363,31 @@ impl HotkeyManager {
         }
     }
 
+    /// Parlato 0.16 : fin de la fenetre du double-tap en attente, ou None.
+    /// `dispatch_loop` s'en sert comme delai d'attente de `recv_timeout`.
+    pub fn next_deadline(&self) -> Option<Instant> {
+        self.state.lock().pending_tap.map(|p| p.deadline)
+    }
+
+    /// Parlato 0.16 : appele quand `next_deadline` est atteinte. Si aucun
+    /// deuxieme tap n'est venu, arrete l'enregistrement du tap seul.
+    pub fn on_tick(&self, now: Instant) -> Option<HotkeyAction> {
+        let mut state = self.state.lock();
+        let pending = state.pending_tap?;
+        if now < pending.deadline {
+            return None;
+        }
+        state.pending_tap = None;
+        if !state.is_recording {
+            return None;
+        }
+        state.is_recording = false;
+        // Meme cooldown qu'avant : compte depuis le relachement du tap.
+        state.last_action_at = Some(pending.deadline - DOUBLE_TAP_WINDOW);
+        info!("PTT: stop (tap seul)");
+        Some(HotkeyAction::StopRecording)
+    }
+
     fn on_escape(&self, timestamp: Instant) -> Option<HotkeyAction> {
         // Un raccourci d'annulation personnalise remplace le double-Echap.
         if self.custom_cancel.load(Ordering::Relaxed) {
@@ -274,6 +402,7 @@ impl HotkeyManager {
                 state.esc_first_press_at = None;
                 state.is_recording = false;
                 state.is_hands_free = false;
+                state.clear_double_tap();
                 state.last_action_at = Some(timestamp);
                 info!("Double ESC: cancel recording");
                 Some(HotkeyAction::CancelRecording)
@@ -294,6 +423,7 @@ impl HotkeyManager {
         state.esc_first_press_at = None;
         state.is_recording = false;
         state.is_hands_free = false;
+        state.clear_double_tap();
         state.last_action_at = Some(timestamp);
         info!("Custom cancel shortcut: cancel recording");
         Some(HotkeyAction::CancelRecording)
@@ -302,6 +432,9 @@ impl HotkeyManager {
 
 /// Boucle de traitement : consomme les evenements hook et retourne les actions.
 /// A faire tourner dans un thread dedie.
+///
+/// Parlato 0.16 : quand un tap attend un deuxieme appui (double-tap), la
+/// boucle attend au plus jusqu'a la fin de la fenetre, puis `on_tick`.
 pub fn dispatch_loop<F>(
     rx: mpsc::Receiver<HotkeyEvent>,
     manager: std::sync::Arc<HotkeyManager>,
@@ -309,8 +442,26 @@ pub fn dispatch_loop<F>(
 ) where
     F: FnMut(HotkeyAction) + Send + 'static,
 {
-    while let Ok(event) = rx.recv() {
-        if let Some(action) = manager.handle_event(event) {
+    loop {
+        let event = match manager.next_deadline() {
+            None => match rx.recv() {
+                Ok(event) => Some(event),
+                Err(_) => break,
+            },
+            Some(deadline) => {
+                let wait = deadline.saturating_duration_since(Instant::now());
+                match rx.recv_timeout(wait) {
+                    Ok(event) => Some(event),
+                    Err(RecvTimeoutError::Timeout) => None,
+                    Err(RecvTimeoutError::Disconnected) => break,
+                }
+            }
+        };
+        let action = match event {
+            Some(event) => manager.handle_event(event),
+            None => manager.on_tick(Instant::now()),
+        };
+        if let Some(action) = action {
             on_action(action);
         }
     }
@@ -363,6 +514,9 @@ mod tests {
     #[test]
     fn ptt_press_starts_release_stops() {
         let m = HotkeyManager::with_modes(HotkeyMode::PushToTalk, HotkeyMode::PushToTalk);
+        // The 0.15 rule (a short tap stops at once); with double-tap on, see
+        // the double-tap tests below.
+        m.set_double_tap(false);
         let t0 = Instant::now();
         assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
         assert_eq!(
@@ -413,6 +567,7 @@ mod tests {
         // Primary = Toggle, Secondary = PushToTalk : verify les deux slots
         // sont independants.
         let m = HotkeyManager::with_modes(HotkeyMode::Toggle, HotkeyMode::PushToTalk);
+        m.set_double_tap(false);
         let t0 = Instant::now();
         // Press secondary -> PTT start
         assert_eq!(
@@ -556,5 +711,336 @@ mod tests {
             Some(HotkeyAction::StartRecording),
             "apres reset state, un nouveau cycle commence"
         );
+    }
+
+    // -- Double-tap (0.16) ---------------------------------------------------
+
+    fn ms(n: u64) -> Duration {
+        Duration::from_millis(n)
+    }
+
+    fn ptt() -> HotkeyManager {
+        HotkeyManager::with_modes(HotkeyMode::PushToTalk, HotkeyMode::PushToTalk)
+    }
+
+    #[test]
+    fn ptt_start_is_never_delayed_by_double_tap() {
+        let m = ptt();
+        let t0 = Instant::now();
+        assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
+        assert!(m.is_recording());
+    }
+
+    #[test]
+    fn ptt_single_tap_stops_when_the_window_ends() {
+        let m = ptt();
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        // Short tap: the stop waits for a possible second tap.
+        assert_eq!(m.handle_event(released(t0 + ms(100))), None);
+        assert!(m.is_recording());
+        assert_eq!(m.next_deadline(), Some(t0 + ms(100) + DOUBLE_TAP_WINDOW));
+        // Too early: nothing.
+        assert_eq!(m.on_tick(t0 + ms(399)), None);
+        assert!(m.is_recording());
+        // Window over: stop.
+        assert_eq!(m.on_tick(t0 + ms(400)), Some(HotkeyAction::StopRecording));
+        assert!(!m.is_recording());
+        assert_eq!(m.next_deadline(), None);
+        // Once only.
+        assert_eq!(m.on_tick(t0 + ms(900)), None);
+    }
+
+    #[test]
+    fn ptt_double_tap_converts_to_hands_free() {
+        let m = ptt();
+        let t0 = Instant::now();
+        assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
+        assert_eq!(m.handle_event(released(t0 + ms(80))), None);
+        // Second tap 150 ms after the release, inside the 500 ms cooldown of
+        // the start: it must not be eaten by the cooldown.
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(230))),
+            Some(HotkeyAction::EnterHandsFree)
+        );
+        assert!(m.is_recording());
+        assert_eq!(m.next_deadline(), None, "no stop pending any more");
+        // Releasing the second tap does not stop.
+        assert_eq!(m.handle_event(released(t0 + ms(300))), None);
+        assert!(m.is_recording());
+        // Nothing stops it by itself.
+        assert_eq!(m.on_tick(t0 + ms(5000)), None);
+        // Tap again to stop.
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(6000))),
+            Some(HotkeyAction::StopRecording)
+        );
+        assert!(!m.is_recording());
+        // Its release is a no-op, and a new cycle starts normally.
+        assert_eq!(m.handle_event(released(t0 + ms(6050))), None);
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(7000))),
+            Some(HotkeyAction::StartRecording)
+        );
+    }
+
+    #[test]
+    fn ptt_double_tap_window_edges() {
+        // Second press exactly at the end of the window still counts.
+        let m = ptt();
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(100)));
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(100) + DOUBLE_TAP_WINDOW)),
+            Some(HotkeyAction::EnterHandsFree)
+        );
+        // One millisecond later it is too late: the lone tap stops, the late
+        // press is not a second tap.
+        let m = ptt();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(100)));
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(401))),
+            Some(HotkeyAction::StopRecording)
+        );
+        assert!(!m.is_recording());
+    }
+
+    #[test]
+    fn ptt_tap_length_limit() {
+        // 249 ms is a tap, 250 ms is someone talking.
+        let m = ptt();
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        assert_eq!(m.handle_event(released(t0 + ms(249))), None);
+        assert!(m.next_deadline().is_some());
+        let m = ptt();
+        m.handle_event(pressed(t0));
+        assert_eq!(
+            m.handle_event(released(t0 + TAP_MAX_PRESS)),
+            Some(HotkeyAction::StopRecording)
+        );
+        assert_eq!(m.next_deadline(), None);
+    }
+
+    #[test]
+    fn ptt_hold_is_unchanged_with_double_tap_on() {
+        let m = ptt();
+        let t0 = Instant::now();
+        assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
+        assert_eq!(
+            m.handle_event(released(t0 + ms(2000))),
+            Some(HotkeyAction::StopRecording)
+        );
+        assert_eq!(m.next_deadline(), None);
+    }
+
+    #[test]
+    fn double_tap_off_keeps_the_old_hold_to_talk() {
+        let m = ptt();
+        m.set_double_tap(false);
+        let t0 = Instant::now();
+        assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
+        // A 100 ms tap stops at once, as in 0.15.
+        assert_eq!(
+            m.handle_event(released(t0 + ms(100))),
+            Some(HotkeyAction::StopRecording)
+        );
+        assert_eq!(m.next_deadline(), None);
+    }
+
+    #[test]
+    fn toggle_and_hybrid_are_unchanged_by_double_tap() {
+        for mode in [HotkeyMode::Toggle, HotkeyMode::Hybrid] {
+            let m = HotkeyManager::with_modes(mode, mode);
+            let t0 = Instant::now();
+            assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
+            let rel = m.handle_event(released(t0 + ms(80)));
+            match mode {
+                HotkeyMode::Hybrid => assert_eq!(rel, Some(HotkeyAction::EnterHandsFree)),
+                _ => assert_eq!(rel, None),
+            }
+            // A quick second tap does not stop the recording (cooldown, as
+            // before) and nothing is pending.
+            assert_eq!(m.handle_event(pressed(t0 + ms(230))), None, "{mode:?}");
+            // (Hybrid repeats EnterHandsFree on that release, as in 0.15.)
+            let rel2 = m.handle_event(released(t0 + ms(300)));
+            match mode {
+                HotkeyMode::Hybrid => assert_eq!(rel2, Some(HotkeyAction::EnterHandsFree)),
+                _ => assert_eq!(rel2, None),
+            }
+            assert!(m.is_recording());
+            assert_eq!(m.next_deadline(), None);
+            // Later tap stops, as before.
+            assert_eq!(
+                m.handle_event(pressed(t0 + ms(900))),
+                Some(HotkeyAction::StopRecording),
+                "{mode:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn cancel_and_external_stop_clear_a_pending_tap() {
+        let m = ptt();
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(100)));
+        assert!(m.next_deadline().is_some());
+        // Custom cancel shortcut.
+        assert_eq!(
+            m.handle_event(HotkeyEvent::CancelRequested { timestamp: t0 + ms(150) }),
+            Some(HotkeyAction::CancelRecording)
+        );
+        assert_eq!(m.next_deadline(), None);
+        assert_eq!(m.on_tick(t0 + ms(1000)), None);
+
+        // Recording ended by something else (error, tray).
+        let m = ptt();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(100)));
+        m.mark_recording_state(false);
+        assert_eq!(m.next_deadline(), None);
+        assert_eq!(m.on_tick(t0 + ms(1000)), None);
+        // A press after that is a fresh start, not a "second tap".
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(1200))),
+            Some(HotkeyAction::StartRecording)
+        );
+    }
+
+    #[test]
+    fn double_escape_clears_a_pending_tap() {
+        let m = ptt();
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(100)));
+        m.handle_event(esc(t0 + ms(120)));
+        assert_eq!(
+            m.handle_event(esc(t0 + ms(200))),
+            Some(HotkeyAction::CancelRecording)
+        );
+        assert_eq!(m.next_deadline(), None);
+    }
+
+    #[test]
+    fn hands_free_from_double_tap_is_cancelled_by_cancel_shortcut() {
+        let m = ptt();
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(80)));
+        m.handle_event(pressed(t0 + ms(200)));
+        m.handle_event(released(t0 + ms(260)));
+        assert_eq!(
+            m.handle_event(HotkeyEvent::CancelRequested { timestamp: t0 + ms(3000) }),
+            Some(HotkeyAction::CancelRecording)
+        );
+        // The next press starts a new PTT recording, not a stop.
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(4000))),
+            Some(HotkeyAction::StartRecording)
+        );
+    }
+
+    #[test]
+    fn other_slot_press_does_not_consume_the_pending_tap() {
+        let m = HotkeyManager::with_modes(HotkeyMode::PushToTalk, HotkeyMode::PushToTalk);
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(100)));
+        // The secondary key pressed meanwhile is not the second tap of the
+        // primary one: the recording is neither converted nor restarted.
+        assert_eq!(
+            m.handle_event(HotkeyEvent::Pressed {
+                slot: HotkeySlot::Secondary,
+                timestamp: t0 + ms(200),
+            }),
+            None
+        );
+        assert!(m.next_deadline().is_some());
+        assert_eq!(m.on_tick(t0 + ms(400)), Some(HotkeyAction::StopRecording));
+    }
+
+    #[test]
+    fn tray_started_session_keeps_the_old_ptt_release() {
+        // A session started from the tray is hands-free: a short press of the
+        // PTT key still stops it at release, with no waiting.
+        let m = ptt();
+        m.mark_started_externally();
+        let t0 = Instant::now();
+        assert_eq!(m.handle_event(pressed(t0)), None);
+        assert_eq!(
+            m.handle_event(released(t0 + ms(100))),
+            Some(HotkeyAction::StopRecording)
+        );
+    }
+
+    #[test]
+    fn stale_ignore_release_does_not_survive_the_session() {
+        let m = ptt();
+        let t0 = Instant::now();
+        m.handle_event(pressed(t0));
+        m.handle_event(released(t0 + ms(80)));
+        m.handle_event(pressed(t0 + ms(200))); // double-tap, release never comes
+        m.mark_recording_state(false); // session ends otherwise
+        // New session: a normal hold stops at release.
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(3000))),
+            Some(HotkeyAction::StartRecording)
+        );
+        assert_eq!(
+            m.handle_event(released(t0 + ms(4000))),
+            Some(HotkeyAction::StopRecording)
+        );
+    }
+
+    #[test]
+    fn dispatch_loop_stops_a_lone_tap_after_the_window() {
+        use std::sync::Arc;
+        let manager = Arc::new(ptt());
+        let (tx, rx) = mpsc::channel();
+        let (out_tx, out_rx) = mpsc::channel();
+        let m2 = manager.clone();
+        let handle = std::thread::spawn(move || {
+            dispatch_loop(rx, m2, move |a| {
+                let _ = out_tx.send((Instant::now(), a));
+            });
+        });
+        let t0 = Instant::now();
+        tx.send(HotkeyEvent::Pressed { slot: SLOT, timestamp: t0 }).unwrap();
+        tx.send(HotkeyEvent::Released { slot: SLOT, timestamp: t0 }).unwrap();
+        let (_, first) = out_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert_eq!(first, HotkeyAction::StartRecording);
+        let (at, second) = out_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert_eq!(second, HotkeyAction::StopRecording);
+        assert!(at.duration_since(t0) >= ms(250), "waited for the window");
+        drop(tx);
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn dispatch_loop_keeps_recording_after_a_double_tap() {
+        use std::sync::Arc;
+        let manager = Arc::new(ptt());
+        let (tx, rx) = mpsc::channel();
+        let (out_tx, out_rx) = mpsc::channel();
+        let m2 = manager.clone();
+        let handle = std::thread::spawn(move || {
+            dispatch_loop(rx, m2, move |a| {
+                let _ = out_tx.send(a);
+            });
+        });
+        let t0 = Instant::now();
+        tx.send(HotkeyEvent::Pressed { slot: SLOT, timestamp: t0 }).unwrap();
+        tx.send(HotkeyEvent::Released { slot: SLOT, timestamp: t0 + ms(50) }).unwrap();
+        tx.send(HotkeyEvent::Pressed { slot: SLOT, timestamp: t0 + ms(150) }).unwrap();
+        tx.send(HotkeyEvent::Released { slot: SLOT, timestamp: t0 + ms(200) }).unwrap();
+        assert_eq!(out_rx.recv_timeout(Duration::from_secs(2)).unwrap(), HotkeyAction::StartRecording);
+        assert_eq!(out_rx.recv_timeout(Duration::from_secs(2)).unwrap(), HotkeyAction::EnterHandsFree);
+        // No stop arrives by itself.
+        assert!(out_rx.recv_timeout(ms(600)).is_err());
+        drop(tx);
+        handle.join().unwrap();
     }
 }
