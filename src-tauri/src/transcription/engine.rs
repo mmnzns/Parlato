@@ -25,9 +25,11 @@ use tauri::{AppHandle, Emitter, Manager};
 use tracing::warn;
 
 use crate::audio::mute as system_mute;
+use crate::audio::recorder::RecorderFailure;
 use crate::commands::hotkey::HotkeyManagerState;
 use crate::commands::recording::{
-    cancel_recording_core, start_recording_core_with_chunk, stop_recording_core, RecorderState,
+    cancel_recording_core, current_dictation, start_recording_core_with_chunk,
+    stop_recording_core, RecorderState,
 };
 use crate::commands::streaming::StreamingSessionState;
 use crate::history::last_transcription;
@@ -85,7 +87,12 @@ fn toggle_from_ui_blocking(app: &AppHandle) {
     };
     let manager = mgr.0.clone();
     let state = app.state::<RecorderState>();
-    let recording = state.0.lock().is_some();
+    // Parlato : pendant l'ouverture du peripherique, un second appui ne fait rien
+    // (avant, il attendait le verrou, puis arretait l'enregistrement a peine ne).
+    if state.is_starting() {
+        return;
+    }
+    let recording = state.is_active();
     if recording {
         stop(app, &manager, &state);
     } else if start(app, &manager, &state) {
@@ -241,7 +248,7 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
     // dictee jusqu'a sa fin (une dictee suivante peut en ouvrir une autre
     // pendant que celle-ci se transcrit).
     let power = power_mode::session::take_recording_session(app);
-    let was_recording = state.0.lock().is_some();
+    let was_recording = state.is_active();
     match stop_recording_core(app, state) {
         Ok(stopped) => {
             let wav_path = PathBuf::from(&stopped.wav_path);
@@ -290,6 +297,17 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
 const RECORDING_FAILED_CODE: &str = "PARLA_ERR:transcriptionFailed";
 
 fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<RecorderState>) {
+    cancel_cycle(app, manager, state, true);
+}
+
+/// Annule le cycle. `close_pill` = faux quand la bulle doit rester ouverte
+/// pour montrer un message juste apres (enregistrement interrompu).
+fn cancel_cycle(
+    app: &AppHandle,
+    manager: &Arc<HotkeyManager>,
+    state: &tauri::State<RecorderState>,
+    close_pill: bool,
+) {
     let _ = app.emit("hotkey:action", "cancel");
     system_mute::release(app);
     // Purge eventuelle session streaming (elle retournera un final
@@ -312,8 +330,60 @@ fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Re
     keyboard_hook::set_power_shortcut_count(0);
     keyboard_hook::set_recording_active(false);
     manager.mark_recording_state(false);
-    mini_recorder::close(app);
+    if close_pill {
+        mini_recorder::close(app);
+    }
     crate::tray::refresh(app);
+}
+
+/// Parlato : l'enregistreur s'est arrete seul (micro debranche, flux en erreur,
+/// disque plein). Appele depuis le thread worker, qui se termine juste apres :
+/// le traitement part donc sur son propre thread (il attend ce worker).
+pub fn on_recorder_failure(app: &AppHandle, dictation: u64, failure: RecorderFailure) {
+    let app = app.clone();
+    std::thread::Builder::new()
+        .name("recorder-failure".into())
+        .spawn(move || handle_recorder_failure(&app, dictation, failure))
+        .map_err(|e| warn!("recorder failure: thread: {e}"))
+        .ok();
+}
+
+fn handle_recorder_failure(app: &AppHandle, dictation: u64, failure: RecorderFailure) {
+    let state = app.state::<RecorderState>();
+    // Le rapport peut arriver avant que l'etat passe de "demarrage" a
+    // "enregistrement" : on attend un instant.
+    for _ in 0..40 {
+        if !state.is_starting() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    // Seulement l'enregistrement qui a echoue : s'il a deja ete arrete ou
+    // remplace, il n'y a rien a faire.
+    if !state.is_active() || current_dictation() != dictation {
+        return;
+    }
+    let code = failure.kind.code();
+    let Some(mgr) = app.try_state::<HotkeyManagerState>() else {
+        return;
+    };
+    let manager = mgr.0.clone();
+    if !manager.is_recording() {
+        // Test du micro (reglages) : pas de cycle de dictee, on le termine.
+        if let Err(e) = cancel_recording_core(app, &state) {
+            warn!("recorder failure: cancel: {e}");
+        }
+        return;
+    }
+    if failure.usable {
+        // Ce qui a ete capture est transcrit comme une dictee normale ; le
+        // message suit une fois la dictee terminee.
+        crate::notice::send_after_dictation(crate::notice::Notice::Failed(code.to_string()));
+        stop(app, &manager, &state);
+    } else {
+        cancel_cycle(app, &manager, &state, false);
+        crate::notice::send(app, crate::notice::Notice::Failed(code.to_string()));
+    }
 }
 
 /// Demarre simultanement la session WebSocket streaming et le recorder audio.

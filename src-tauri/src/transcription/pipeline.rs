@@ -71,6 +71,9 @@ pub struct PipelineEvent {
     /// `dictation`, la page "Transcrire un fichier" que `file`, pour qu'une
     /// dictee pendant un long fichier ne melange pas les deux.
     pub job: Job,
+    /// Parlato : numero de la dictee (0 hors dictee). La bulle ignore les
+    /// evenements d'une dictee plus ancienne que celle qu'elle montre.
+    pub dictation: u64,
 }
 
 /// Parlato : origine d'un passage dans le pipeline.
@@ -95,6 +98,9 @@ pub struct Run {
     /// Generation de la bulle d'une dictee (0 hors dictee), pour le bouton
     /// Annuler de la bulle.
     pub pill: u64,
+    /// Parlato : numero de la dictee (`commands::recording::current_dictation`
+    /// a l'arret ; 0 hors dictee), repris par chaque evenement `pipeline:state`.
+    pub dictation: u64,
     /// Parlato : session Power Mode de cette dictee, prise a l'arret de
     /// l'enregistrement. Sert a l'historique (nom du mode), a la touche
     /// d'envoi et a la restauration de fin de dictee : jamais la session
@@ -134,7 +140,7 @@ impl Run {
 
 fn emit_state(
     app: &AppHandle,
-    job: Job,
+    run: &Run,
     state: PipelineState,
     message: Option<String>,
     text: Option<String>,
@@ -147,7 +153,8 @@ fn emit_state(
             message,
             text,
             duration_ms,
-            job,
+            job: run.job,
+            dictation: run.dictation,
         },
     );
 }
@@ -547,6 +554,7 @@ pub fn finish_streaming(
     power: Option<crate::power_mode::session::PowerSession>,
 ) {
     let pill = mini_recorder::generation();
+    let dictation = crate::commands::recording::current_dictation();
     let released = std::time::Instant::now();
     begin_run();
     recording_finished(&app);
@@ -555,6 +563,7 @@ pub fn finish_streaming(
             job: Job::Dictation,
             history_id,
             pill,
+            dictation,
             power,
         };
         // La duree du WAV est connue maintenant que l'enregistrement est fini.
@@ -649,11 +658,13 @@ pub fn run_after_recording(
     power: Option<crate::power_mode::session::PowerSession>,
 ) {
     let pill = mini_recorder::generation();
+    let dictation = crate::commands::recording::current_dictation();
     let released = std::time::Instant::now();
     let run = Run {
         job: Job::Dictation,
         history_id: insert_pending_row(&app, Some(&wav_path)),
         pill,
+        dictation,
         power,
     };
     begin_run();
@@ -696,7 +707,7 @@ async fn finish_dictation(
         // (jamais le texte brut du fournisseur).
         emit_state(
             app,
-            Job::Dictation,
+            run,
             PipelineState::Failed,
             Some(crate::transcription::error_code::storable_error_code(&e.to_string())),
             None,
@@ -782,6 +793,7 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
         job,
         history_id: insert_pending_row(&app, Some(&wav_path)),
         pill: 0,
+        dictation: 0,
         power: None,
     };
     begin_run();
@@ -812,7 +824,7 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
                 if job == Job::Retry {
                     crate::notice::send(&app, crate::notice::Notice::Failed(code.clone()));
                 }
-                emit_state(&app, job, PipelineState::Failed, Some(code), None, None);
+                emit_state(&app, &run, PipelineState::Failed, Some(code), None, None);
             }
         }
         end_run(&app);
@@ -938,7 +950,7 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
     };
     emit_state(
         &app,
-        run.job,
+        run,
         PipelineState::Transcribing,
         Some(format!("Transcription {source_label}")),
         None,
@@ -1215,7 +1227,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         warn!("Transcription vide, on saute le paste");
         emit_state(
             app,
-            run.job,
+            run,
             PipelineState::Done,
             Some("Aucun texte detecte".into()),
             Some(String::new()),
@@ -1269,7 +1281,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     if should_enhance {
         emit_state(
             app,
-            run.job,
+            run,
             PipelineState::Enhancing,
             Some("Enhancement LLM".into()),
             Some(text.clone()),
@@ -1308,7 +1320,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
 
     emit_state(
         app,
-        run.job,
+        run,
         PipelineState::Pasting,
         None,
         Some(text.clone()),
@@ -1327,7 +1339,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             warn!("copy to clipboard: {e}");
             emit_state(
                 app,
-                run.job,
+                run,
                 PipelineState::Failed,
                 Some(COPY_FAILED_CODE.into()),
                 Some(text),
@@ -1356,7 +1368,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             warn!("paste: {e}");
             emit_state(
                 app,
-                run.job,
+                run,
                 PipelineState::Failed,
                 Some("PARLA_ERR:pasteFailed".into()),
                 Some(text),
@@ -1390,7 +1402,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
 
     emit_state(
         app,
-        run.job,
+        run,
         PipelineState::Done,
         None,
         Some(text),

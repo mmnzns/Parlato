@@ -125,6 +125,9 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:lastTranscriptionEmpty$/, { i18nKey: "errors.lastTranscriptionEmpty" }],
   [/^PARLA_ERR:audioMissing$/, { i18nKey: "errors.audioMissing" }],
   [/^PARLA_ERR:recordingInProgress$/, { i18nKey: "errors.recordingInProgress" }],
+  // Recording stopped by itself (audio/recorder.rs).
+  [/^PARLA_ERR:micLost$/, { i18nKey: "errors.micLost" }],
+  [/^PARLA_ERR:diskFull$/, { i18nKey: "errors.diskFull" }],
   [/^PARLA_ERR:assemblyaiRealtimeOnly$/, { i18nKey: "errors.assemblyaiRealtimeOnly" }],
 ];
 

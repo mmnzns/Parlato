@@ -11,6 +11,7 @@ import {
   ESCAPE_HINT_MS,
   type PipelineEvent,
   type PopoverHoverEvent,
+  type RecordingEvent,
   type Stage,
 } from "./types";
 
@@ -25,6 +26,16 @@ export function useRecorderState(setHoverPopover: (hovering: boolean) => void) {
   const setStage = (s: Stage) => {
     stageRef.current = s;
     setStageState(s);
+  };
+  // Parlato: number of the dictation the pill shows. Events of an older
+  // dictation (still being processed while a new one started) are ignored.
+  // Events without a number (older backend, dev preview) always pass.
+  const dictationRef = useRef(0);
+  const acceptDictation = (id: number | null | undefined): boolean => {
+    if (typeof id !== "number" || id <= 0) return true;
+    if (id < dictationRef.current) return false;
+    dictationRef.current = id;
+    return true;
   };
   const [meterDb, setMeterDb] = useState<number>(-160);
   const [escapeHint, setEscapeHint] = useState(false);
@@ -57,22 +68,28 @@ export function useRecorderState(setHoverPopover: (hovering: boolean) => void) {
       // Parlato: the pill window is reused between dictations, so a new
       // recording must wipe whatever the previous one left (a failure text,
       // a notice, the transcribing stage) instead of showing it stale.
-      listen("recording:started", () => {
+      listen<RecordingEvent>("recording:started", (e) => {
+        if (!acceptDictation(e.payload?.dictation_id)) return;
         setFailure("");
         setNotice(null);
         setEscapeHint(false);
         setStage("recording");
       }),
-      listen("recording:stopped", () => {
+      listen<RecordingEvent>("recording:stopped", (e) => {
+        if (!acceptDictation(e.payload?.dictation_id)) return;
         setStage("transcribing");
         setEscapeHint(false);
       }),
-      listen("recording:cancelled", () => setStage("idle")),
+      listen<number | null>("recording:cancelled", (e) => {
+        if (!acceptDictation(e.payload)) return;
+        setStage("idle");
+      }),
       listen<PipelineEvent>("pipeline:state", (e) => {
         const p = e.payload;
         // Parlato: only this dictation's events, not a file being
         // transcribed in the background.
         if (p.job !== "dictation") return;
+        if (!acceptDictation(p.dictation)) return;
         const apply = () => {
           if (p.state === "transcribing") setStage("transcribing");
           else if (p.state === "enhancing") setStage("enhancing");
