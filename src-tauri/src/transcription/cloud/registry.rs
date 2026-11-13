@@ -9,6 +9,7 @@ use super::elevenlabs::ElevenLabsProvider;
 use super::gemini::GeminiProvider;
 use super::groq::GroqProvider;
 use super::mistral::MistralProvider;
+use super::openrouter::OpenRouterProvider;
 use super::provider::CloudTranscriptionProvider;
 use super::soniox::SonioxProvider;
 use super::speechmatics::SpeechmaticsProvider;
@@ -32,6 +33,7 @@ impl Default for CloudRegistry {
                 Arc::new(XaiProvider),
                 Arc::new(CartesiaProvider),
                 Arc::new(AssemblyAiProvider),
+                Arc::new(OpenRouterProvider),
             ],
         }
     }

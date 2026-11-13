@@ -282,6 +282,8 @@ export type TranscriptionRecord = {
   status: "pending" | "completed" | "failed";
   text: string;
   enhanced_text: string | null;
+  /** Parlato: text the person corrected by hand; text and enhanced_text keep the original. */
+  edited_text: string | null;
   duration_sec: number | null;
   transcription_duration_sec: number | null;
   enhancement_duration_sec: number | null;
@@ -295,6 +297,13 @@ export type TranscriptionRecord = {
   power_mode_emoji: string | null;
   language: string | null;
 };
+
+/** Parlato: one bar of the Home chart; date is the day, or the Monday of the week. */
+export type UsagePoint = { date: string; words: number; sessions: number };
+
+export type EditResult = { record: TranscriptionRecord; suggestions: string[] };
+
+export type ImportSummary = { added: number; skipped: number };
 
 export type RetentionSettings = {
   transcription_cleanup: boolean;
@@ -532,6 +541,10 @@ export const api = {
     invoke<WordReplacement>("update_word_replacement", { payload }),
   deleteWordReplacement: (id: string) =>
     invoke<void>("delete_word_replacement", { id }),
+  /** Parlato: save the Dictionary as a CSV file; null when cancelled. */
+  exportDictionaryCsv: () => invoke<string | null>("export_dictionary_csv"),
+  /** Parlato: merge a CSV file into the Dictionary; null when cancelled. */
+  importDictionaryCsv: () => invoke<ImportSummary | null>("import_dictionary_csv"),
 
   getEnhancementEnabled: () => invoke<boolean>("get_enhancement_enabled"),
   setEnhancementEnabled: (enabled: boolean) =>
@@ -654,6 +667,13 @@ export const api = {
     invoke<{ sessions: number; words: number; chars: number; duration_sec: number }>(
       "get_usage_stats",
     ),
+  /** Parlato: words per day (last `days` days, local time) for the Home chart. */
+  getUsageByDay: (days = 14) => invoke<UsagePoint[]>("get_usage_by_day", { days }),
+  /** Parlato: words per week (Monday to Sunday), `weeks` weeks ending this week. */
+  getUsageByWeek: (weeks = 12) => invoke<UsagePoint[]>("get_usage_by_week", { weeks }),
+  /** Parlato: save a corrected text (the original is kept) and get Dictionary suggestions. */
+  updateHistoryText: (id: string, text: string) =>
+    invoke<EditResult>("update_history_text", { id, text }),
   exportHistoryCsv: (ids: string[]) =>
     invoke<string | null>("export_history_csv", { ids }),
   getModelPerformanceMetrics: (period: MetricsPeriod) =>

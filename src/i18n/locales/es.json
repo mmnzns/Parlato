@@ -88,7 +88,20 @@
     "recentEmpty": "Nada todavía. Tu primer dictado aparecerá aquí.",
     "copy": "Copiar",
     "copied": "Copiado",
-    "changeShortcut": "Cambiar tu atajo"
+    "changeShortcut": "Cambiar tu atajo",
+    "chartDayTitle": "palabras por día",
+    "chartWeekTitle": "palabras por semana",
+    "chartDays": "Días",
+    "chartWeeks": "Semanas",
+    "chartDayTotal": "{{total}} palabras en los últimos {{n}} días",
+    "chartWeekTotal": "{{total}} palabras en las últimas {{n}} semanas",
+    "chartEmpty": "Tus primeros dictados aparecerán aquí.",
+    "chartDayLabel": "Palabras por día, últimos {{n}} días. {{total}} palabras en total.",
+    "chartWeekLabel": "Palabras por semana, últimas {{n}} semanas. {{total}} palabras en total.",
+    "chartBarDay_one": "{{date}}: {{words}} palabra",
+    "chartBarDay_other": "{{date}}: {{words}} palabras",
+    "chartBarWeek_one": "Semana del {{date}}: {{words}} palabra",
+    "chartBarWeek_other": "Semana del {{date}}: {{words}} palabras"
   },
   "modelPerformance": {
     "avgEnhancement": "Tiempo medio de limpieza con IA",
@@ -493,7 +506,13 @@
       "ctrlCmdQ": "Control+Comando+Q ya bloquea la pantalla de tu Mac. Elige otro atajo ({{action}}).",
       "cmdOptEsc": "Comando+Opción+Esc ya abre Forzar salida. Elige otro atajo ({{action}}).",
       "cmdShift": "Comando+Mayús forma parte de muchos atajos del Mac (capturas de pantalla, Rehacer y más). Elige otra combinación ({{action}})."
-    }
+    },
+    "historyTextEmpty": "El texto no puede estar vacío.",
+    "historyNotEditable": "Solo se pueden editar los dictados terminados.",
+    "historyItemMissing": "Ese dictado ya no está en el historial.",
+    "csvTooBig": "Ese archivo es demasiado grande para una lista del diccionario.",
+    "csvNotUtf8": "Ese archivo no es texto UTF-8. Guárdalo como CSV (UTF-8) e inténtalo de nuevo.",
+    "csvEmpty": "No se encontraron palabras en ese archivo."
   },
   "prompts": {
     "default": {
@@ -658,7 +677,20 @@
     "again": "Transcribir de nuevo",
     "againHint": "Usa tu modelo de voz y tus ajustes de limpieza IA actuales. El original no cambia.",
     "againStarted": "En curso. La nueva versión aparece arriba.",
-    "noAudio": "No se guardó la grabación. Puedes cambiarlo en Ajustes > Privacidad."
+    "noAudio": "No se guardó la grabación. Puedes cambiarlo en Ajustes > Privacidad.",
+    "edit": "Editar",
+    "editLabel": "Texto de este dictado",
+    "editSave": "Guardar",
+    "editCancel": "Cancelar",
+    "editHint": "Se conserva tu original.",
+    "editedBadge": "Editado",
+    "restoreOriginal": "Restaurar original",
+    "dictAsk": "¿Añadir al diccionario?",
+    "dictAdd": "Añadir {{word}} al diccionario",
+    "dictAddShort": "Añadir",
+    "dictDismiss": "Descartar {{word}}",
+    "dictDismissShort": "Descartar",
+    "dictAdded": "Se añadió {{word}} al diccionario."
   },
   "ai": {
     "on": "Activado",
@@ -839,7 +871,12 @@
     "noReplacements": "Aún no hay reemplazos.",
     "variantsHint": "Separa varias formas de decirlo con comas.",
     "on": "Activado",
-    "bothRequired": "Rellena los dos lados."
+    "bothRequired": "Rellena los dos lados.",
+    "importCsv": "Importar CSV",
+    "exportCsv": "Exportar CSV",
+    "importHint": "Añade palabras desde un archivo CSV. Las que ya están en el diccionario se omiten.",
+    "importDone": "Añadidas {{added}}, omitidas {{skipped}}.",
+    "exportDone": "Guardado en {{path}}"
   },
   "pm": {
     "yourModes": "tus modos",
@@ -911,7 +948,10 @@
     "appLoading": "Buscando tus aplicaciones...",
     "appNone": "No se encontró ninguna aplicación. Prueba otra palabra o escribe el nombre del programa.",
     "appOpen": "abierta",
-    "appTypeName": "¿No está en la lista? Escribe el nombre del programa"
+    "appTypeName": "¿No está en la lista? Escribe el nombre del programa",
+    "rename": "Renombrar",
+    "menuLabel": "Acciones del modo",
+    "moreFor": "Más acciones para {{name}}"
   },
   "ob": {
     "setupTitle": "Configurar Parlato",
@@ -1098,6 +1138,12 @@
     "qwen3_5_9b": {
       "name": "Qwen3.5 9B",
       "notes": "Más grande y un poco más minucioso. Necesita 16 GB de memoria y tarda aproximadamente el doble."
+    },
+    "mistralai_voxtral_mini_transcribe_3_0": {
+      "notes": "Voxtral Mini Transcribe 3 de Mistral a través de OpenRouter. Precio bajo, 13 idiomas. Transcribe cuando dejas de hablar."
+    },
+    "openai_gpt_transcribe": {
+      "notes": "GPT Transcribe de OpenAI a través de OpenRouter. Cubre todos los idiomas de Whisper. Transcribe cuando dejas de hablar."
     }
   },
   "macOverrides": {

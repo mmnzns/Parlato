@@ -31,7 +31,8 @@ use tauri::{AppHandle, Manager};
 use tracing::{info, warn};
 
 use commands::dictionary::{
-    add_word_replacement, delete_word_replacement, list_word_replacements, update_word_replacement,
+    add_word_replacement, delete_word_replacement, export_dictionary_csv, import_dictionary_csv,
+    list_word_replacements, update_word_replacement,
 };
 use commands::models::{
     cancel_download_whisper_model, delete_whisper_model, download_whisper_model,
@@ -94,6 +95,7 @@ use commands::history::{
     count_history, delete_history_item, history_available, export_history_csv, get_history_item, get_usage_stats,
     get_retention_settings, list_history, read_history_audio, retranscribe_history_item,
     run_history_cleanup, set_retention_settings,
+    get_usage_by_day, get_usage_by_week, update_history_text,
 };
 use commands::metrics::get_model_performance_metrics;
 use commands::screen_context::{
@@ -349,6 +351,8 @@ pub fn run() {
             add_word_replacement,
             update_word_replacement,
             delete_word_replacement,
+            export_dictionary_csv,
+            import_dictionary_csv,
             vad_get_state,
             vad_download,
             vad_delete,
@@ -430,6 +434,9 @@ pub fn run() {
             count_history,
             history_available,
             get_usage_stats,
+            get_usage_by_day,
+            get_usage_by_week,
+            update_history_text,
             export_history_csv,
             get_retention_settings,
             set_retention_settings,

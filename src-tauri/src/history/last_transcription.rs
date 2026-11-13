@@ -48,20 +48,34 @@ pub fn last_record(app: &AppHandle) -> Result<history_repo::TranscriptionRecord>
         .ok_or_else(|| anyhow!("PARLA_ERR:historyEmpty"))
 }
 
-/// Texte ameliore si present et non vide, sinon texte original.
+/// Texte corrige a la main, sinon ameliore, sinon original.
 fn preferred_text(rec: &history_repo::TranscriptionRecord) -> String {
-    rec.enhanced_text
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(&rec.text)
-        .to_string()
+    history_repo::shown_text(rec).to_string()
 }
 
 /// Copie la derniere transcription (amelioree de preference) dans le
 /// presse-papiers.
 pub fn copy_last(app: &AppHandle) -> Result<()> {
     let rec = last_record(app)?;
-    let text = preferred_text(&rec);
+    copy_text_of(app, &rec)
+}
+
+/// Parlato : copie une dictee precise (menu "Recent" de la barre) avec la
+/// meme logique et la meme notice "Copied" que `copy_last`.
+pub fn copy_record(app: &AppHandle, id: &str) -> Result<()> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| anyhow!("database not initialized"))?;
+    let rec = {
+        let conn = db.0.lock();
+        history_repo::get(&conn, id)?
+    }
+    .ok_or_else(|| anyhow!("PARLA_ERR:historyEmpty"))?;
+    copy_text_of(app, &rec)
+}
+
+fn copy_text_of(app: &AppHandle, rec: &history_repo::TranscriptionRecord) -> Result<()> {
+    let text = preferred_text(rec);
     if text.trim().is_empty() {
         anyhow::bail!("PARLA_ERR:lastTranscriptionEmpty");
     }
@@ -69,6 +83,45 @@ pub fn copy_last(app: &AppHandle) -> Result<()> {
     info!(chars = text.len(), "Last transcription copied");
     notice::send(app, Notice::Copied);
     Ok(())
+}
+
+/// Parlato : les dernieres dictees reussies pour le menu de la barre, au
+/// plus `max`, avec un libelle d'une ligne.
+pub fn recent_for_menu(app: &AppHandle, max: usize) -> Vec<(String, String)> {
+    let Some(db) = app.try_state::<Database>() else {
+        return Vec::new();
+    };
+    let page = {
+        let conn = db.0.lock();
+        history_repo::list_page(&conn, 20, None, None, history_repo::ListFilter::All)
+    };
+    let Ok(page) = page else {
+        return Vec::new();
+    };
+    page.iter()
+        .filter(|r| r.status == history_repo::TranscriptionStatus::Completed)
+        .filter_map(|r| menu_label(history_repo::shown_text(r)).map(|l| (r.id.clone(), l)))
+        .take(max)
+        .collect()
+}
+
+/// Number of characters of a dictation shown in the tray menu.
+const MENU_LABEL_CHARS: usize = 40;
+
+/// First ~40 characters on one line (every run of whitespace, newlines
+/// included, becomes one space). None for an empty text. Native menus read
+/// `&` as a shortcut marker, so it is doubled.
+pub fn menu_label(text: &str) -> Option<String> {
+    let one_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if one_line.is_empty() {
+        return None;
+    }
+    let mut label: String = one_line.chars().take(MENU_LABEL_CHARS).collect();
+    if one_line.chars().count() > MENU_LABEL_CHARS {
+        label = label.trim_end().to_string();
+        label.push('\u{2026}');
+    }
+    Some(label.replace('&', "&&"))
 }
 
 /// Colle la derniere transcription au curseur. `enhanced` = true colle le
@@ -143,4 +196,37 @@ pub fn retry_last(app: &AppHandle) -> Result<()> {
 /// fenetre d'historique detachee de VoiceInk).
 pub fn open_history(app: &AppHandle) {
     crate::mini_recorder::show_main_window(app.clone(), Some("history".into()));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::menu_label;
+
+    #[test]
+    fn short_text_is_kept_on_one_line() {
+        assert_eq!(menu_label("hello world").as_deref(), Some("hello world"));
+        assert_eq!(menu_label("line one\n\nline  two\r\n\tthree").as_deref(), Some("line one line two three"));
+        assert_eq!(menu_label("  \n ").as_deref(), None);
+    }
+
+    #[test]
+    fn long_text_is_cut_at_forty_characters_with_an_ellipsis() {
+        let text = "abcdefghij ".repeat(10);
+        let label = menu_label(&text).unwrap();
+        assert!(label.ends_with('\u{2026}'));
+        assert!(label.chars().count() <= 41);
+        assert!(!label.contains('\n'));
+    }
+
+    #[test]
+    fn cuts_by_characters_not_bytes() {
+        let text = "\u{e9}".repeat(60);
+        let label = menu_label(&text).unwrap();
+        assert_eq!(label.chars().count(), 41);
+    }
+
+    #[test]
+    fn ampersands_are_doubled_for_the_native_menu() {
+        assert_eq!(menu_label("Q&A").as_deref(), Some("Q&&A"));
+    }
 }

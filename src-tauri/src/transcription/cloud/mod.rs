@@ -12,6 +12,7 @@ pub mod gemini;
 pub mod groq;
 pub mod http;
 pub mod mistral;
+pub mod openrouter;
 pub mod provider;
 pub mod registry;
 pub mod soniox;

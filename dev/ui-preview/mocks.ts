@@ -20,6 +20,13 @@ const GB = 1024 * 1024 * 1024;
 const MB = 1024 * 1024;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const uid = () => Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36);
+const localDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const isoDay = (back: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - back);
+  return localDay(d);
+};
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 
 // -- Mutable state ----------------------------------------------------------
@@ -182,6 +189,7 @@ const CLOUD_PROVIDERS = [
   { id: "assemblyai", display_name: "AssemblyAI", api_key_url: "https://www.assemblyai.com/dashboard" },
   { id: "xai", display_name: "xAI", api_key_url: "https://console.x.ai" },
   { id: "gemini", display_name: "Gemini", api_key_url: "https://aistudio.google.com/apikey" },
+  { id: "openrouter", display_name: "OpenRouter", api_key_url: "https://openrouter.ai/keys" },
 ];
 const CLOUD_MODELS = [
   ["groq", "whisper-large-v3-turbo", "Groq Whisper Large v3 Turbo", 0.95, 0.88],
@@ -194,6 +202,8 @@ const CLOUD_MODELS = [
   ["assemblyai", "universal-3.6-pro", "AssemblyAI Universal 3.6 Pro", 0.75, 0.92],
   ["xai", "grok-stt", "xAI Grok STT", 0.8, 0.85],
   ["gemini", "gemini-3-flash", "Gemini 3 Flash", 0.8, 0.88],
+  ["openrouter", "mistralai/voxtral-mini-transcribe-3-0", "Voxtral Mini Transcribe 3 (OpenRouter)", 0.8, 0.95],
+  ["openrouter", "openai/gpt-transcribe", "GPT Transcribe (OpenRouter)", 0.7, 0.97],
 ] as const;
 
 const LLM_PROVIDERS = [
@@ -256,7 +266,7 @@ const powerConfigs: Power[] = [
 let activePower: { config_id: string; config_name: string; emoji: string } | null = null;
 
 type Rec = {
-  id: string; timestamp: string; status: "pending" | "completed" | "failed"; text: string; enhanced_text: string | null;
+  id: string; timestamp: string; status: "pending" | "completed" | "failed"; text: string; enhanced_text: string | null; edited_text: string | null;
   duration_sec: number | null; transcription_duration_sec: number | null; enhancement_duration_sec: number | null;
   audio_file_name: string | null; transcription_model_name: string | null; ai_enhancement_model_name: string | null;
   prompt_name: string | null; ai_request_system_message: string | null; ai_request_user_message: string | null;
@@ -264,7 +274,7 @@ type Rec = {
 };
 function rec(minAgo: number, text: string, enhanced: string | null, dur: number, extra: Partial<Rec> = {}): Rec {
   return {
-    id: uid(), timestamp: minutesAgo(minAgo), status: "completed", text, enhanced_text: enhanced,
+    id: uid(), timestamp: minutesAgo(minAgo), status: "completed", text, enhanced_text: enhanced, edited_text: null,
     duration_sec: dur, transcription_duration_sec: dur / 6, enhancement_duration_sec: enhanced ? 0.8 : null,
     audio_file_name: `mock-${Math.round(minAgo)}.wav`,
     transcription_model_name: "Whisper Large v3 Turbo",
@@ -581,6 +591,18 @@ const commands: Record<string, Handler> = {
     if (i >= 0) words.splice(i, 1);
     return null;
   },
+  export_dictionary_csv: () => "/mock/Downloads/parlato-dictionary.csv",
+  // Pretends a file with 4 new rows and 3 duplicates was chosen.
+  import_dictionary_csv: () => {
+    const incoming = ["Kubernetes", "Acme Corp", "Zendesk", "Okta"];
+    let added = 0;
+    for (const w of incoming) {
+      if (words.some((x) => x.original_text.toLowerCase() === w.toLowerCase())) continue;
+      words.unshift({ id: uid(), original_text: w, replacement_text: w, date_added: new Date().toISOString(), is_enabled: true });
+      added++;
+    }
+    return { added, skipped: 3 + (incoming.length - added) };
+  },
 
   // Enhancement
   get_enhancement_enabled: get("enhancement_enabled"),
@@ -746,6 +768,44 @@ const commands: Record<string, Handler> = {
   count_history: () => history.length,
   get_usage_stats: () => ({ sessions: 412, words: 18_640, chars: 104_200, duration_sec: 5_870 }),
   export_history_csv: () => "/mock/Downloads/parlato-history.csv",
+  // Home chart: realistic words per day, today last (a few quiet days, a weekend dip).
+  get_usage_by_day: (a) => {
+    const days = (a?.days as number | null) ?? 14;
+    const pattern = [420, 610, 380, 0, 0, 540, 720, 660, 810, 295, 0, 120, 480, 355];
+    return Array.from({ length: days }, (_, i) => {
+      const back = days - 1 - i;
+      const words = pattern[back % pattern.length];
+      return { date: isoDay(back), words, sessions: words === 0 ? 0 : Math.max(1, Math.round(words / 55)) };
+    });
+  },
+  get_usage_by_week: (a) => {
+    const weeks = (a?.weeks as number | null) ?? 12;
+    const pattern = [2900, 3400, 2100, 3800, 4200, 1500, 3100, 3600, 4500, 2700, 3900, 2250];
+    const monday = new Date();
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    return Array.from({ length: weeks }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(d.getDate() - 7 * (weeks - 1 - i));
+      const words = pattern[(weeks - 1 - i) % pattern.length];
+      return { date: localDay(d), words, sessions: Math.round(words / 55) };
+    });
+  },
+  // Saves the corrected text on the mock row and suggests capitalised words
+  // that are new (the real command compares word by word in Rust).
+  update_history_text: (a) => {
+    const r = pick(history, a?.id);
+    if (!r) throw new Error("PARLA_ERR:historyItemMissing");
+    const text = String(a?.text ?? "").trim();
+    if (!text) throw new Error("PARLA_ERR:historyTextEmpty");
+    const before = (r.edited_text ?? r.enhanced_text ?? r.text).toLowerCase();
+    r.edited_text = text === (r.enhanced_text ?? r.text) ? null : text;
+    const known = new Set(words.flatMap((w) => [w.original_text.toLowerCase(), w.replacement_text.toLowerCase()]));
+    const suggestions = [...new Set(text.split(/\s+/).map((w) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")))]
+      .filter((w) => /^\p{Lu}/u.test(w) && w.length > 2 && !before.includes(w.toLowerCase()) && !known.has(w.toLowerCase()))
+      .slice(0, 5);
+    void emit("history:updated", r.id);
+    return { record: r, suggestions };
+  },
   get_model_performance_metrics: () => ({
     transcription_models: [
       { name: "Whisper Large v3 Turbo", session_count: 310, total_audio_sec: 4200, total_processing_sec: 700 },

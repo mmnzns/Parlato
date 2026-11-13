@@ -34,7 +34,7 @@
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, Wry,
+    AppHandle, Emitter, Listener, Manager, Wry,
 };
 use tracing::{info, warn};
 
@@ -48,6 +48,8 @@ use crate::power_mode;
 use crate::transcription::engine;
 
 const TRAY_ID: &str = "main";
+/// Dictations listed in the tray "Recent" submenu.
+const RECENT_COUNT: usize = 3;
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_menu(app)?;
@@ -87,7 +89,30 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
+    // Parlato : the "Recent" submenu follows History. The pipeline, the
+    // History screen and the cleanup already emit these events.
+    for event in ["history:created", "history:updated", "history:cleaned"] {
+        let handle = app.clone();
+        app.listen(event, move |_| refresh_soon(&handle));
+    }
+
     Ok(())
+}
+
+/// Parlato : a dictation emits several history events within a second;
+/// rebuild the menu once, a moment after the first.
+fn refresh_soon(app: &AppHandle) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static PENDING: AtomicBool = AtomicBool::new(false);
+    if PENDING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        PENDING.store(false, Ordering::SeqCst);
+        refresh(&app);
+    });
 }
 
 /// Rebuilds the tray menu from the current state. Safe to call from any
@@ -264,6 +289,27 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         true,
         None::<&str>,
     )?;
+    // -- Recent dictations (Parlato) : the last three, click to copy -----------
+    let recent_menu = Submenu::with_id(app, "recent_menu", t("recent"), true)?;
+    let recent = last_transcription::recent_for_menu(app, RECENT_COUNT);
+    if recent.is_empty() {
+        recent_menu.append(&MenuItem::with_id(
+            app,
+            "recent_none",
+            t("recentNone"),
+            false,
+            None::<&str>,
+        )?)?;
+    }
+    for (id, label) in &recent {
+        recent_menu.append(&MenuItem::with_id(
+            app,
+            format!("recent:{id}"),
+            label,
+            true,
+            None::<&str>,
+        )?)?;
+    }
     let launch_at_login = CheckMenuItem::with_id(
         app,
         "launch_at_login",
@@ -296,6 +342,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &mode_menu,
             &audio_menu,
             &sep2,
+            &recent_menu,
             &retry,
             &copy_last,
             &history,
@@ -325,7 +372,9 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         }
         "quit" => app.exit(0),
         other => {
-            if let Some(mode_id) = other.strip_prefix("mode:") {
+            if let Some(record_id) = other.strip_prefix("recent:") {
+                report(app, "copy", last_transcription::copy_record(app, record_id));
+            } else if let Some(mode_id) = other.strip_prefix("mode:") {
                 select_mode(app, mode_id);
             } else if let Some(device) = other.strip_prefix("device:") {
                 select_device(app, device);
@@ -574,6 +623,16 @@ fn tr(lang: &str, key: &str) -> String {
             "Copiar la \u{fa}ltima transcripci\u{f3}n",
         ],
         "history" => ["History", "Historique", "Historial"],
+        "recent" => [
+            "Recent dictations",
+            "Derni\u{e8}res dict\u{e9}es",
+            "Dictados recientes",
+        ],
+        "recentNone" => [
+            "No dictations yet",
+            "Aucune dict\u{e9}e pour l'instant",
+            "A\u{fa}n no hay dictados",
+        ],
         "launchAtLogin" => [
             "Start with computer",
             "Lancer avec l'ordinateur",

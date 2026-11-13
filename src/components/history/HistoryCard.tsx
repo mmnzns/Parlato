@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronDown, Copy, Loader2, Mic, Sparkles, Trash2, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, Copy, Loader2, Mic, Pencil, RotateCcw, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import { Segmented } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { useCopyButton } from "@/hooks/useCopyButton";
-import type { TranscriptionRecord } from "@/lib/tauri";
+import { api, type TranscriptionRecord } from "@/lib/tauri";
 import { AudioPlayer, RetranscribeButton } from "@/components/history/DrawerControls";
+import { DictionarySuggestions, TextEditor } from "@/components/history/HistoryTextEditor";
 import {
   formatClock,
   formatSecs,
@@ -37,7 +38,13 @@ export function HistoryCard({
   const failed = it.status === "failed";
   const pending = it.status === "pending";
   const hasAi = !!it.enhanced_text;
-  const main = it.enhanced_text ?? it.text;
+  // Parlato: a correction made by hand wins; the original stays in the
+  // "What you said" tab and can be restored.
+  const edited = !!it.edited_text;
+  const original = it.enhanced_text ?? it.text;
+  const main = it.edited_text ?? original;
+  const [editing, setEditing] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const shown = open && hasAi && tab === "raw" ? it.text : main;
   const clock = formatClock(it.duration_sec);
 
@@ -92,6 +99,12 @@ export function HistoryCard({
                 {t("hist.aiBadge")}
               </span>
             )}
+            {edited && (
+              <span className="flex h-5 items-center gap-1 rounded-full bg-muted px-2 text-[11px] font-medium text-foreground">
+                <Pencil className="h-3 w-3" />
+                {t("hist.editedBadge")}
+              </span>
+            )}
             {pending && (
               <span className="flex items-center gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -107,6 +120,16 @@ export function HistoryCard({
                 {t("hist.failed")}: {localizeFailureText(t, main)}
               </span>
             </span>
+          ) : editing ? (
+            <TextEditor
+              initial={main}
+              onSave={async (text) => {
+                const res = await api.updateHistoryText(it.id, text);
+                setSuggestions(res.suggestions);
+                setEditing(false);
+              }}
+              onCancel={() => setEditing(false)}
+            />
           ) : (
             <p
               className={cn(
@@ -117,9 +140,26 @@ export function HistoryCard({
               {shown || t("history.emptyText")}
             </p>
           )}
+          {!failed && !editing && suggestions.length > 0 && (
+            <DictionarySuggestions words={suggestions} onChange={setSuggestions} />
+          )}
         </div>
 
         <div className="flex flex-none gap-1.5">
+          {!failed && !pending && !editing && (
+            <button
+              type="button"
+              onClick={() => {
+                setTab("clean");
+                setSuggestions([]);
+                setEditing(true);
+              }}
+              className="flex h-[30px] items-center gap-1.5 rounded-sm border-[1.5px] border-edge bg-card px-2.5 text-xs font-semibold hover:bg-accent"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {t("hist.edit")}
+            </button>
+          )}
           {!failed && <CopyButton text={shown} />}
           <button
             type="button"
@@ -165,6 +205,19 @@ export function HistoryCard({
               </>
             ) : (
               <span className="text-xs text-muted-foreground">{t("hist.noAudio")}</span>
+            )}
+            {edited && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSuggestions([]);
+                  void api.updateHistoryText(it.id, original).catch(console.error);
+                }}
+                className="flex h-7 items-center gap-1.5 rounded-sm px-2.5 text-xs font-semibold hover:bg-accent"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                {t("hist.restoreOriginal")}
+              </button>
             )}
             <button
               type="button"

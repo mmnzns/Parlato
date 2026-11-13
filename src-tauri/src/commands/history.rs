@@ -1,10 +1,11 @@
 // Commandes Tauri pour l'historique des transcriptions.
 
 use chrono::{DateTime, Utc};
-use tauri::{command, AppHandle, Manager};
+use tauri::{command, AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::db::{transcription as repo, Database};
+use crate::db::{transcription as repo, word_replacement, Database};
+use crate::history::learning;
 use crate::history::cleanup::{self, RetentionSettings};
 use crate::history::export;
 
@@ -59,6 +60,8 @@ pub fn delete_history_item(app: AppHandle, id: String) -> Result<(), String> {
             }
         }
     }
+    // Parlato : le menu de la barre (dictees recentes) se remet a jour.
+    let _ = app.emit("history:updated", &id);
     Ok(())
 }
 
@@ -149,6 +152,70 @@ pub fn get_usage_stats(app: AppHandle) -> Result<repo::UsageStats, String> {
         .ok_or_else(|| "DB absente".to_string())?;
     let conn = db.0.lock();
     repo::usage_stats(&conn).map_err(|e| e.to_string())
+}
+
+/// Parlato : mots par jour sur les `days` derniers jours (fuseau local),
+/// pour le graphique de l'accueil.
+#[command]
+pub fn get_usage_by_day(app: AppHandle, days: Option<u32>) -> Result<Vec<repo::UsagePoint>, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let today = chrono::Local::now().date_naive();
+    let conn = db.0.lock();
+    repo::usage_by_day(&conn, days.unwrap_or(14), today, "localtime").map_err(|e| e.to_string())
+}
+
+/// Parlato : mots par semaine (lundi a dimanche) sur les `weeks` dernieres
+/// semaines.
+#[command]
+pub fn get_usage_by_week(app: AppHandle, weeks: Option<u32>) -> Result<Vec<repo::UsagePoint>, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let today = chrono::Local::now().date_naive();
+    let conn = db.0.lock();
+    repo::usage_by_week(&conn, weeks.unwrap_or(12), today, "localtime").map_err(|e| e.to_string())
+}
+
+/// Parlato : resultat d'une correction manuelle d'une dictee.
+#[derive(serde::Serialize)]
+pub struct EditResult {
+    pub record: repo::TranscriptionRecord,
+    /// Mots changes que la personne peut ajouter au dictionnaire (rien
+    /// n'est ajoute sans son clic).
+    pub suggestions: Vec<String>,
+}
+
+/// Parlato : enregistre le texte corrige a la main (l'original reste
+/// intact) et propose les mots changes pour le dictionnaire. Le texte n'est
+/// jamais journalise.
+#[command]
+pub fn update_history_text(app: AppHandle, id: String, text: String) -> Result<EditResult, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let (record, suggestions) = {
+        let conn = db.0.lock();
+        let outcome = repo::set_edited_text(&conn, &id, &text).map_err(|e| e.to_string())?;
+        let record = repo::get(&conn, &id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "PARLA_ERR:historyItemMissing".to_string())?;
+        // Words already in the Dictionary (spoken variants and written form).
+        let known: Vec<String> = word_replacement::list_all(&conn)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .flat_map(|w| {
+                let mut v: Vec<String> = w.original_text.split(',').map(|s| s.trim().to_string()).collect();
+                v.push(w.replacement_text);
+                v
+            })
+            .collect();
+        let suggestions = learning::suggest_words(&outcome.previous, &outcome.current, &known);
+        (record, suggestions)
+    };
+    let _ = app.emit("history:updated", &id);
+    Ok(EditResult { record, suggestions })
 }
 
 #[command]
