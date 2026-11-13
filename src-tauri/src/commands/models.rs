@@ -6,6 +6,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::models::download::{self, Flavor};
 use crate::models::list::{self, WhisperModelState};
+use crate::models::store::ActiveDownload;
 use crate::models::{imports, ModelStoreState};
 
 #[tauri::command]
@@ -22,6 +23,13 @@ pub async fn download_whisper_model(
     id: String,
 ) -> Result<String, String> {
     download::run(&app, state.0.clone(), &id, Flavor::Whisper).await
+}
+
+/// Parlato : les telechargements de modeles en cours (Whisper, Parakeet, IA
+/// locale, VAD), avec leur progression. Lecture seule.
+#[tauri::command]
+pub fn list_active_downloads(state: State<'_, ModelStoreState>) -> Vec<ActiveDownload> {
+    state.0.active_downloads()
 }
 
 #[tauri::command]

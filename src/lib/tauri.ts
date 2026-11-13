@@ -33,6 +33,15 @@ export type RecordingStopped = {
   wav_path: string;
 };
 
+/** A model download in progress (list_active_downloads). */
+export type ActiveDownload = {
+  id: string;
+  kind: "whisper" | "parakeet" | "llm" | "vad";
+  name: string;
+  downloaded: number;
+  total: number;
+};
+
 export type WhisperModelState = {
   id: string;
   display_name: string;
@@ -349,6 +358,12 @@ export const api = {
   isRecording: () => invoke<boolean>("is_recording"),
   /** Recording or still transcribing (a dictation, a file, a retry). */
   isBusy: () => invoke<boolean>("is_busy"),
+
+  /** Model downloads running right now (Whisper, Parakeet, local AI, voice
+   *  detection), with their progress. */
+  listActiveDownloads: () => invoke<ActiveDownload[]>("list_active_downloads"),
+  /** False when the history database could not be opened at launch. */
+  historyAvailable: () => invoke<boolean>("history_available"),
 
   listWhisperModels: () => invoke<WhisperModelState[]>("list_whisper_models"),
   downloadWhisperModel: (id: string) => invoke<string>("download_whisper_model", { id }),

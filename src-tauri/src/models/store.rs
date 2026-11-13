@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -15,12 +15,46 @@ use voice_engine_models::{catalog, Kind, ModelHandle, ModelInfo, Removed, Shared
 
 use super::imports;
 
+/// One download running in this app: its cancel flag and the progress the
+/// engine last reported (read by `active_downloads`).
+struct Running {
+    cancel: Arc<AtomicBool>,
+    kind: &'static str,
+    downloaded: Arc<AtomicU64>,
+    total: Arc<AtomicU64>,
+}
+
+/// What the download worker keeps: the cancel flag and a way to report progress.
+pub struct DownloadTicket {
+    pub cancel: Arc<AtomicBool>,
+    downloaded: Arc<AtomicU64>,
+    total: Arc<AtomicU64>,
+}
+
+impl DownloadTicket {
+    pub fn report(&self, downloaded: u64, total: u64) {
+        self.downloaded.store(downloaded, Ordering::Relaxed);
+        self.total.store(total, Ordering::Relaxed);
+    }
+}
+
+/// A download in progress, as `list_active_downloads` returns it. `kind` is
+/// "whisper", "parakeet", "llm" or "vad".
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct ActiveDownload {
+    pub id: String,
+    pub kind: String,
+    pub name: String,
+    pub downloaded: u64,
+    pub total: u64,
+}
+
 pub struct ModelStore {
     shared: SharedStore,
     /// Parlato's own app-local data folder: `Models/imported`, `LlmModels`,
     /// and the copies an older Parlato left behind.
     local_dir: PathBuf,
-    downloads: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    downloads: Mutex<HashMap<String, Running>>,
 }
 
 /// Tauri managed state.
@@ -89,24 +123,57 @@ impl ModelStore {
 
     // -- Running downloads ----------------------------------------------------
 
-    /// Registers a download. None when one for `id` is already running here.
-    pub fn begin_download(&self, id: &str) -> Option<Arc<AtomicBool>> {
+    /// Registers a download of `kind` ("whisper", "parakeet", "llm", "vad").
+    /// None when one for `id` is already running here.
+    pub fn begin_download(&self, id: &str, kind: &'static str) -> Option<DownloadTicket> {
         let mut map = self.downloads.lock();
         if map.contains_key(id) {
             return None;
         }
-        let flag = Arc::new(AtomicBool::new(false));
-        map.insert(id.to_string(), flag.clone());
-        Some(flag)
+        let cancel = Arc::new(AtomicBool::new(false));
+        // The size is known from the catalog before the first report.
+        let total = Arc::new(AtomicU64::new(catalog::find(id).map_or(0, |m| m.size())));
+        let downloaded = Arc::new(AtomicU64::new(0));
+        map.insert(
+            id.to_string(),
+            Running {
+                cancel: cancel.clone(),
+                kind,
+                downloaded: downloaded.clone(),
+                total: total.clone(),
+            },
+        );
+        Some(DownloadTicket {
+            cancel,
+            downloaded,
+            total,
+        })
     }
 
     pub fn end_download(&self, id: &str) {
         self.downloads.lock().remove(id);
     }
 
+    /// Downloads running in this app right now, ordered by id.
+    pub fn active_downloads(&self) -> Vec<ActiveDownload> {
+        let map = self.downloads.lock();
+        let mut out: Vec<ActiveDownload> = map
+            .iter()
+            .map(|(id, r)| ActiveDownload {
+                id: id.clone(),
+                kind: r.kind.to_string(),
+                name: catalog::find(id).map_or_else(|| id.clone(), |m| m.name.to_string()),
+                downloaded: r.downloaded.load(Ordering::Relaxed),
+                total: r.total.load(Ordering::Relaxed),
+            })
+            .collect();
+        out.sort_by(|a, b| a.id.cmp(&b.id));
+        out
+    }
+
     pub fn cancel_download(&self, id: &str) {
-        if let Some(flag) = self.downloads.lock().get(id) {
-            flag.store(true, Ordering::SeqCst);
+        if let Some(running) = self.downloads.lock().get(id) {
+            running.cancel.store(true, Ordering::SeqCst);
         }
     }
 
@@ -258,13 +325,60 @@ pub(crate) mod tests {
     fn download_flags_guard_reentrancy_and_cancel() {
         let tmp = tempfile::tempdir().unwrap();
         let store = temp_store(tmp.path());
-        let flag = store.begin_download("vad").unwrap();
-        assert!(store.begin_download("vad").is_none());
+        let ticket = store.begin_download("vad", "vad").unwrap();
+        let flag = ticket.cancel.clone();
+        assert!(store.begin_download("vad", "vad").is_none());
         assert!(!flag.load(Ordering::SeqCst));
         store.cancel_download("vad");
         assert!(flag.load(Ordering::SeqCst));
         store.end_download("vad");
-        assert!(store.begin_download("vad").is_some());
+        assert!(store.begin_download("vad", "vad").is_some());
+    }
+
+    #[test]
+    fn active_downloads_list_what_runs_with_its_progress() {
+        let tmp = tempfile::tempdir().unwrap();
+        let store = temp_store(tmp.path());
+        assert!(store.active_downloads().is_empty());
+
+        let vad = store.begin_download("vad", "vad").unwrap();
+        let whisper = store.begin_download("whisper-small", "whisper").unwrap();
+        // Before any report: zero done, the catalog size as the total.
+        let listed = store.active_downloads();
+        assert_eq!(listed.len(), 2);
+        assert_eq!(listed[0].id, "vad");
+        assert_eq!(listed[0].kind, "vad");
+        assert_eq!(listed[0].downloaded, 0);
+        assert_eq!(listed[0].total, catalog::find("vad").unwrap().size());
+        assert_eq!(listed[1].id, "whisper-small");
+        assert_eq!(listed[1].kind, "whisper");
+        assert_eq!(listed[1].name, catalog::find("whisper-small").unwrap().name);
+
+        whisper.report(40, 100);
+        vad.report(5, 10);
+        let listed = store.active_downloads();
+        assert_eq!((listed[0].downloaded, listed[0].total), (5, 10));
+        assert_eq!((listed[1].downloaded, listed[1].total), (40, 100));
+
+        store.end_download("vad");
+        let listed = store.active_downloads();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "whisper-small");
+    }
+
+    #[test]
+    fn an_active_download_serializes_to_the_agreed_shape() {
+        let d = ActiveDownload {
+            id: "a".into(),
+            kind: "llm".into(),
+            name: "A".into(),
+            downloaded: 1,
+            total: 2,
+        };
+        assert_eq!(
+            serde_json::to_value(&d).unwrap(),
+            serde_json::json!({"id":"a","kind":"llm","name":"A","downloaded":1,"total":2})
+        );
     }
 
     #[test]

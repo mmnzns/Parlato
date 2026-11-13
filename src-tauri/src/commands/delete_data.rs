@@ -49,8 +49,16 @@ fn is_parlato_folder(path: &std::path::Path) -> bool {
         && path.components().count() > 3
 }
 
+/// Parlato : asynchrone. Tout le travail (cles, tccutil, modeles, processus de
+/// suppression) tourne sur un fil de travail, pas sur le fil de l'interface.
 #[command]
-pub fn delete_all_data(app: AppHandle) -> Result<(), String> {
+pub async fn delete_all_data(app: AppHandle) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || delete_all_data_blocking(app))
+        .await
+        .map_err(|e| format!("task join: {e}"))?
+}
+
+fn delete_all_data_blocking(app: AppHandle) -> Result<(), String> {
     info!("Delete all Parlato data: requested");
 
     // 1. Start at login.

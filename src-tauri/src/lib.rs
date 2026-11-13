@@ -35,7 +35,7 @@ use commands::dictionary::{
 };
 use commands::models::{
     cancel_download_whisper_model, delete_whisper_model, download_whisper_model,
-    import_whisper_model, list_whisper_models,
+    import_whisper_model, list_active_downloads, list_whisper_models,
 };
 use commands::recording::{
     cancel_processing, cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
@@ -89,7 +89,7 @@ use commands::power_mode::{
     select_power_config, set_power_auto_restore, update_power_config,
 };
 use commands::history::{
-    count_history, delete_history_item, export_history_csv, get_history_item, get_usage_stats,
+    count_history, delete_history_item, history_available, export_history_csv, get_history_item, get_usage_stats,
     get_retention_settings, list_history, read_history_audio, retranscribe_history_item,
     run_history_cleanup, set_retention_settings,
 };
@@ -256,6 +256,9 @@ pub fn run() {
             // Identifiants de modeles cloud retires (Grok STT, AssemblyAI
             // Universal-3 Pro, Soniox v4, Cartesia Ink Whisper).
             commands::settings::migrate_legacy_cloud_model_ids(&handle);
+            // Une dictee interrompue (plantage, fermeture forcee) pendant un mode
+            // Power Mode a laisse ses reglages : on remet ceux d'avant.
+            power_mode::session::restore_pending_baseline(&handle);
             setup_hotkeys(handle.clone());
             // Timeout batch cloud persiste (VoiceInk CloudTranscriptionSettings).
             transcription::cloud::http::set_batch_timeout_secs(
@@ -303,6 +306,7 @@ pub fn run() {
             cancel_processing,
             toggle_recording_from_ui,
             list_whisper_models,
+            list_active_downloads,
             download_whisper_model,
             cancel_download_whisper_model,
             delete_whisper_model,
@@ -420,6 +424,7 @@ pub fn run() {
             read_history_audio,
             retranscribe_history_item,
             count_history,
+            history_available,
             get_usage_stats,
             export_history_csv,
             get_retention_settings,

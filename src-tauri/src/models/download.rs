@@ -58,6 +58,16 @@ impl Flavor {
         }
     }
 
+    /// The `kind` `list_active_downloads` reports.
+    pub fn kind(self) -> &'static str {
+        match self {
+            Flavor::Whisper => "whisper",
+            Flavor::Parakeet => "parakeet",
+            Flavor::Llm => "llm",
+            Flavor::Vad => "vad",
+        }
+    }
+
     fn progress_payload(self, id: &str, downloaded: u64, total: u64) -> serde_json::Value {
         match self {
             Flavor::Vad => json!({ "downloaded": downloaded, "total": total }),
@@ -112,7 +122,7 @@ pub async fn run(
     let (progress_event, complete_event, error_event) = flavor.events();
     // A second click while one runs returns at once, without an error event
     // that would clear the first one's progress.
-    let Some(cancel) = store.begin_download(id) else {
+    let Some(ticket) = store.begin_download(id, flavor.kind()) else {
         return Err("PARLA_ERR:downloadRunning".into());
     };
 
@@ -121,7 +131,10 @@ pub async fn run(
         tokio::task::spawn_blocking(move || {
             // ~20 Hz at most, so the IPC bridge is not flooded.
             let mut last = Instant::now() - Duration::from_secs(1);
-            store.shared().download(&id, &cancel, &mut |p| {
+            store.shared().download(&id, &ticket.cancel, &mut |p| {
+                // Every report, not only the throttled events: the status
+                // command reads the latest numbers.
+                ticket.report(p.bytes, p.total);
                 let done = p.bytes >= p.total;
                 if done || last.elapsed() >= Duration::from_millis(50) {
                     last = Instant::now();
@@ -232,5 +245,13 @@ mod tests {
             json!({"id": "a", "path": "/p"})
         );
         assert!(Flavor::Vad.events().2.is_none());
+    }
+
+    #[test]
+    fn flavors_report_the_agreed_kinds() {
+        assert_eq!(Flavor::Whisper.kind(), "whisper");
+        assert_eq!(Flavor::Parakeet.kind(), "parakeet");
+        assert_eq!(Flavor::Llm.kind(), "llm");
+        assert_eq!(Flavor::Vad.kind(), "vad");
     }
 }
