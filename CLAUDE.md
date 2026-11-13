@@ -332,7 +332,10 @@ changelog (owner rule, 2026-10-05): the workflow copies the
 builds x64 and ARM64, signs them, uploads `latest.json` and creates a
 **draft** release. Publishing the draft is the owner's call. Local
 `npm run tauri build` keeps `createUpdaterArtifacts` off, so it needs no key.
-Releases are not code-signed (owner decision, no paid certificate).
+No paid certificate (owner decision): the Windows installers are not
+code-signed, and the Mac build is signed with the free self-signed
+"Parlato Code Signing" certificate (no Apple Team ID, not notarized; see
+"Unsigned app on macOS" below). Updates are also signed with the updater key.
 
 ## Mac port plan (started 2026-09-30)
 
