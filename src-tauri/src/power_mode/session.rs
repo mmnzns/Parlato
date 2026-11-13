@@ -534,6 +534,17 @@ mod session_id_tests {
     }
 
     #[test]
+    fn a_session_ends_exactly_once() {
+        let mut slot = Some(session(4, "a", "en"));
+        assert!(take_if_current(&mut slot, 4).is_some());
+        assert!(take_if_current(&mut slot, 4).is_none());
+        // A stale id never ends a newer session.
+        let mut slot = Some(session(5, "b", "en"));
+        assert!(take_if_current(&mut slot, 4).is_none());
+        assert!(slot.is_some());
+    }
+
+    #[test]
     fn ids_only_grow() {
         let a = next_session_id();
         let b = next_session_id();

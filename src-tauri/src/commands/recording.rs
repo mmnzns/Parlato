@@ -71,7 +71,10 @@ pub fn stop_recording(
         crate::transcription::pipeline::run_after_recording(
             app.clone(),
             std::path::PathBuf::from(&stopped.wav_path),
-            crate::power_mode::session::current(&app),
+            // Parlato : ces commandes (test du micro) n'ouvrent jamais de
+            // session Power Mode ; en prendre une ici ferait terminer par ce
+            // passage la session d'une vraie dictee en cours.
+            None,
         );
     } else {
         crate::transcription::pipeline::recording_finished(&app);

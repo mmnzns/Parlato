@@ -208,7 +208,11 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
         true
     } else if let Err(e) = start_recording_core_with_chunk(app, state, None, None) {
         warn!("start_recording via hotkey: {e}");
-        // L'enregistrement n'a pas demarre : desarme les raccourcis Power Mode.
+        // L'enregistrement n'a pas demarre : desarme les raccourcis Power Mode
+        // et termine la session ouverte plus haut (sinon les reglages du mode
+        // resteraient appliques a la place de ceux de la personne).
+        power_mode::session::end_current_session(app);
+        let _ = app.emit("power_mode:active", serde_json::Value::Null);
         keyboard_hook::set_power_shortcut_count(0);
         manager.mark_recording_state(false);
         mini_recorder::close(app);
