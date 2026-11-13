@@ -185,7 +185,7 @@ are coming to the Mac. The
 ### How do updates work?
 
 Parlato checks for new versions on its own. When one is out, it shows a
-banner and **Update now** in Settings: click it, and Parlato downloads the
+banner and **Update and restart** in Settings: click it, and Parlato downloads the
 update, installs it and restarts. Your settings, models and history stay.
 
 ### How do I remove Parlato completely?

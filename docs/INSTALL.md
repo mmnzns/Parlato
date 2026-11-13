@@ -65,7 +65,7 @@ including **Quit Parlato**.
 ### Updates
 
 Parlato checks for new versions and offers to install them: click
-**Update now**. Updates are signed, and Parlato refuses any update that isn't.
+**Update and restart**. Updates are signed, and Parlato refuses any update that isn't.
 Each version's changes are listed on its
 [release page](https://github.com/mmnzns/Parlato/releases), under
 **What's new**.
@@ -156,7 +156,7 @@ Clicking Parlato in the Dock also brings the window back.
 ### Updates
 
 Parlato checks for new versions and offers to install them: click
-**Update now**. Each version's changes are listed on its
+**Update and restart**. Each version's changes are listed on its
 [release page](https://github.com/mmnzns/Parlato/releases), under
 **What's new**.
 
