@@ -71,6 +71,7 @@ pub fn stop_recording(
         crate::transcription::pipeline::run_after_recording(
             app.clone(),
             std::path::PathBuf::from(&stopped.wav_path),
+            crate::power_mode::session::current(&app),
         );
     } else {
         crate::transcription::pipeline::recording_finished(&app);
@@ -105,6 +106,8 @@ pub fn is_recording(state: State<'_, RecorderState>) -> bool {
 /// meme cycle complet que le raccourci et le menu tray.
 #[tauri::command]
 pub fn toggle_recording_from_ui(app: AppHandle) {
+    // `toggle_from_ui` tourne sur son propre thread (creer la bulle depuis
+    // une commande synchrone peut bloquer sous Windows).
     crate::transcription::engine::toggle_from_ui(&app);
 }
 

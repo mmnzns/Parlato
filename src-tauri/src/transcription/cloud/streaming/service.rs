@@ -35,13 +35,15 @@ pub async fn start_streaming(
         let _ = on_event_app.emit("streaming:event", e);
     });
 
-    tokio::spawn(async move {
+    let task = tokio::spawn(async move {
         let result = provider.run(api_key, config, channels, on_event).await;
         if let Err(ref e) = result {
-            warn!("Streaming session a echoue: {e}");
+            // Parlato : jamais le texte brut du provider (corps de reponse,
+            // URL, mots dictes) dans les logs, seulement le code court.
+            warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Streaming session a echoue");
         }
         let _ = done_tx.send(result);
     });
 
-    Ok(StreamingHandle::new(audio_tx, finalize_tx, done_rx))
+    Ok(StreamingHandle::new(audio_tx, finalize_tx, done_rx).with_task(task.abort_handle()))
 }

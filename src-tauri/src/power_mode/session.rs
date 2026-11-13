@@ -47,6 +47,11 @@ pub struct Baseline {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PowerSession {
+    /// Parlato : numero de la session (croissant, jamais 0). Une dictee garde
+    /// le numero de sa session : sa fin ne restaure rien si une dictee plus
+    /// recente a pris la main entre-temps.
+    #[serde(default)]
+    pub id: u64,
     pub config_id: String,
     pub config_name: String,
     pub emoji: String,
@@ -55,6 +60,47 @@ pub struct PowerSession {
 
 #[derive(Default)]
 pub struct PowerSessionState(pub Mutex<Option<PowerSession>>);
+
+static NEXT_SESSION_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+fn next_session_id() -> u64 {
+    NEXT_SESSION_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+}
+
+/// Baseline d'une session qui demarre. Si une session est deja active (une
+/// dictee precedente est encore en traitement), sa baseline d'origine est
+/// conservee : l'etat courant du store porte deja les reglages de son profil
+/// et ne doit jamais devenir la "baseline" a restaurer. Sinon `snapshot`
+/// lit l'etat du store.
+fn baseline_for_new_session(
+    existing: Option<&PowerSession>,
+    snapshot: impl FnOnce() -> Baseline,
+) -> Baseline {
+    match existing {
+        Some(s) => s.baseline.clone(),
+        None => snapshot(),
+    }
+}
+
+/// Retire la session active si c'est bien la session `id` (sinon une session
+/// plus recente a pris la place et rien ne doit etre restaure).
+fn take_if_current(slot: &mut Option<PowerSession>, id: u64) -> Option<PowerSession> {
+    if slot.as_ref().is_some_and(|s| s.id == id) {
+        slot.take()
+    } else {
+        None
+    }
+}
+
+/// Parlato : l'hote d'une URL, sans schema, identifiants, port, chemin ni
+/// requete. C'est tout ce qui peut aller dans un log (le chemin et la requete
+/// peuvent porter des jetons ou des donnees personnelles).
+fn url_host(url: &str) -> &str {
+    let rest = url.split_once("://").map_or(url, |(_, r)| r);
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host_port = authority.rsplit('@').next().unwrap_or("");
+    host_port.split(':').next().unwrap_or("")
+}
 
 // -- Snapshot ---------------------------------------------------------------
 
@@ -244,13 +290,17 @@ pub fn begin_session(app: &AppHandle) -> Option<PowerSession> {
     let url = extract_url(&active);
     let matched = resolve(&configs, &active, url.as_deref())?;
 
-    let baseline = snapshot(app);
+    // Parlato : une session deja active (dictee precedente en cours de
+    // traitement) garde sa baseline d'origine, voir `baseline_for_new_session`.
+    let existing = state.0.lock().clone();
+    let baseline = baseline_for_new_session(existing.as_ref(), || snapshot(app));
     if let Err(e) = apply(app, matched) {
         warn!("power_mode apply: {e}");
         return None;
     }
 
     let session = PowerSession {
+        id: next_session_id(),
         config_id: matched.id.clone(),
         config_name: matched.name.clone(),
         emoji: matched.emoji.clone(),
@@ -261,19 +311,23 @@ pub fn begin_session(app: &AppHandle) -> Option<PowerSession> {
     info!(
         config = %session.config_name,
         exe = %active.exe_name,
-        url = url.as_deref().unwrap_or(""),
+        // Parlato : l'hote seulement, jamais le chemin ni la requete de l'URL.
+        host = url.as_deref().map(url_host).unwrap_or(""),
         "Power Mode actif"
     );
     Some(session)
 }
 
-/// A la fin de l'enregistrement (success ou cancel) : restaure la baseline
-/// si auto_restore est active, sinon laisse la config en place.
-pub fn end_session(app: &AppHandle) {
+/// A la fin d'une dictee (success, echec ou cancel) : restaure la baseline
+/// si auto_restore est active, sinon laisse la config en place. Parlato :
+/// seulement si la session active est encore la session `id` de cette
+/// dictee ; une dictee plus recente a pu en demarrer une autre, que cette
+/// fin ne doit pas defaire.
+pub fn end_session(app: &AppHandle, id: u64) {
     let Some(state) = app.try_state::<PowerSessionState>() else {
         return;
     };
-    let session = state.0.lock().take();
+    let session = take_if_current(&mut state.0.lock(), id);
     let Some(session) = session else {
         return;
     };
@@ -287,9 +341,20 @@ pub fn end_session(app: &AppHandle) {
     }
 }
 
+/// Termine la session active, quelle qu'elle soit (annulation ou arret en
+/// echec d'un enregistrement : la session en cours est celle de cet
+/// enregistrement).
+pub fn end_current_session(app: &AppHandle) {
+    if let Some(id) = current(app).map(|s| s.id) {
+        end_session(app, id);
+    }
+}
+
 /// Parlato : touche d'envoi du mode actif, pressee apres le collage.
-pub fn auto_send_key(app: &AppHandle) -> config::AutoSendKey {
-    let Some(id) = current(app).map(|s| s.config_id) else {
+/// Parlato : celle de la session de la dictee (`session`), pas de la session
+/// courante, qui peut deja etre celle de la dictee suivante.
+pub fn auto_send_key(app: &AppHandle, session: Option<&PowerSession>) -> config::AutoSendKey {
+    let Some(id) = session.map(|s| s.config_id.clone()) else {
         return config::AutoSendKey::None;
     };
     config::load_all(app)
@@ -396,10 +461,9 @@ fn select_config(app: &AppHandle, cfg: &PowerModeConfig) -> Option<PowerSession>
     // Bind avant le match pour relacher le lock immediatement (ne pas le tenir
     // pendant snapshot/apply).
     let existing = state.0.lock().clone();
-    let baseline = match existing {
-        Some(s) => s.baseline,
-        None => snapshot(app),
-    };
+    let baseline = baseline_for_new_session(existing.as_ref(), || snapshot(app));
+    // Parlato : la session en cours garde son numero (la dictee le porte).
+    let id = existing.as_ref().map(|s| s.id).unwrap_or_else(next_session_id);
 
     if let Err(e) = apply(app, cfg) {
         warn!("power_mode select apply: {e}");
@@ -407,6 +471,7 @@ fn select_config(app: &AppHandle, cfg: &PowerModeConfig) -> Option<PowerSession>
     }
 
     let session = PowerSession {
+        id,
         config_id: cfg.id.clone(),
         config_name: cfg.name.clone(),
         emoji: cfg.emoji.clone(),
@@ -448,5 +513,74 @@ mod slot_tests {
         assert_eq!(config_for_slot(configs.clone(), 2).unwrap().id, "b");
         assert!(config_for_slot(configs.clone(), 1).is_none());
         assert_eq!(capture_count(&configs), 3);
+    }
+}
+
+#[cfg(test)]
+mod session_id_tests {
+    use super::*;
+
+    fn session(id: u64, name: &str, baseline_lang: &str) -> PowerSession {
+        PowerSession {
+            id,
+            config_id: name.into(),
+            config_name: name.into(),
+            baseline: Baseline {
+                language: Some(baseline_lang.into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn ids_only_grow() {
+        let a = next_session_id();
+        let b = next_session_id();
+        assert!(a >= 1 && b > a);
+    }
+
+    #[test]
+    fn a_new_session_keeps_the_original_baseline() {
+        let first = session(1, "work", "original");
+        let kept = baseline_for_new_session(Some(&first), || panic!("must not re-snapshot"));
+        assert_eq!(kept.language.as_deref(), Some("original"));
+        let fresh = baseline_for_new_session(None, || Baseline {
+            language: Some("from store".into()),
+            ..Default::default()
+        });
+        assert_eq!(fresh.language.as_deref(), Some("from store"));
+    }
+
+    #[test]
+    fn an_old_dictation_does_not_end_the_newer_session() {
+        // Dictation A (id 1) is still processing when dictation B (id 2)
+        // begins, replacing the slot but keeping A's baseline.
+        let mut slot = Some(session(1, "a", "original"));
+        let baseline = baseline_for_new_session(slot.as_ref(), || unreachable!());
+        let mut b = session(2, "b", "ignored");
+        b.baseline = baseline;
+        slot = Some(b);
+        // A ends first: nothing is restored, B stays active.
+        assert!(take_if_current(&mut slot, 1).is_none());
+        assert_eq!(slot.as_ref().map(|s| s.id), Some(2));
+        // B ends: it restores the ORIGINAL baseline.
+        let ended = take_if_current(&mut slot, 2).unwrap();
+        assert_eq!(ended.baseline.language.as_deref(), Some("original"));
+        assert!(slot.is_none());
+    }
+
+    #[test]
+    fn ending_with_no_session_is_a_no_op() {
+        let mut slot = None;
+        assert!(take_if_current(&mut slot, 7).is_none());
+    }
+
+    #[test]
+    fn logs_only_the_host_of_a_url() {
+        assert_eq!(url_host("https://mail.example.com/inbox/123?token=abc#x"), "mail.example.com");
+        assert_eq!(url_host("http://user:pw@example.com:8080/a"), "example.com");
+        assert_eq!(url_host("example.com/path?q=1"), "example.com");
+        assert_eq!(url_host(""), "");
     }
 }
