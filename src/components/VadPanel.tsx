@@ -6,11 +6,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Download, HardDrive, Loader2, Trash2 } from "lucide-react";
+import { Download, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Row, Section, Switch } from "@/components/ui/section";
 import { formatBytes } from "@/lib/format";
-import { removeFromComputer, removeNote } from "@/lib/removeModel";
+import { useDeleteModel } from "@/components/DeleteModelDialog";
+import { activeDownloadsOnce } from "@/lib/downloads";
+import { removeEverywhere, removeNote } from "@/lib/removeModel";
 import { fail, isFailure, statusText, type Status } from "@/lib/status";
 import { api } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
@@ -31,9 +33,14 @@ export function VadPanel() {
   const [progress, setProgress] = useState<{ downloaded: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<Status | null>(null);
+  const deleteModel = useDeleteModel();
 
   useEffect(() => {
     refresh();
+    // A download that kept running while this page was closed.
+    activeDownloadsOnce("vad").then((list) => {
+      if (list[0]) setProgress((p) => p ?? { downloaded: list[0].downloaded, total: list[0].total });
+    });
     const unlisteners = [
       listen<{ downloaded: number; total: number }>("vad:download:progress", (e) => {
         setProgress(e.payload);
@@ -78,31 +85,23 @@ export function VadPanel() {
     }
   }
 
+  /** The one Delete: asks (see DeleteModelDialog), then lets go for Parlato
+   *  only or erases the model for every app. */
   async function remove() {
-    try {
-      await api.vadDelete();
-      await refresh();
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-
-  /** "Remove from this computer": Delete for every app, after a confirmation. */
-  async function removeEverywhere() {
     if (!state) return;
     setError(null);
     setNote(null);
     const name = t("vad.modelTitle");
+    const choice = await deleteModel.ask({ name, bytes: state.on_disk_bytes, otherApps: state.other_apps });
+    if (choice === "cancel") return;
     try {
-      const outcome = await removeFromComputer(t, {
-        id: "vad",
-        name,
-        bytes: state.on_disk_bytes,
-        otherApps: state.other_apps,
-      });
-      if (outcome === "cancelled") return;
-      const n = removeNote(t, outcome, name);
-      if (n) setNote(n.failure ? fail(n.text) : n.text);
+      if (choice === "parlato") {
+        await api.vadDelete();
+      } else {
+        const outcome = await removeEverywhere("vad");
+        const n = removeNote(t, outcome, name);
+        if (n) setNote(n.failure ? fail(n.text) : n.text);
+      }
       await refresh();
     } catch (e) {
       setError(String(e));
@@ -114,6 +113,7 @@ export function VadPanel() {
 
   return (
     <Section title={t("vad.title")} description={t("vad.description")}>
+      {deleteModel.dialog}
       <Row
         htmlFor="vad-enabled"
         label={t("vad.enableTitle")}
@@ -133,16 +133,10 @@ export function VadPanel() {
         }
       >
         {state.downloaded ? (
-          <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={removeEverywhere}>
-              <HardDrive className="h-3.5 w-3.5" />
-              {t("removeModel.action")}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={remove}>
-              <Trash2 className="h-3.5 w-3.5" />
-              {t("vad.delete")}
-            </Button>
-          </div>
+          <Button size="sm" variant="ghost" onClick={remove}>
+            <Trash2 className="h-3.5 w-3.5" />
+            {t("vad.delete")}
+          </Button>
         ) : progress || state.downloading_elsewhere ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />
         ) : (
