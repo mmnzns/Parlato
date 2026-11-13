@@ -74,7 +74,6 @@ export function Onboarding({
   return (
     <div
       className="fixed inset-0 z-[100] grid grid-cols-[260px_minmax(0,1fr)] bg-background text-foreground"
-      style={{ backgroundImage: "var(--dot-grid)", backgroundSize: "18px 18px" }}
     >
       <aside className="flex flex-col gap-6 border-r-[1.5px] border-sidebar-border bg-sidebar px-6 py-8 text-sidebar-foreground">
         <div className="flex flex-col gap-1.5">
