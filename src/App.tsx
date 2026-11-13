@@ -12,6 +12,7 @@ import { DashboardPanel } from "@/components/DashboardPanel";
 import { DictionaryPanel } from "@/components/DictionaryPanel";
 import { EnhancementPanel } from "@/components/EnhancementPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { HistoryUnavailableBanner } from "@/components/HistoryUnavailableBanner";
 import { HotkeyCard } from "@/components/HotkeyCard";
 import { AdditionalShortcutsCard } from "@/components/AdditionalShortcutsCard";
 import { ModelsPage } from "@/components/ModelsPage";
@@ -124,6 +125,7 @@ function App() {
           data-slot="page"
           className="mx-auto flex max-w-[820px] flex-col gap-[22px] px-9 pt-7 pb-12"
         >
+          <HistoryUnavailableBanner />
           {view === "dashboard" && (
             <>
               <CompactHero

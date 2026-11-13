@@ -135,7 +135,6 @@ impl HotkeyManager {
     }
 
     /// Vrai si le manager considere un enregistrement en cours.
-    #[cfg(test)]
     pub fn is_recording(&self) -> bool {
         self.state.lock().is_recording
     }

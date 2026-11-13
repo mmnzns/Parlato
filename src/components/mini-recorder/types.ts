@@ -18,7 +18,12 @@ export type PipelineEvent = {
   text: string | null;
   duration_ms: number | null;
   job: "dictation" | "file" | "retry";
+  /** Number of the dictation this event belongs to (0 for file / retry). */
+  dictation?: number;
 };
+
+/** Payload of "recording:started" / "recording:stopped" (extra fields omitted). */
+export type RecordingEvent = { dictation_id?: number } | null;
 
 export type PopoverHoverEvent = { hovering: boolean };
 

@@ -405,6 +405,8 @@ const commands: Record<string, Handler> = {
 
   // Whisper
   list_whisper_models: () => whisperModels,
+  list_active_downloads: () => [],
+  history_available: () => true,
   download_whisper_model: (a) => simulateDownload("model", whisperModels, a?.id as string),
   cancel_download_whisper_model: (a) => {
     cancelled.add(a?.id as string);

@@ -100,20 +100,36 @@ pub fn read_history_audio(app: AppHandle, id: String) -> Result<tauri::ipc::Resp
 /// quelle entree). Le WAV est copie sous un nouveau nom : la nouvelle
 /// entree possede son propre fichier, supprimer l'une ne casse pas l'autre
 /// (retry_last fait de meme).
+///
+/// Parlato : asynchrone, la copie du WAV (disque) se fait sur un fil de
+/// travail et non sur le fil de l'interface.
 #[command]
-pub fn retranscribe_history_item(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn retranscribe_history_item(app: AppHandle, id: String) -> Result<(), String> {
     let recording = app
         .try_state::<crate::commands::recording::RecorderState>()
-        .map(|s| s.0.lock().is_some())
+        .map(|s| s.is_active())
         .unwrap_or(false);
     if recording {
         return Err("PARLA_ERR:recordingInProgress".into());
     }
-    let src = audio_path(&app, &id)?;
-    let copy = src.with_file_name(format!("{}.wav", uuid::Uuid::new_v4()));
-    std::fs::copy(&src, &copy).map_err(|e| e.to_string())?;
+    let copy_app = app.clone();
+    let copy = tokio::task::spawn_blocking(move || -> Result<std::path::PathBuf, String> {
+        let src = audio_path(&copy_app, &id)?;
+        let copy = src.with_file_name(format!("{}.wav", uuid::Uuid::new_v4()));
+        std::fs::copy(&src, &copy).map_err(|e| e.to_string())?;
+        Ok(copy)
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))??;
     crate::transcription::pipeline::run_file(app, copy);
     Ok(())
+}
+
+/// Parlato : l'historique est-il disponible ? Faux quand la base n'a pas pu
+/// s'ouvrir au lancement (les dictees marchent, mais rien n'est enregistre).
+#[command]
+pub fn history_available(app: AppHandle) -> bool {
+    app.try_state::<Database>().is_some()
 }
 
 #[command]
@@ -152,21 +168,29 @@ pub async fn export_history_csv(app: AppHandle, ids: Vec<String>) -> Result<Opti
     }
     let csv = export::to_csv(&records);
 
-    // Pick un fichier via dialog.
-    let Some(path) = app
-        .dialog()
+    // Pick un fichier via dialog. Parlato : version a rappel (le resultat
+    // arrive par un canal) plutot que `blocking_save_file`, qui bloquerait ce
+    // fil de travail tant que la boite de dialogue est ouverte.
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
         .file()
         .set_file_name("parla-history.csv")
         .add_filter("CSV", &["csv"])
-        .blocking_save_file()
-    else {
+        .save_file(move |path| {
+            let _ = tx.send(path);
+        });
+    let Some(path) = rx.await.map_err(|e| e.to_string())? else {
         return Ok(None);
     };
     let p = path
         .as_path()
         .ok_or_else(|| "chemin invalide".to_string())?
         .to_path_buf();
-    std::fs::write(&p, csv).map_err(|e| e.to_string())?;
+    let written = p.clone();
+    tokio::task::spawn_blocking(move || std::fs::write(&written, csv))
+        .await
+        .map_err(|e| format!("task join: {e}"))?
+        .map_err(|e| e.to_string())?;
     Ok(Some(p.to_string_lossy().into_owned()))
 }
 
