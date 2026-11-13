@@ -637,6 +637,12 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   Windows code paths is not. One exception, with the owner's OK (2026-10-22):
   `audio/mute.rs` was edited for the mute-restore fix (the mute state machine
   only). Capture code stays off-limits.
+- **Exception for release 0.16 (owner's OK, 2026-11-13):** `hotkeys/`, `audio/`
+  (capture included) and `screen_context/` may be changed for the work in
+  `docs/superpowers/plans/2026-11-13-release-0.16.md`, with tests for every
+  behaviour change, Windows paths kept working, and a hand-test list for the
+  owner. After 0.16 ships, the rule above applies again unless the owner says
+  otherwise.
 - **GPU use is allowed, on conditions** (owner decision, 2026-10-22; it
   replaces the old "CPU-only" rule). It must keep one installer per platform
   and the auto-updater, be a user choice with a fallback to the processor,
