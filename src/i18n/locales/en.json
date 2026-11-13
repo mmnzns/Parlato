@@ -70,6 +70,7 @@
     "statusMissing": "Not set",
     "micDefault": "System default",
     "micNone": "No microphone found",
+    "micBlocked": "Not allowed",
     "modeHold": "hold",
     "modeToggle": "tap",
     "modeHybrid": "hold or tap",
@@ -859,10 +860,9 @@
     "micTitle": "Can Parlato hear you?",
     "micDesc": "Pick your microphone, then press Test and say something out loud. The bar should move.",
     "micSettings": "Bar not moving? Open your computer's microphone settings",
-    "modelLabel": "How Parlato listens",
+    "modelLabel": "Speech model",
     "modelTitle": "Pick a speech model",
     "modelDesc": "Parlato needs one speech model to turn your voice into text. For English, try Parakeet Unified. For other European languages, try Parakeet Ultra. It's a one-time download of about 670 MB, then it works offline. You can change it any time in Speech model.",
-    "modelUsing": "Using {{name}}.",
     "modelNone": "Download a model, then press Use to continue.",
     "keyLabel": "Your shortcut",
     "keyTitle": "Which key should start dictation?",
@@ -1156,6 +1156,7 @@
     "model": "Pick a speech model",
     "shortcut": "Choose a shortcut",
     "accessibility": "Allow Accessibility",
+    "micAccess": "Allow the microphone",
     "mic": "Connect a microphone"
   }
 }

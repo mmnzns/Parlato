@@ -70,6 +70,7 @@
     "statusMissing": "Non défini",
     "micDefault": "Micro par défaut",
     "micNone": "Aucun micro détecté",
+    "micBlocked": "Non autorisé",
     "modeHold": "maintenir",
     "modeToggle": "appuyer",
     "modeHybrid": "maintenir ou appuyer",
@@ -859,10 +860,9 @@
     "micTitle": "Parlato vous entend-il ?",
     "micDesc": "Choisissez votre micro, appuyez sur Tester et parlez à voix haute. La barre doit bouger.",
     "micSettings": "La barre ne bouge pas ? Ouvrir les réglages micro de l'ordinateur",
-    "modelLabel": "Comment Parlato écoute",
+    "modelLabel": "Modèle vocal",
     "modelTitle": "Choisissez un modèle vocal",
     "modelDesc": "Parlato a besoin d'un modèle vocal pour transformer votre voix en texte. Pour l'anglais, essayez Parakeet Unified. Pour les autres langues européennes, essayez Parakeet Ultra. C'est un téléchargement unique d'environ 670 Mo, puis il fonctionne hors connexion. Vous pouvez le changer à tout moment dans Modèle vocal.",
-    "modelUsing": "Utilisation de {{name}}.",
     "modelNone": "Téléchargez un modèle, puis appuyez sur Utiliser pour continuer.",
     "keyLabel": "Votre raccourci",
     "keyTitle": "Quelle touche lance la dictée ?",
@@ -1156,6 +1156,7 @@
     "model": "Choisissez un modèle vocal",
     "shortcut": "Choisissez un raccourci",
     "accessibility": "Autorisez l'Accessibilité",
+    "micAccess": "Autorisez le micro",
     "mic": "Branchez un micro"
   }
 }

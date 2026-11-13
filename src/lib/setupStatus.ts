@@ -3,8 +3,8 @@
 //
 // Four things must be true: a speech model is in use (on this computer and
 // downloaded, or online with a saved key), a dictation shortcut is set, a
-// microphone exists, and on a Mac Accessibility is allowed (the shortcut and
-// paste need it).
+// microphone exists, and on a Mac the Microphone and Accessibility permissions
+// are allowed (the shortcut and paste need Accessibility).
 
 import type { TFunction } from "i18next";
 import { modelName } from "@/lib/modelText";
@@ -12,13 +12,14 @@ import { api } from "@/lib/tauri";
 import { isMac } from "@/lib/platform";
 import type { View } from "@/components/Sidebar";
 
-export type MissingItem = "model" | "shortcut" | "accessibility" | "mic";
+export type MissingItem = "model" | "shortcut" | "accessibility" | "micAccess" | "mic";
 
 /** Page that fixes each missing item. */
 export const MISSING_VIEW: Record<MissingItem, View> = {
   model: "models",
   shortcut: "audio",
   accessibility: "permissions",
+  micAccess: "permissions",
   mic: "audio",
 };
 
@@ -29,6 +30,8 @@ export type SetupStatus = {
   mic: boolean;
   /** Always true off the Mac. */
   accessibility: boolean;
+  /** Microphone permission; always true off the Mac. */
+  micAccess: boolean;
   /** First thing that stops dictation, in the order a person would fix them. */
   missing: MissingItem | null;
 };
@@ -71,16 +74,19 @@ export async function loadSetupStatus(t: TFunction): Promise<SetupStatus> {
   const mic = devices.length > 0;
   // When the permission check fails, do not claim anything is missing.
   const accessibility = !isMac || !perms?.accessibility || perms.accessibility.ok;
+  const micAccess = !isMac || !perms?.microphone || perms.microphone.ok;
   const missing: MissingItem | null = !model
     ? "model"
     : !shortcut
       ? "shortcut"
       : !accessibility
         ? "accessibility"
-        : !mic
-          ? "mic"
-          : null;
-  return { model, shortcut, mic, accessibility, missing };
+        : !micAccess
+          ? "micAccess"
+          : !mic
+            ? "mic"
+            : null;
+  return { model, shortcut, mic, accessibility, micAccess, missing };
 }
 
 /** "Event" other panels fire when they change something readiness depends on

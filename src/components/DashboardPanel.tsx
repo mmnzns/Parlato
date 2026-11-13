@@ -31,6 +31,7 @@ import { useHotkeyLabel, wordingMode } from "@/hooks/useHotkeyLabel";
 import { speechModelInUse } from "@/lib/setupStatus";
 import { api, type HotkeyMode, type TranscriptionRecord } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 
 type Metrics = {
   sessions: number;
@@ -86,6 +87,8 @@ function formatTime(iso: string): string {
 
 type SetupState = {
   mic: string | null;
+  /** False when macOS blocks the microphone (always true elsewhere). */
+  micAllowed: boolean;
   model: string | null;
   aiEnabled: boolean;
   aiLocal: boolean;
@@ -93,12 +96,14 @@ type SetupState = {
 };
 
 async function loadSetup(t: TFunction): Promise<SetupState> {
-  const [devices, selectedDevice, aiEnabled, llm] = await Promise.all([
+  const [devices, selectedDevice, aiEnabled, llm, perms] = await Promise.all([
     api.listAudioDevices().catch(() => []),
     api.getSelectedInputDevice().catch(() => null),
     api.getEnhancementEnabled().catch(() => false),
     api.getLlmSelection().catch(() => null),
+    isMac ? api.checkPermissions().catch(() => null) : Promise.resolve(null),
   ]);
+  const micAllowed = !isMac || !perms?.microphone || perms.microphone.ok;
 
   let mic: string | null = null;
   if (devices.length > 0) {
@@ -113,6 +118,7 @@ async function loadSetup(t: TFunction): Promise<SetupState> {
 
   return {
     mic,
+    micAllowed,
     model,
     aiEnabled,
     aiLocal: !!llm && LOCAL_LLM_PROVIDERS.has(llm.provider_id),
@@ -187,9 +193,9 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
     {
       icon: Mic,
       label: t("dashboard.setupMic"),
-      value: setup?.mic ?? t("dashboard.micNone"),
-      ok: !!setup?.mic,
-      go: "audio",
+      value: setup && !setup.micAllowed ? t("dashboard.micBlocked") : (setup?.mic ?? t("dashboard.micNone")),
+      ok: !!setup?.mic && !!setup?.micAllowed,
+      go: setup && !setup.micAllowed ? "permissions" : "audio",
     },
     {
       icon: AudioLines,

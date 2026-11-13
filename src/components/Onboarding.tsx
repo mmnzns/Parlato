@@ -160,9 +160,9 @@ export function Onboarding({
             )}
             {step === "model" && (
               <>
-                {setup && (
+                {setup && !modelInUse && (
                   <p role="status" className="text-sm font-semibold">
-                    {modelInUse ? t("ob.modelUsing", { name: modelInUse }) : t("ob.modelNone")}
+                    {t("ob.modelNone")}
                   </p>
                 )}
                 <ModelsPage selectedModelId={selectedModelId} onSelectModel={onSelectModel} />
@@ -193,9 +193,11 @@ export function Onboarding({
               />
             ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={finish}>
-            {t("ob.skip")}
-          </Button>
+          {!last && (
+            <Button variant="ghost" size="sm" onClick={finish}>
+              {t("ob.skip")}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setIndex((i) => i - 1)} disabled={index === 0}>
             {t("ob.back")}
           </Button>
