@@ -195,23 +195,20 @@ export function DoesSection({
               ))}
             </select>
           </Row>
-          {/* Parlato: reading the screen is not available on Mac yet. */}
-          {!isMac && (
-            <Row label={t("pm.screen")}>
-              <select
-                aria-label={t("pm.screen")}
-                value={c.use_screen_capture === null ? "" : c.use_screen_capture ? "on" : "off"}
-                onChange={(e) =>
-                  set("use_screen_capture", e.target.value === "" ? null : e.target.value === "on")
-                }
-                className={selectClass}
-              >
-                <option value="">{t("pm.keep")}</option>
-                <option value="on">{t("pm.screenOn")}</option>
-                <option value="off">{t("pm.screenOff")}</option>
-              </select>
-            </Row>
-          )}
+          <Row label={t("pm.screen")}>
+            <select
+              aria-label={t("pm.screen")}
+              value={c.use_screen_capture === null ? "" : c.use_screen_capture ? "on" : "off"}
+              onChange={(e) =>
+                set("use_screen_capture", e.target.value === "" ? null : e.target.value === "on")
+              }
+              className={selectClass}
+            >
+              <option value="">{t("pm.keep")}</option>
+              <option value="on">{t("pm.screenOn")}</option>
+              <option value="off">{t("pm.screenOff")}</option>
+            </select>
+          </Row>
         </>
       )}
     </Section>
