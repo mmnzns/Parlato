@@ -31,6 +31,12 @@ export function isCancelled(e: unknown): boolean {
 const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:noWhisper$/, { i18nKey: "errors.noWhisper" }],
   [/^PARLA_ERR:interrupted$/, { i18nKey: "errors.interrupted" }],
+  [/^PARLA_ERR:historyTextEmpty$/, { i18nKey: "errors.historyTextEmpty" }],
+  [/^PARLA_ERR:historyNotEditable$/, { i18nKey: "errors.historyNotEditable" }],
+  [/^PARLA_ERR:historyItemMissing$/, { i18nKey: "errors.historyItemMissing" }],
+  [/^PARLA_ERR:csvTooBig$/, { i18nKey: "errors.csvTooBig" }],
+  [/^PARLA_ERR:csvNotUtf8$/, { i18nKey: "errors.csvNotUtf8" }],
+  [/^PARLA_ERR:csvEmpty$/, { i18nKey: "errors.csvEmpty" }],
   [/^PARLA_ERR:pasteFailed$/, { i18nKey: "errors.pasteFailed" }],
   [/^PARLA_ERR:copyFailed$/, { i18nKey: "errors.copyFailed" }],
   [/^PARLA_ERR:apiKeyRejected$/, { i18nKey: "errors.apiKeyRejected" }],

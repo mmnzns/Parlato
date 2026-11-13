@@ -32,6 +32,7 @@ import { speechModelInUse } from "@/lib/setupStatus";
 import { api, type HotkeyMode, type TranscriptionRecord } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import { UsageChart } from "@/components/UsageChart";
 
 type Metrics = {
   sessions: number;
@@ -176,7 +177,7 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
         api.listHistory({ limit: 20 }),
       ]);
       setMetrics(computeMetrics(stats));
-      setRecent(items.filter((it) => it.status === "completed" && (it.enhanced_text ?? it.text)).slice(0, 3));
+      setRecent(items.filter((it) => it.status === "completed" && (it.edited_text ?? it.enhanced_text ?? it.text)).slice(0, 3));
     } catch (e) {
       console.error(e);
     }
@@ -345,6 +346,7 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
             caption={times >= 1.5 ? t("dashboard.wpmVsTyping", { times }) : t("dashboard.wpm")}
           />
         </div>
+        <UsageChart />
       </section>
 
       {/* [04] recent */}
@@ -385,7 +387,7 @@ function Stat({ value, caption }: { value: number; caption: string }) {
 function RecentRow({ record, divider }: { record: TranscriptionRecord; divider: boolean }) {
   const { t } = useTranslation();
   const { copied, copy } = useCopyButton();
-  const text = record.enhanced_text ?? record.text;
+  const text = record.edited_text ?? record.enhanced_text ?? record.text;
   const context = record.power_mode_name
     ? `${record.power_mode_emoji && record.power_mode_emoji !== "*" ? record.power_mode_emoji + " " : ""}${record.power_mode_name}`
     : null;

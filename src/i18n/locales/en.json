@@ -88,7 +88,20 @@
     "recentEmpty": "Nothing yet. Your first dictation will show up here.",
     "copy": "Copy",
     "copied": "Copied",
-    "changeShortcut": "Change your shortcut"
+    "changeShortcut": "Change your shortcut",
+    "chartDayTitle": "words per day",
+    "chartWeekTitle": "words per week",
+    "chartDays": "Days",
+    "chartWeeks": "Weeks",
+    "chartDayTotal": "{{total}} words in the last {{n}} days",
+    "chartWeekTotal": "{{total}} words in the last {{n}} weeks",
+    "chartEmpty": "Your first dictations will show up here.",
+    "chartDayLabel": "Words per day, last {{n}} days. {{total}} words in total.",
+    "chartWeekLabel": "Words per week, last {{n}} weeks. {{total}} words in total.",
+    "chartBarDay_one": "{{date}}: {{words}} word",
+    "chartBarDay_other": "{{date}}: {{words}} words",
+    "chartBarWeek_one": "Week of {{date}}: {{words}} word",
+    "chartBarWeek_other": "Week of {{date}}: {{words}} words"
   },
   "modelPerformance": {
     "avgEnhancement": "Avg. AI cleanup time",
@@ -454,7 +467,13 @@
     "transcriptionFailed": "The transcription failed. Use Transcribe again to try once more.",
     "cliNotFound": "The command was not found. Check the command line for your AI cleanup.",
     "cliFailed": "The command stopped with an error (code {{code}}). Check the command line for your AI cleanup.",
-    "cliEmpty": "The command returned nothing. Check the command line for your AI cleanup."
+    "cliEmpty": "The command returned nothing. Check the command line for your AI cleanup.",
+    "historyTextEmpty": "The text can't be empty.",
+    "historyNotEditable": "Only finished dictations can be edited.",
+    "historyItemMissing": "That dictation is no longer in History.",
+    "csvTooBig": "That file is too big for a Dictionary list.",
+    "csvNotUtf8": "That file isn't UTF-8 text. Save it as CSV (UTF-8) and try again.",
+    "csvEmpty": "No words found in that file."
   },
   "prompts": {
     "default": {
@@ -600,7 +619,20 @@
     "again": "Transcribe again",
     "againHint": "Uses your current speech model and AI cleanup settings. The original stays as it is.",
     "againStarted": "Working on it. The new version appears at the top.",
-    "noAudio": "The recording wasn't kept. You can change this in Settings > Privacy."
+    "noAudio": "The recording wasn't kept. You can change this in Settings > Privacy.",
+    "edit": "Edit",
+    "editLabel": "Text of this dictation",
+    "editSave": "Save",
+    "editCancel": "Cancel",
+    "editHint": "Your original is kept.",
+    "editedBadge": "Edited",
+    "restoreOriginal": "Restore original",
+    "dictAsk": "Add to Dictionary?",
+    "dictAdd": "Add {{word}} to the Dictionary",
+    "dictAddShort": "Add",
+    "dictDismiss": "Dismiss {{word}}",
+    "dictDismissShort": "Dismiss",
+    "dictAdded": "Added {{word}} to the Dictionary."
   },
   "ai": {
     "on": "On",
@@ -781,7 +813,12 @@
     "noReplacements": "No replacements yet.",
     "variantsHint": "Separate several spoken versions with commas.",
     "on": "On",
-    "bothRequired": "Fill in both sides."
+    "bothRequired": "Fill in both sides.",
+    "importCsv": "Import CSV",
+    "exportCsv": "Export CSV",
+    "importHint": "Add words from a CSV file. Words already in the Dictionary are skipped.",
+    "importDone": "Added {{added}}, skipped {{skipped}}.",
+    "exportDone": "Saved to {{path}}"
   },
   "pm": {
     "yourModes": "your modes",
@@ -849,7 +886,10 @@
     "appLoading": "Looking for your apps...",
     "appNone": "No app found. Try another word, or type its program name.",
     "appOpen": "open",
-    "appTypeName": "Not in the list? Type its program name"
+    "appTypeName": "Not in the list? Type its program name",
+    "rename": "Rename",
+    "menuLabel": "Mode actions",
+    "moreFor": "More actions for {{name}}"
   },
   "ob": {
     "setupTitle": "Set up Parlato",
@@ -1040,6 +1080,12 @@
     "qwen3_5_9b": {
       "name": "Qwen3.5 9B",
       "notes": "Larger and a little more thorough. Needs 16 GB of memory and takes about twice as long."
+    },
+    "mistralai_voxtral_mini_transcribe_3_0": {
+      "notes": "Mistral's Voxtral Mini Transcribe 3 through OpenRouter. Low price, 13 languages. Transcribes after you stop speaking."
+    },
+    "openai_gpt_transcribe": {
+      "notes": "OpenAI's GPT Transcribe through OpenRouter. Covers all of Whisper's languages. Transcribes after you stop speaking."
     }
   },
   "mac": {

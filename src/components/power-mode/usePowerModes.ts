@@ -63,8 +63,9 @@ export function usePowerModes() {
   // VoiceInk 2.21 duplicateConfiguration: same settings, no app or website
   // triggers (so the two modes never compete), never the default. Added at
   // the end so no other mode's Alt+number shortcut moves.
-  async function duplicateSelected() {
-    const source = configs.find((c) => c.id === selectedId);
+  // Parlato: `id` lets the right-click menu duplicate any mode in the list.
+  async function duplicateSelected(id: string | null = selectedId) {
+    const source = configs.find((c) => c.id === id);
     if (!source) return;
     try {
       const created = await api.addPowerConfig({
