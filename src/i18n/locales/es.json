@@ -106,7 +106,7 @@
     "hide": "Ocultar",
     "downloading": "Descargando{{percent}}...",
     "installed": "Instalada - reiniciando...",
-    "finishFirst": "Termina tu dictado primero."
+    "finishFirst": "Espera a que termine tu dictado o tu archivo."
   },
   "settings": {
     "recorderStyleInfo": "Mini muestra una pequeña píldora flotante en la parte inferior de la pantalla. La otra opción la muestra en el borde superior.",

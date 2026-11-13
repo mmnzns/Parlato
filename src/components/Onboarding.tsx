@@ -45,7 +45,7 @@ export function Onboarding({
 }: {
   onDone: () => void;
   selectedModelId: string | null;
-  onSelectModel: (id: string | null) => void;
+  onSelectModel: (id: string | null) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [index, setIndex] = useState(0);

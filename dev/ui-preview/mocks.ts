@@ -395,6 +395,7 @@ const commands: Record<string, Handler> = {
     return { rms_db: rms, peak_db: rms + 6 };
   },
   is_recording: () => recording,
+  is_busy: () => recording,
   toggle_recording_from_ui: () => {
     if (recording) void finishDictation();
     else recording = true;

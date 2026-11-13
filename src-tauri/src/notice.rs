@@ -54,27 +54,31 @@ static AFTER_DICTATION: Mutex<Option<Notice>> = Mutex::new(None);
 const AI_SKIPPED_EVERY: Duration = Duration::from_secs(10 * 60);
 static AI_SKIPPED_LAST: Mutex<Option<std::time::Instant>> = Mutex::new(None);
 
-/// Vrai (et note l'instant) si au moins `every` s'est ecoule depuis le
-/// dernier message accorde.
-fn due(last: &mut Option<std::time::Instant>, now: std::time::Instant, every: Duration) -> bool {
-    match *last {
-        Some(t) if now.saturating_duration_since(t) < every => false,
-        _ => {
-            *last = Some(now);
-            true
-        }
+/// Vrai si au moins `every` s'est ecoule depuis le dernier message montre.
+/// Ne note rien : le delai ne court que lorsque le message a vraiment ete
+/// affiche (voir `flush_after_dictation`).
+fn due(last: Option<std::time::Instant>, now: std::time::Instant, every: Duration) -> bool {
+    match last {
+        Some(t) => now.saturating_duration_since(t) >= every,
+        None => true,
     }
 }
 
 /// Garde `AiSkipped` pour `flush_after_dictation`, au plus une fois toutes
 /// les 10 minutes. Ne remplace jamais un message deja garde (le repli
-/// carte graphique ne se dit qu'une fois) et ne consomme alors pas le delai.
+/// carte graphique ne se dit qu'une fois). Le delai de 10 minutes ne
+/// commence qu'a l'affichage : un message ecarte parce qu'un nouvel
+/// enregistrement a demarre ne le consomme pas.
 pub fn ai_skipped_after_dictation() {
     let mut slot = AFTER_DICTATION.lock();
     if slot.is_some() {
         return;
     }
-    if due(&mut AI_SKIPPED_LAST.lock(), std::time::Instant::now(), AI_SKIPPED_EVERY) {
+    if due(
+        *AI_SKIPPED_LAST.lock(),
+        std::time::Instant::now(),
+        AI_SKIPPED_EVERY,
+    ) {
         *slot = Some(Notice::AiSkipped);
     }
 }
@@ -88,16 +92,20 @@ pub fn send_after_dictation(notice: Notice) {
 pub fn flush_after_dictation(app: &AppHandle) {
     let queued = AFTER_DICTATION.lock().take();
     if let Some(notice) = queued {
-        send(app, notice);
+        let is_ai_skipped = matches!(notice, Notice::AiSkipped);
+        if send(app, notice) && is_ai_skipped {
+            *AI_SKIPPED_LAST.lock() = Some(std::time::Instant::now());
+        }
     }
 }
 
 /// Montre `notice` dans la bulle pendant quelques secondes. Ne fait rien
-/// pendant un enregistrement : la bulle est alors occupee.
-pub fn send(app: &AppHandle, notice: Notice) {
+/// pendant un enregistrement : la bulle est alors occupee. Retourne `true`
+/// si le message a ete montre.
+pub fn send(app: &AppHandle, notice: Notice) -> bool {
     if crate::commands::recording::recording_active(app) {
         info!(?notice, "notice ignoree pendant un enregistrement");
-        return;
+        return false;
     }
     *PENDING.lock() = Some(notice.clone());
     let generation = mini_recorder::show_for_notice(app);
@@ -107,6 +115,7 @@ pub fn send(app: &AppHandle, notice: Notice) {
         std::thread::sleep(Duration::from_millis(NOTICE_MS));
         mini_recorder::close_if_current(&app, generation);
     });
+    true
 }
 
 /// Message en attente, lu par la bulle a son montage ou a l'evenement.
@@ -124,11 +133,19 @@ mod tests {
     fn ai_skipped_is_rate_limited() {
         let every = Duration::from_secs(600);
         let t0 = Instant::now();
-        let mut last = None;
-        assert!(due(&mut last, t0, every), "first one is shown");
-        assert!(!due(&mut last, t0 + Duration::from_secs(599), every));
-        assert!(due(&mut last, t0 + Duration::from_secs(600), every));
-        assert!(!due(&mut last, t0 + Duration::from_secs(700), every));
+        assert!(due(None, t0, every), "first one is shown");
+        // Shown at t0: the window runs from then.
+        assert!(!due(Some(t0), t0 + Duration::from_secs(599), every));
+        assert!(due(Some(t0), t0 + Duration::from_secs(600), every));
+    }
+
+    #[test]
+    fn checking_does_not_consume_the_slot() {
+        let every = Duration::from_secs(600);
+        let t0 = Instant::now();
+        // A notice that was dropped never recorded a time: still due.
+        assert!(due(None, t0, every));
+        assert!(due(None, t0 + Duration::from_secs(1), every));
     }
 
     #[test]

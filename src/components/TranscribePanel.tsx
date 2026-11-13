@@ -195,6 +195,12 @@ function FileRow({ job }: { job: FileJob }) {
           ) : (
             <p className="line-clamp-3 text-[13px] leading-5 text-pretty whitespace-pre-wrap">{job.text}</p>
           ))}
+        {job.status === "done" && job.note && (
+          <span className="flex items-start gap-1.5 text-[13px] text-muted-foreground">
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-none" />
+            {translateError(t, job.note)}
+          </span>
+        )}
       </div>
       <div className="flex flex-none items-center gap-1.5">
         {job.status === "done" && !empty && <CopyText text={job.text ?? ""} />}

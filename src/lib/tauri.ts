@@ -347,6 +347,8 @@ export const api = {
   cancelProcessing: () => invoke<void>("cancel_processing"),
   getAudioMeter: () => invoke<AudioMeter>("get_audio_meter"),
   isRecording: () => invoke<boolean>("is_recording"),
+  /** Recording or still transcribing (a dictation, a file, a retry). */
+  isBusy: () => invoke<boolean>("is_busy"),
 
   listWhisperModels: () => invoke<WhisperModelState[]>("list_whisper_models"),
   downloadWhisperModel: (id: string) => invoke<string>("download_whisper_model", { id }),

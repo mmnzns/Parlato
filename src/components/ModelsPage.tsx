@@ -51,6 +51,7 @@ import {
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { notifySetupChanged } from "@/lib/setupStatus";
 import { removeFromComputer, removeNote } from "@/lib/removeModel";
 import { modelName } from "@/lib/modelText";
 import { useSaveFailure } from "@/hooks/useSaveFailure";
@@ -62,13 +63,17 @@ import { isCancelled, translateError } from "@/lib/translateError";
 /// not a real error.
 const isCancel = isCancelled;
 
+/** A selection nobody waits on: a failed save is logged, the screen already
+ *  went back to the previous choice. */
+const quietly = (p: Promise<void>) => p.catch(console.error);
+
 export function ModelsPage({
   selectedModelId,
   onSelectModel,
   hardware,
 }: {
   selectedModelId: string | null;
-  onSelectModel: (id: string | null) => void;
+  onSelectModel: (id: string | null) => Promise<void>;
   /** One-line hardware summary shown under the local company header. */
   hardware?: string;
 }) {
@@ -121,11 +126,14 @@ export function ModelsPage({
       setProviders(provs);
       setCloudModels(cm);
       setSource(src);
+      // The sidebar and Home readiness depend on keys, downloads and the
+      // model in use; every change here ends in a refresh.
+      notifySetupChanged();
       // Auto-selection : premier whisper telecharge si rien de selectionne
       // (TranscribePanel depend de selectedModelId). Ne change pas le kind.
       if (!selectedRef.current) {
         const first = w.find((m) => m.downloaded);
-        if (first) onSelectModel(first.id);
+        if (first) await quietly(onSelectModel(first.id));
       }
     } catch (e) {
       console.error(e);
@@ -153,7 +161,7 @@ export function ModelsPage({
           return next;
         });
         await refresh();
-        if (!selectedRef.current) onSelectModel(e.payload.id);
+        if (!selectedRef.current) await quietly(onSelectModel(e.payload.id));
         await adoptIfNoneInUse("whisper", e.payload.id);
       }),
       listen<DownloadError>("model:download:error", (e) => {
@@ -215,7 +223,7 @@ export function ModelsPage({
     try {
       if (await speechModelInUse(t)) return;
       if (kind === "whisper") {
-        onSelectModel(id);
+        await onSelectModel(id);
         await api.setTranscriptionKind("local");
       } else {
         await setDefaultParakeet(id);
@@ -270,7 +278,7 @@ export function ModelsPage({
     if (!(await confirmDelete(t("speech.confirmDeleteModel", { name })))) return;
     try {
       await api.deleteWhisperModel(id);
-      if (selectedRef.current === id) onSelectModel(null);
+      if (selectedRef.current === id) await quietly(onSelectModel(null));
       await refresh();
     } catch (e) {
       setWhisperErrors((er) => ({ ...er, [id]: String(e) }));
@@ -293,7 +301,7 @@ export function ModelsPage({
       const note = removeNote(t, outcome, name);
       if (note) setWhisperStatus((s) => ({ ...s, [id]: note.failure ? fail(note.text) : note.text }));
       // Same as Delete: the model in use is gone, so nothing is selected.
-      if (outcome !== "in_use" && selectedRef.current === id) onSelectModel(null);
+      if (outcome !== "in_use" && selectedRef.current === id) await quietly(onSelectModel(null));
       await refresh();
     } catch (e) {
       setWhisperErrors((er) => ({ ...er, [id]: String(e) }));
@@ -306,11 +314,18 @@ export function ModelsPage({
     // et set_transcription_kind preserve les selections cloud/parakeet.
     const prev = selectedRef.current;
     saveFailure.clear();
-    onSelectModel(id);
+    try {
+      // Awaited: a failed write of the selection is reported like a failed
+      // switch of the kind (the screen is already back on the old choice).
+      await onSelectModel(id);
+    } catch (e) {
+      saveFailure.fail(e);
+      return;
+    }
     try {
       await api.setTranscriptionKind("local");
     } catch (e) {
-      onSelectModel(prev);
+      await quietly(onSelectModel(prev));
       saveFailure.fail(e);
     }
   }
@@ -624,7 +639,7 @@ export function ModelsPage({
             <ImportModelCard
               onImported={async (id) => {
                 await refresh();
-                onSelectModel(id);
+                await quietly(onSelectModel(id));
               }}
             />
           )}

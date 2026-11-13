@@ -82,6 +82,32 @@ fn baseline_for_new_session(
     }
 }
 
+/// Parlato : session Power Mode de l'enregistrement en cours. `0` = pas
+/// d'enregistrement ; `RECORDING_UNOWNED` = enregistrement sans mode
+/// correspondant (il ne possede aucune session, meme si celle d'une dictee
+/// precedente est encore active) ; sinon l'id de la session ouverte par cet
+/// enregistrement.
+static RECORDING_OWNER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+const RECORDING_UNOWNED: u64 = u64::MAX;
+
+/// La session de `slot` si elle appartient a l'enregistrement (`owner`).
+fn owned_session(slot: &Option<PowerSession>, owner: u64) -> Option<PowerSession> {
+    slot.as_ref().filter(|s| s.id == owner).cloned()
+}
+
+/// Numero d'une session choisie a la main (raccourci, tray). Pendant un
+/// enregistrement (`owner != 0`) la session existante n'est reprise que si
+/// elle est celle de l'enregistrement ; sinon (aucun mode n'avait matche,
+/// l'existante est celle d'une dictee precedente) une nouvelle est creee et
+/// la baseline seule est conservee. Hors enregistrement : comportement
+/// d'origine (numero de l'existante, sinon nouveau).
+fn id_for_manual_select(owner: u64, existing: Option<u64>, fresh: impl FnOnce() -> u64) -> u64 {
+    match existing {
+        Some(id) if owner == 0 || id == owner => id,
+        _ => fresh(),
+    }
+}
+
 /// Retire la session active si c'est bien la session `id` (sinon une session
 /// plus recente a pris la place et rien ne doit etre restaure).
 fn take_if_current(slot: &mut Option<PowerSession>, id: u64) -> Option<PowerSession> {
@@ -264,6 +290,35 @@ fn set_or_delete(
 
 // -- High-level API (called by the recording pipeline) ---------------------
 
+/// Parlato : `begin_session` pour un enregistrement qui demarre ; celui-ci ne
+/// possede que la session qu'il ouvre lui-meme.
+pub fn begin_recording_session(app: &AppHandle) -> Option<PowerSession> {
+    RECORDING_OWNER.store(RECORDING_UNOWNED, std::sync::atomic::Ordering::SeqCst);
+    let session = begin_session(app)?;
+    RECORDING_OWNER.store(session.id, std::sync::atomic::Ordering::SeqCst);
+    Some(session)
+}
+
+/// Parlato : a l'arret de l'enregistrement, la session de CET enregistrement
+/// (jamais celle d'une dictee precedente encore en traitement). Libere la
+/// propriete : la dictee porte desormais sa session.
+pub fn take_recording_session(app: &AppHandle) -> Option<PowerSession> {
+    let owner = RECORDING_OWNER.swap(0, std::sync::atomic::Ordering::SeqCst);
+    let state = app.try_state::<PowerSessionState>()?;
+    let slot = state.0.lock();
+    owned_session(&slot, owner)
+}
+
+/// Parlato : annulation ou echec de demarrage. Termine seulement la session
+/// de cet enregistrement ; `true` si une session a bien pris fin.
+pub fn end_recording_session(app: &AppHandle) -> bool {
+    let owner = RECORDING_OWNER.swap(0, std::sync::atomic::Ordering::SeqCst);
+    if owner == 0 || owner == RECORDING_UNOWNED {
+        return false;
+    }
+    end_session(app, owner)
+}
+
 /// Au demarrage d'un enregistrement : detecte la fenetre active + URL,
 /// cherche la meilleure config, snapshot la baseline, applique la config.
 /// Si aucune config ne matche : aucun effet.
@@ -322,14 +377,14 @@ pub fn begin_session(app: &AppHandle) -> Option<PowerSession> {
 /// si auto_restore est active, sinon laisse la config en place. Parlato :
 /// seulement si la session active est encore la session `id` de cette
 /// dictee ; une dictee plus recente a pu en demarrer une autre, que cette
-/// fin ne doit pas defaire.
-pub fn end_session(app: &AppHandle, id: u64) {
+/// fin ne doit pas defaire. Retourne `true` si cette session a pris fin.
+pub fn end_session(app: &AppHandle, id: u64) -> bool {
     let Some(state) = app.try_state::<PowerSessionState>() else {
-        return;
+        return false;
     };
     let session = take_if_current(&mut state.0.lock(), id);
     let Some(session) = session else {
-        return;
+        return false;
     };
     if config::is_auto_restore(app) {
         if let Err(e) = restore(app, &session.baseline) {
@@ -339,15 +394,7 @@ pub fn end_session(app: &AppHandle, id: u64) {
             info!(config = %session.config_name, "Power Mode baseline restauree");
         }
     }
-}
-
-/// Termine la session active, quelle qu'elle soit (annulation ou arret en
-/// echec d'un enregistrement : la session en cours est celle de cet
-/// enregistrement).
-pub fn end_current_session(app: &AppHandle) {
-    if let Some(id) = current(app).map(|s| s.id) {
-        end_session(app, id);
-    }
+    true
 }
 
 /// Parlato : touche d'envoi du mode actif, pressee apres le collage.
@@ -463,7 +510,11 @@ fn select_config(app: &AppHandle, cfg: &PowerModeConfig) -> Option<PowerSession>
     let existing = state.0.lock().clone();
     let baseline = baseline_for_new_session(existing.as_ref(), || snapshot(app));
     // Parlato : la session en cours garde son numero (la dictee le porte).
-    let id = existing.as_ref().map(|s| s.id).unwrap_or_else(next_session_id);
+    let owner = RECORDING_OWNER.load(std::sync::atomic::Ordering::SeqCst);
+    let id = id_for_manual_select(owner, existing.as_ref().map(|s| s.id), next_session_id);
+    if owner != 0 {
+        RECORDING_OWNER.store(id, std::sync::atomic::Ordering::SeqCst);
+    }
 
     if let Err(e) = apply(app, cfg) {
         warn!("power_mode select apply: {e}");
@@ -579,6 +630,31 @@ mod session_id_tests {
         let ended = take_if_current(&mut slot, 2).unwrap();
         assert_eq!(ended.baseline.language.as_deref(), Some("original"));
         assert!(slot.is_none());
+    }
+
+    #[test]
+    fn a_recording_without_a_matching_mode_owns_no_session() {
+        // Dictation A (id 3) is still processing; recording B matched nothing.
+        let slot = Some(session(3, "a", "original"));
+        assert!(owned_session(&slot, RECORDING_UNOWNED).is_none());
+        assert!(owned_session(&slot, 0).is_none());
+        assert_eq!(owned_session(&slot, 3).map(|s| s.id), Some(3));
+        assert!(owned_session(&None, 3).is_none());
+    }
+
+    #[test]
+    fn a_manual_pick_does_not_hijack_a_previous_dictations_session() {
+        // Recording without a match: a pick gets a fresh id.
+        assert_eq!(id_for_manual_select(RECORDING_UNOWNED, Some(3), || 9), 9);
+        // Recording that owns session 3: the pick keeps it.
+        assert_eq!(id_for_manual_select(3, Some(3), || 9), 3);
+        // Recording owning 3 but the slot holds another: fresh.
+        assert_eq!(id_for_manual_select(3, Some(2), || 9), 9);
+        // No existing session: fresh.
+        assert_eq!(id_for_manual_select(RECORDING_UNOWNED, None, || 9), 9);
+        // Not recording: original behaviour.
+        assert_eq!(id_for_manual_select(0, Some(3), || 9), 3);
+        assert_eq!(id_for_manual_select(0, None, || 9), 9);
     }
 
     #[test]

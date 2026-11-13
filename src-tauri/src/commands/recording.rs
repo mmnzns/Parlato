@@ -105,6 +105,13 @@ pub fn is_recording(state: State<'_, RecorderState>) -> bool {
     state.0.lock().is_some()
 }
 
+/// Parlato : un enregistrement ou une transcription est-il en cours ? (la mise
+/// a jour attend la fin : redemarrer couperait la dictee ou le fichier.)
+#[tauri::command]
+pub fn is_busy(state: State<'_, RecorderState>) -> bool {
+    state.0.lock().is_some() || crate::transcription::pipeline::is_busy()
+}
+
 /// Bouton d'enregistrement de la bulle (VoiceInk RecorderRecordButton) :
 /// meme cycle complet que le raccourci et le menu tray.
 #[tauri::command]

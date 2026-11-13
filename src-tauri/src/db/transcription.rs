@@ -187,10 +187,14 @@ pub fn mark_failed(conn: &Connection, id: &str, err: &str) -> Result<()> {
     let err = crate::transcription::error_code::storable_error_code(err);
     // Parlato : une ligne deja transcrite garde son texte (une erreur plus
     // tard dans le pipeline ne doit jamais effacer ce que la personne a dicte).
+    // Un texte qui est lui-meme un message d'echec precedent (nouvel essai
+    // d'une transcription echouee) est remplace : l'erreur la plus recente
+    // s'affiche.
     conn.execute(
         "UPDATE transcriptions
          SET status = 'failed',
-             text = CASE WHEN text IS NULL OR text = '' THEN ?1 ELSE text END
+             text = CASE WHEN text IS NULL OR text = '' OR text LIKE 'Transcription Failed: %'
+                         THEN ?1 ELSE text END
          WHERE id = ?2",
         params![format!("Transcription Failed: {err}"), id],
     )?;
@@ -629,6 +633,19 @@ mod tests {
             .query_row("SELECT text FROM transcriptions WHERE id = ?1", params![id], |r| r.get(0))
             .unwrap();
         assert_eq!(text, "Transcription Failed: PARLA_ERR:providerHttp:422");
+    }
+
+    #[test]
+    fn mark_failed_replaces_an_earlier_failure_message() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let id = insert_pending(&conn, None, None).unwrap();
+        mark_failed(&conn, &id, "PARLA_ERR:providerHttp:422").unwrap();
+        mark_failed(&conn, &id, "PARLA_ERR:noInternet").unwrap();
+        let text: String = conn
+            .query_row("SELECT text FROM transcriptions WHERE id = ?1", params![id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(text, "Transcription Failed: PARLA_ERR:noInternet");
     }
 
     #[test]

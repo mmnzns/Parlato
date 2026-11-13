@@ -97,9 +97,10 @@ export async function checkForUpdate(silent = false): Promise<void> {
 export async function installPendingUpdate(): Promise<void> {
   const u = state.update;
   if (!u || state.status === "downloading") return;
-  // Restarting would cut a dictation in half: ask the person to finish first.
+  // Restarting would cut a dictation (or a file still being transcribed) in
+  // half: ask the person to finish first.
   try {
-    if (await api.isRecording()) {
+    if (await api.isBusy()) {
       setState({ status: "installFailed", error: i18n.t("updater.finishFirst") });
       return;
     }

@@ -92,9 +92,17 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleSelectModel(id: string | null) {
+  /** Resolves once the choice is saved. If the save fails the screen goes back
+   *  to the previous choice and the error is thrown, so a caller can say so. */
+  async function handleSelectModel(id: string | null): Promise<void> {
+    const prev = selectedModelId;
     setSelectedModelId(id);
-    api.setSelectedWhisperModel(id).catch(console.error);
+    try {
+      await api.setSelectedWhisperModel(id);
+    } catch (e) {
+      setSelectedModelId(prev);
+      throw e;
+    }
   }
 
   if (onboarded === false) {

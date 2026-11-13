@@ -299,6 +299,7 @@ pub fn run() {
             cancel_recording,
             get_audio_meter,
             is_recording,
+            commands::recording::is_busy,
             cancel_processing,
             toggle_recording_from_ui,
             list_whisper_models,

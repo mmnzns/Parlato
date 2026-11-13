@@ -106,7 +106,7 @@
     "hide": "Masquer",
     "downloading": "Téléchargement{{percent}}...",
     "installed": "Installée - redémarrage...",
-    "finishFirst": "Terminez d'abord votre dictée."
+    "finishFirst": "Attendez la fin de votre dictée ou de votre fichier."
   },
   "settings": {
     "recorderStyleInfo": "Mini affiche une petite pilule flottante en bas de l'écran. L'autre option l'affiche sur le bord supérieur.",

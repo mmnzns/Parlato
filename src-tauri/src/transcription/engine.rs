@@ -164,7 +164,7 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
     // apres recorder.startRecording (VoiceInkEngine.swift:152).
     // On le fait avant, pour que les settings soient en place au
     // moment ou le pipeline choisit la source de transcription.
-    if let Some(session) = power_mode::session::begin_session(app) {
+    if let Some(session) = power_mode::session::begin_recording_session(app) {
         let _ = app.emit("power_mode:active", &session);
     }
     // Arme les raccourcis Alt+chiffre de selection Power Mode pour la duree
@@ -211,8 +211,9 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
         // L'enregistrement n'a pas demarre : desarme les raccourcis Power Mode
         // et termine la session ouverte plus haut (sinon les reglages du mode
         // resteraient appliques a la place de ceux de la personne).
-        power_mode::session::end_current_session(app);
-        let _ = app.emit("power_mode:active", serde_json::Value::Null);
+        if power_mode::session::end_recording_session(app) {
+            let _ = app.emit("power_mode:active", serde_json::Value::Null);
+        }
         keyboard_hook::set_power_shortcut_count(0);
         manager.mark_recording_state(false);
         mini_recorder::close(app);
@@ -239,7 +240,7 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
     // Parlato : la session Power Mode de CET enregistrement, portee par la
     // dictee jusqu'a sa fin (une dictee suivante peut en ouvrir une autre
     // pendant que celle-ci se transcrit).
-    let power = power_mode::session::current(app);
+    let power = power_mode::session::take_recording_session(app);
     let was_recording = state.0.lock().is_some();
     match stop_recording_core(app, state) {
         Ok(stopped) => {
@@ -259,8 +260,10 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
             if let Some((_, Some(history_id))) = streaming_handle {
                 pipeline::discard_pending_row(app, &history_id);
             }
-            power_mode::session::end_current_session(app);
-            let _ = app.emit("power_mode:active", serde_json::Value::Null);
+            // Seulement la session de cet enregistrement (prise plus haut).
+            if power.as_ref().is_some_and(|p| power_mode::session::end_session(app, p.id)) {
+                let _ = app.emit("power_mode:active", serde_json::Value::Null);
+            }
             if was_recording {
                 crate::notice::send(
                     app,
@@ -301,8 +304,9 @@ fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Re
     if let Err(e) = cancel_recording_core(app, state) {
         warn!("cancel_recording via hotkey: {e}");
     }
-    power_mode::session::end_current_session(app);
-    let _ = app.emit("power_mode:active", serde_json::Value::Null);
+    if power_mode::session::end_recording_session(app) {
+        let _ = app.emit("power_mode:active", serde_json::Value::Null);
+    }
     // Annulation : desarme les raccourcis Alt+chiffre Power Mode et le
     // raccourci d'annulation personnalise.
     keyboard_hook::set_power_shortcut_count(0);

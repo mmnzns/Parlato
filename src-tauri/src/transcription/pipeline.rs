@@ -185,6 +185,11 @@ impl Activity {
         self.active.fetch_sub(1, SeqCst).saturating_sub(1) == 0
     }
 
+    /// Une activite (enregistrement ou passage dans le pipeline) est-elle en cours ?
+    fn busy(&self) -> bool {
+        self.active.load(std::sync::atomic::Ordering::SeqCst) > 0
+    }
+
     fn epoch(&self) -> u64 {
         self.epoch.load(std::sync::atomic::Ordering::SeqCst)
     }
@@ -226,6 +231,13 @@ fn end_run(app: &AppHandle) {
             unload_inference_models(&app);
         }
     });
+}
+
+/// Parlato : vrai tant qu'un enregistrement ou une transcription (dictee,
+/// fichier, nouvel essai) est en cours. Sert a refuser une mise a jour qui
+/// couperait le travail en deux.
+pub fn is_busy() -> bool {
+    ACTIVITY.busy()
 }
 
 /// Un enregistrement vient de demarrer : il compte comme activite jusqu'a la
@@ -700,11 +712,12 @@ async fn finish_dictation(
     // PowerModeSessionManager.endSession). Faite tout de suite, avant
     // l'attente, pour ne pas toucher la session d'une dictee suivante.
     // Parlato : seulement la session de CETTE dictee (voir `Run::power`).
-    if let Some(p) = run.power.as_ref() {
-        crate::power_mode::session::end_session(app, p.id);
+    // Parlato : l'evenement et le tray ne bougent que si une session a
+    // vraiment pris fin (sinon une dictee plus recente garde son mode affiche).
+    if run.power.as_ref().is_some_and(|p| crate::power_mode::session::end_session(app, p.id)) {
+        let _ = app.emit("power_mode:active", serde_json::Value::Null);
+        crate::tray::refresh(app);
     }
-    let _ = app.emit("power_mode:active", serde_json::Value::Null);
-    crate::tray::refresh(app);
     // VoiceInk ferme la bulle juste apres le paste ; 200 ms de marge pour
     // les derniers evenements, plus le temps de lire un echec.
     let delay = if matches!(result_kind, Some(Outcome::Cancelled)) {
@@ -1389,6 +1402,19 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
 #[cfg(test)]
 mod tests {
     // -- Keep-alive : l'activite ---------------------------------------------
+
+    #[test]
+    fn busy_covers_every_running_activity() {
+        let a = Activity::new();
+        assert!(!a.busy());
+        a.begin(); // recording
+        a.begin(); // a file being transcribed
+        assert!(a.busy());
+        a.end();
+        assert!(a.busy(), "still busy until the last one ends");
+        a.end();
+        assert!(!a.busy());
+    }
 
     #[test]
     fn a_scheduled_unload_waits_for_every_activity() {

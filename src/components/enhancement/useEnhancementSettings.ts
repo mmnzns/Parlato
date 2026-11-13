@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { notifySetupChanged } from "@/lib/setupStatus";
 import { translateError } from "@/lib/translateError";
 import { persist } from "@/lib/persist";
 import { confirmDelete } from "@/lib/confirmDelete";
@@ -169,6 +170,8 @@ export function useEnhancementSettings() {
       await api.setApiKey(providerId, k);
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keySavedOk") }));
       setApiKeyInputs((i) => ({ ...i, [providerId]: "" }));
+      // A provider's key is shared with its speech models: refresh readiness.
+      notifySetupChanged();
       await refresh();
     } catch (e) {
       setStatus((s) => ({
@@ -186,6 +189,7 @@ export function useEnhancementSettings() {
     try {
       await api.deleteApiKey(providerId);
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keyDeleted") }));
+      notifySetupChanged();
       await refresh();
     } catch (e) {
       setStatus((s) => ({ ...s, [providerId]: fail(t("enhancement.errorPrefix", { message: translateError(t, String(e)) })) }));

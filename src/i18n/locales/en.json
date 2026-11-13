@@ -106,7 +106,7 @@
     "hide": "Hide",
     "downloading": "Downloading{{percent}}...",
     "installed": "Installed - restarting...",
-    "finishFirst": "Finish your dictation first."
+    "finishFirst": "Wait for your dictation or file to finish first."
   },
   "settings": {
     "recorderStyleInfo": "Mini shows a small floating pill at the bottom of the screen. The other option shows it at the top edge.",

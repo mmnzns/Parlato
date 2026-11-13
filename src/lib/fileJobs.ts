@@ -23,6 +23,9 @@ export type FileJob = {
   durationSec?: number;
   text?: string;
   error?: string;
+  /** A "done" job with a caveat (only the clipboard copy failed): an error
+   *  code shown beside the text, which stays visible. */
+  note?: string;
 };
 
 type PipelineEvent = {
@@ -31,6 +34,8 @@ type PipelineEvent = {
   text: string | null;
   job: "dictation" | "file" | "retry";
 };
+
+const COPY_FAILED = "PARLA_ERR:copyFailed";
 
 type Snapshot = { jobs: FileJob[]; busy: boolean };
 
@@ -76,7 +81,12 @@ function ensureListener() {
     if (p.state === "transcribing") patch(id, { status: "transcribing" });
     else if (p.state === "enhancing") patch(id, { status: "cleaning" });
     else if (p.state === "done") finish(id, { status: "done", text: p.text ?? "" });
-    else if (p.state === "failed") finish(id, { status: "failed", error: p.message ?? "" });
+    else if (p.state === "failed") {
+      // Only the clipboard copy failed: the transcription worked and is saved
+      // in History, so show the job as done with its text and a note.
+      if (p.message === COPY_FAILED && p.text) finish(id, { status: "done", text: p.text, note: p.message });
+      else finish(id, { status: "failed", error: p.message ?? "" });
+    }
   });
 }
 
