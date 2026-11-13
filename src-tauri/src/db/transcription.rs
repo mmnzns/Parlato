@@ -7,7 +7,7 @@
 // et enhanced.
 
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -38,6 +38,9 @@ pub struct TranscriptionRecord {
     pub status: TranscriptionStatus,
     pub text: String,
     pub enhanced_text: Option<String>,
+    /// Parlato : texte corrige a la main dans l'historique. `text` et
+    /// `enhanced_text` gardent l'original.
+    pub edited_text: Option<String>,
     pub duration_sec: Option<f64>,
     pub transcription_duration_sec: Option<f64>,
     pub enhancement_duration_sec: Option<f64>,
@@ -64,6 +67,7 @@ fn row_to_record(row: &Row<'_>) -> rusqlite::Result<TranscriptionRecord> {
         status: TranscriptionStatus::parse(&status_str),
         text: row.get("text")?,
         enhanced_text: row.get("enhanced_text")?,
+        edited_text: row.get("edited_text")?,
         duration_sec: row.get("duration_sec")?,
         transcription_duration_sec: row.get("transcription_duration_sec")?,
         enhancement_duration_sec: row.get("enhancement_duration_sec")?,
@@ -281,7 +285,10 @@ pub fn list_page(
         args.push(ts.to_rfc3339().into());
     }
     if let Some(q) = like {
-        clauses.push("(lower(text) LIKE ? OR lower(ifnull(enhanced_text, '')) LIKE ?)");
+        clauses.push(
+            "(lower(text) LIKE ? OR lower(ifnull(enhanced_text, '')) LIKE ? OR lower(ifnull(edited_text, '')) LIKE ?)",
+        );
+        args.push(q.clone().into());
         args.push(q.clone().into());
         args.push(q.into());
     }
@@ -361,6 +368,129 @@ pub fn usage_stats(conn: &Connection) -> Result<UsageStats> {
         out.duration_sec += row.get::<_, f64>(1)?;
     }
     Ok(out)
+}
+
+/// Parlato : texte affiche pour une entree : corrige a la main > ameliore >
+/// original (un texte ameliore vide compte comme absent).
+pub fn shown_text(rec: &TranscriptionRecord) -> &str {
+    [rec.edited_text.as_deref(), rec.enhanced_text.as_deref()]
+        .into_iter()
+        .flatten()
+        .find(|s| !s.trim().is_empty())
+        .unwrap_or(&rec.text)
+}
+
+/// Parlato : resultat d'une correction manuelle. `previous` est le texte
+/// affiche avant la correction (base de la comparaison pour le dictionnaire).
+#[derive(Debug, PartialEq, Eq)]
+pub struct EditOutcome {
+    pub previous: String,
+    pub current: String,
+}
+
+/// Parlato : enregistre le texte corrige a la main. L'original (`text`,
+/// `enhanced_text`) n'est jamais modifie. Un texte egal a l'original efface
+/// la correction. Seules les dictees reussies sont modifiables.
+pub fn set_edited_text(conn: &Connection, id: &str, new_text: &str) -> Result<EditOutcome> {
+    let rec = get(conn, id)?.ok_or_else(|| anyhow!("PARLA_ERR:historyItemMissing"))?;
+    if rec.status != TranscriptionStatus::Completed {
+        return Err(anyhow!("PARLA_ERR:historyNotEditable"));
+    }
+    let new_text = new_text.trim();
+    if new_text.is_empty() {
+        return Err(anyhow!("PARLA_ERR:historyTextEmpty"));
+    }
+    let previous = shown_text(&rec).to_string();
+    let base = rec
+        .enhanced_text
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(&rec.text);
+    let stored: Option<&str> = if new_text == base { None } else { Some(new_text) };
+    conn.execute(
+        "UPDATE transcriptions SET edited_text = ?1 WHERE id = ?2",
+        params![stored, id],
+    )?;
+    Ok(EditOutcome {
+        previous,
+        current: new_text.to_string(),
+    })
+}
+
+/// Parlato : un point du graphique de l'accueil. `date` est le jour
+/// (AAAA-MM-JJ) ou, pour la vue par semaine, le lundi de la semaine, dans le
+/// fuseau local.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UsagePoint {
+    pub date: String,
+    pub words: i64,
+    pub sessions: i64,
+}
+
+/// Mots par jour sur les `days` derniers jours (aujourd'hui compris), les
+/// jours sans dictee a zero. `tz` est le modificateur SQLite du fuseau
+/// (`"localtime"` en production, un decalage fixe dans les tests).
+pub fn usage_by_day(conn: &Connection, days: u32, today: NaiveDate, tz: &str) -> Result<Vec<UsagePoint>> {
+    let days = days.clamp(1, 366);
+    let start = today - chrono::Duration::days(i64::from(days) - 1);
+    let found = usage_query(conn, "date(timestamp, ?1)", tz, start, today)?;
+    Ok((0..days)
+        .map(|i| point_for(&found, start + chrono::Duration::days(i64::from(i))))
+        .collect())
+}
+
+/// Mots par semaine (du lundi au dimanche) sur les `weeks` dernieres
+/// semaines, la semaine en cours comprise.
+pub fn usage_by_week(conn: &Connection, weeks: u32, today: NaiveDate, tz: &str) -> Result<Vec<UsagePoint>> {
+    let weeks = weeks.clamp(1, 104);
+    let this_monday = today - chrono::Duration::days(i64::from(today.weekday().num_days_from_monday()));
+    let start = this_monday - chrono::Duration::weeks(i64::from(weeks) - 1);
+    let found = usage_query(
+        conn,
+        "date(timestamp, ?1, 'weekday 0', '-6 days')",
+        tz,
+        start,
+        today,
+    )?;
+    Ok((0..weeks)
+        .map(|i| point_for(&found, start + chrono::Duration::weeks(i64::from(i))))
+        .collect())
+}
+
+fn point_for(found: &std::collections::HashMap<String, (i64, i64)>, d: NaiveDate) -> UsagePoint {
+    let date = d.format("%Y-%m-%d").to_string();
+    let (words, sessions) = found.get(&date).copied().unwrap_or((0, 0));
+    UsagePoint { date, words, sessions }
+}
+
+/// Une seule requete : filtre (dictees reussies, texte non vide), regroupe
+/// par `bucket_sql` (une expression de date SQLite avec `?1` = fuseau) et
+/// somme les mots. Meme texte que `usage_stats` (ameliore sinon original).
+fn usage_query(
+    conn: &Connection,
+    bucket_sql: &str,
+    tz: &str,
+    start: NaiveDate,
+    today: NaiveDate,
+) -> Result<std::collections::HashMap<String, (i64, i64)>> {
+    let sql = format!(
+        "SELECT {bucket_sql} AS bucket, SUM(word_count(ifnull(enhanced_text, text))), COUNT(*)
+         FROM transcriptions
+         WHERE status = 'completed'
+           AND ifnull(enhanced_text, text) != ''
+           AND date(timestamp, ?1) >= ?2 AND date(timestamp, ?1) <= ?3
+         GROUP BY bucket"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(
+        params![
+            tz,
+            start.format("%Y-%m-%d").to_string(),
+            today.format("%Y-%m-%d").to_string()
+        ],
+        |r| Ok((r.get::<_, String>(0)?, (r.get::<_, i64>(1)?, r.get::<_, i64>(2)?))),
+    )?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
 // -- Metrics aggregation par modele ----------------------------------------
@@ -558,6 +688,140 @@ mod tests {
         let s = usage_stats(&conn).unwrap();
         assert_eq!((s.sessions, s.words, s.chars), (2, 4, 20));
         assert_eq!(s.duration_sec, 9.0);
+    }
+
+    fn insert_done(conn: &Connection, ts: &str, text: &str) -> String {
+        let id = insert_pending(conn, None, Some(1.0)).unwrap();
+        conn.execute(
+            "UPDATE transcriptions SET status = 'completed', text = ?1, timestamp = ?2 WHERE id = ?3",
+            params![text, ts, id],
+        )
+        .unwrap();
+        id
+    }
+
+    #[test]
+    fn usage_by_day_sums_words_per_local_day_and_fills_gaps() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
+        insert_done(&conn, "2026-11-13T09:00:00.123456789+00:00", "one two three");
+        insert_done(&conn, "2026-11-13T10:00:00+00:00", "four five");
+        insert_done(&conn, "2026-11-11T10:00:00+00:00", "  six\nseven  eight ");
+        // Older than the window, failed, and empty rows are left out.
+        insert_done(&conn, "2026-10-01T10:00:00+00:00", "too old");
+        insert_done(&conn, "2026-11-12T10:00:00+00:00", "");
+        let failed = insert_done(&conn, "2026-11-12T11:00:00+00:00", "nope");
+        conn.execute("UPDATE transcriptions SET status = 'failed' WHERE id = ?1", params![failed])
+            .unwrap();
+        let pts = usage_by_day(&conn, 14, today, "+0 hours").unwrap();
+        assert_eq!(pts.len(), 14);
+        assert_eq!(pts[0].date, "2026-10-31");
+        assert_eq!(pts[13], UsagePoint { date: "2026-11-13".into(), words: 5, sessions: 2 });
+        assert_eq!(pts[11], UsagePoint { date: "2026-11-11".into(), words: 3, sessions: 1 });
+        assert_eq!(pts[12].words, 0);
+        assert_eq!(pts.iter().map(|p| p.words).sum::<i64>(), 8);
+    }
+
+    #[test]
+    fn usage_by_day_uses_the_time_zone_modifier() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
+        // 23:30 UTC on the 12th is already the 13th at UTC+2.
+        insert_done(&conn, "2026-11-12T23:30:00+00:00", "late night words");
+        let utc = usage_by_day(&conn, 3, today, "+0 hours").unwrap();
+        assert_eq!((utc[1].words, utc[2].words), (3, 0));
+        let plus2 = usage_by_day(&conn, 3, today, "+2 hours").unwrap();
+        assert_eq!((plus2[1].words, plus2[2].words), (0, 3));
+        // The real modifier is accepted too.
+        usage_by_day(&conn, 3, today, "localtime").unwrap();
+    }
+
+    #[test]
+    fn usage_by_day_prefers_cleaned_text_like_usage_stats() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
+        let id = insert_done(&conn, "2026-11-13T09:00:00+00:00", "raw raw raw raw");
+        conn.execute("UPDATE transcriptions SET enhanced_text = 'clean text' WHERE id = ?1", params![id])
+            .unwrap();
+        assert_eq!(usage_by_day(&conn, 1, today, "+0 hours").unwrap()[0].words, 2);
+        assert_eq!(usage_stats(&conn).unwrap().words, 2);
+    }
+
+    #[test]
+    fn usage_by_week_groups_monday_to_sunday() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        // 2026-11-13 is a Friday; its week starts Monday 2026-11-09.
+        let today = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
+        insert_done(&conn, "2026-11-09T08:00:00+00:00", "mon one");
+        insert_done(&conn, "2026-11-13T08:00:00+00:00", "fri one two");
+        insert_done(&conn, "2026-11-08T20:00:00+00:00", "sunday before");
+        insert_done(&conn, "2026-11-02T20:00:00+00:00", "monday last week here");
+        let pts = usage_by_week(&conn, 3, today, "+0 hours").unwrap();
+        assert_eq!(
+            pts.iter().map(|p| (p.date.as_str(), p.words)).collect::<Vec<_>>(),
+            vec![("2026-10-26", 0), ("2026-11-02", 6), ("2026-11-09", 5)]
+        );
+    }
+
+    #[test]
+    fn edited_text_keeps_the_original_and_can_be_reverted() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let id = insert_done(&conn, "2026-11-13T09:00:00+00:00", "cooper nettys is great");
+        let out = set_edited_text(&conn, &id, "  Kubernetes is great ").unwrap();
+        assert_eq!(out.previous, "cooper nettys is great");
+        let rec = get(&conn, &id).unwrap().unwrap();
+        assert_eq!(rec.text, "cooper nettys is great");
+        assert_eq!(rec.edited_text.as_deref(), Some("Kubernetes is great"));
+        assert_eq!(shown_text(&rec), "Kubernetes is great");
+        // Second edit starts from the first.
+        let out = set_edited_text(&conn, &id, "Kubernetes is fine").unwrap();
+        assert_eq!(out.previous, "Kubernetes is great");
+        // Back to the original text clears the edit.
+        set_edited_text(&conn, &id, "cooper nettys is great").unwrap();
+        assert_eq!(get(&conn, &id).unwrap().unwrap().edited_text, None);
+        // Empty, missing and failed rows are refused.
+        assert!(set_edited_text(&conn, &id, "   ").is_err());
+        assert!(set_edited_text(&conn, "nope", "x").is_err());
+        conn.execute("UPDATE transcriptions SET status = 'failed' WHERE id = ?1", params![id]).unwrap();
+        assert!(set_edited_text(&conn, &id, "x y").is_err());
+    }
+
+    #[test]
+    fn edited_text_is_searchable_and_wins_over_the_cleaned_text() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let id = insert_done(&conn, "2026-11-13T09:00:00+00:00", "raw words");
+        conn.execute("UPDATE transcriptions SET enhanced_text = 'Clean words.' WHERE id = ?1", params![id])
+            .unwrap();
+        set_edited_text(&conn, &id, "Acme words.").unwrap();
+        let rec = get(&conn, &id).unwrap().unwrap();
+        assert_eq!(shown_text(&rec), "Acme words.");
+        let hits = list_page(&conn, 5, None, Some("acme"), ListFilter::All).unwrap();
+        assert_eq!(hits.len(), 1);
+    }
+
+    #[test]
+    fn old_databases_get_the_edited_text_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE transcriptions (id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, status TEXT NOT NULL,
+             text TEXT NOT NULL DEFAULT '', enhanced_text TEXT, duration_sec REAL,
+             transcription_duration_sec REAL, enhancement_duration_sec REAL, audio_file_name TEXT,
+             transcription_model_name TEXT, ai_enhancement_model_name TEXT, prompt_name TEXT,
+             ai_request_system_message TEXT, ai_request_user_message TEXT, power_mode_name TEXT,
+             power_mode_emoji TEXT, language TEXT);
+             INSERT INTO transcriptions (id, timestamp, status, text) VALUES ('a', '2026-01-01T00:00:00+00:00', 'completed', 'hi');",
+        )
+        .unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        assert_eq!(get(&conn, "a").unwrap().unwrap().edited_text, None);
+        // Running init again is harmless.
+        crate::db::schema::init(&conn).unwrap();
     }
 
     #[test]

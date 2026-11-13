@@ -3,6 +3,7 @@
 // Reference VoiceInk : utilise SwiftData pour Transcription, WordReplacement, etc.
 // Ici on utilise SQLite pour la portabilite. Schema identique sur le fond.
 
+pub mod dictionary_csv;
 pub mod schema;
 pub mod transcription;
 pub mod word_replacement;

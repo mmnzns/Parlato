@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use rusqlite::Connection;
 
 /// Version courante du schema. A incrementer pour chaque migration future.
-const CURRENT_VERSION: i32 = 2;
+const CURRENT_VERSION: i32 = 3;
 
 pub fn init(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -37,6 +37,7 @@ pub fn init(conn: &Connection) -> Result<()> {
             status TEXT NOT NULL,
             text TEXT NOT NULL DEFAULT '',
             enhanced_text TEXT,
+            edited_text TEXT,
             duration_sec REAL,
             transcription_duration_sec REAL,
             enhancement_duration_sec REAL,
@@ -56,6 +57,16 @@ pub fn init(conn: &Connection) -> Result<()> {
         ",
     )
     .context("init schema")?;
+
+    // Parlato : V2 -> V3, texte corrige a la main (l'original reste intact).
+    let has_edited: bool = conn
+        .prepare("SELECT 1 FROM pragma_table_info('transcriptions') WHERE name = 'edited_text'")?
+        .exists([])?;
+    if !has_edited {
+        conn.execute("ALTER TABLE transcriptions ADD COLUMN edited_text TEXT", [])
+            .context("add edited_text")?;
+    }
+    register_functions(conn)?;
 
     // Migration incrementale. V1 -> V2 : ajout table transcriptions (deja
     // faite par CREATE TABLE IF NOT EXISTS ci-dessus, rien d'autre a faire).
@@ -77,5 +88,24 @@ pub fn init(conn: &Connection) -> Result<()> {
         }
         _ => {}
     }
+    Ok(())
+}
+
+/// Parlato : fonctions SQL propres a l'app, a enregistrer sur chaque
+/// connexion. `word_count(text)` compte les mots comme `usage_stats`
+/// (separation sur les espaces), pour que le graphique de l'accueil et les
+/// totaux donnent les memes nombres.
+pub fn register_functions(conn: &Connection) -> Result<()> {
+    use rusqlite::functions::FunctionFlags;
+    conn.create_scalar_function(
+        "word_count",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let text: Option<String> = ctx.get(0)?;
+            Ok(text.map_or(0, |t| t.split_whitespace().count() as i64))
+        },
+    )
+    .context("register word_count")?;
     Ok(())
 }
