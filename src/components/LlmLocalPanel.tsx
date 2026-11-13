@@ -12,6 +12,7 @@ import {
   type GgufModelState,
   type LlamaCppSettings,
 } from "@/lib/tauri";
+import { useSaveFailure } from "@/hooks/useSaveFailure";
 import { confirmDelete } from "@/lib/confirmDelete";
 import { formatBytes } from "@/lib/format";
 import { fail, isFailure, statusText, type Status } from "@/lib/status";
@@ -20,7 +21,7 @@ import { isCancelled, translateError } from "@/lib/translateError";
 type DownloadProgress = { id: string; downloaded: number; total: number };
 
 
-export function LlmLocalPanel() {
+export function LlmLocalPanel({ onSelectedChange }: { onSelectedChange?: (id: string | null) => void } = {}) {
   const { t } = useTranslation();
   const [models, setModels] = useState<GgufModelState[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function LlmLocalPanel() {
   });
   const [progress, setProgress] = useState<Record<string, DownloadProgress>>({});
   const [status, setStatus] = useState<Record<string, Status>>({});
+  const saveFailure = useSaveFailure();
 
   useEffect(() => {
     refresh();
@@ -46,7 +48,11 @@ export function LlmLocalPanel() {
           const { [e.payload.id]: _, ...rest } = prev;
           return rest;
         });
-        refresh();
+        refresh().then(async () => {
+          // First model downloaded and none chosen yet: use it.
+          const chosen = await api.getSelectedGguf().catch(() => null);
+          if (!chosen) await select(e.payload.id);
+        });
       },
     );
     const unErr = listen<{ id: string; message: string }>(
@@ -82,6 +88,7 @@ export function LlmLocalPanel() {
       ]);
       setModels(list);
       setSelectedId(sel);
+      onSelectedChange?.(sel);
       setBackend(usedBackend);
       setSettings(st);
     } catch (e) {
@@ -157,8 +164,9 @@ export function LlmLocalPanel() {
     try {
       await api.setSelectedGguf(id);
       setSelectedId(id);
+      onSelectedChange?.(id);
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
     }
   }
 
@@ -168,7 +176,8 @@ export function LlmLocalPanel() {
     try {
       await api.setLlamacppSettings(next);
     } catch (e) {
-      console.error(e);
+      setSettings(settings);
+      saveFailure.fail(e);
     }
   }
 
@@ -189,6 +198,7 @@ export function LlmLocalPanel() {
         </span>
       </Block>
 
+      {saveFailure.notice}
       {models.map((m) => {
         const prog = progress[m.id];
         const st = status[m.id];
@@ -196,7 +206,6 @@ export function LlmLocalPanel() {
         const pct = prog && prog.total > 0 ? Math.round((prog.downloaded / prog.total) * 100) : null;
         const meta = [
           formatBytes(m.size_bytes),
-          m.context_length > 0 ? t("llmLocal.ctx", { count: m.context_length.toLocaleString() }) : null,
           m.imported ? t("llmLocal.imported") : null,
         ]
           .filter(Boolean)
@@ -263,8 +272,8 @@ export function LlmLocalPanel() {
                   variant="ghost"
                   className="text-muted-foreground"
                   onClick={() => remove(m.id)}
-                  title={t("ai.delete")}
-                  aria-label={t("ai.delete")}
+                  title={t("llmLocal.deleteModel")}
+                  aria-label={t("llmLocal.deleteModel")}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -276,7 +285,11 @@ export function LlmLocalPanel() {
                   <div className="h-full bg-primary transition-[width]" style={{ width: `${pct}%` }} />
                 </div>
                 <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                  {formatBytes(prog.downloaded)} / {formatBytes(prog.total)}
+                  {t("speech.downloadProgress", {
+                    done: formatBytes(prog.downloaded),
+                    total: formatBytes(prog.total),
+                    pct,
+                  })}
                 </p>
               </div>
             )}

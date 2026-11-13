@@ -1,12 +1,13 @@
 // Parlato: [02] service, model and account key when the AI runs online.
 
 import { useTranslation } from "react-i18next";
-import { ChevronRight, KeyRound, Loader2, Trash2 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { ChevronRight, ExternalLink, KeyRound, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Row, Section, selectClass } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { isFailure, statusText } from "@/lib/status";
-import { OTHER_MODEL, inputClass } from "@/components/enhancement/constants";
+import { LLM_KEY_URLS, OTHER_MODEL, inputClass } from "@/components/enhancement/constants";
 import type { EnhancementSettings } from "@/components/enhancement/useEnhancementSettings";
 
 export function CloudSection({ s }: { s: EnhancementSettings }) {
@@ -184,6 +185,16 @@ export function CloudSection({ s }: { s: EnhancementSettings }) {
             </span>
           )}
           <span className="text-xs text-muted-foreground">{t("ai.keyNote")}</span>
+          {LLM_KEY_URLS[currentProvider.id] && (
+            <button
+              type="button"
+              onClick={() => openUrl(LLM_KEY_URLS[currentProvider.id]).catch(console.error)}
+              className="inline-flex items-center gap-1 self-start text-xs font-semibold text-foreground underline underline-offset-[3px]"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {t("aiModels.getApiKey")}
+            </button>
+          )}
         </Block>
       )}
 
