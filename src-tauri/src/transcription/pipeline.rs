@@ -23,7 +23,7 @@ use crate::audio::feedback::{self, Cue};
 use crate::paste::paste_at_cursor;
 use crate::services::api_keys;
 use crate::text_processing::{
-    filler_words, filter as output_filter, formatter as text_formatter,
+    filler_words, filter as output_filter, formatter as text_formatter, spoken,
     word_replacement as word_replacer,
 };
 use crate::transcription::{
@@ -50,6 +50,8 @@ pub const DEFAULT_KEEP_ALIVE_SECS: u64 = 300;
 const RESTORE_CLIPBOARD_KEY: &str = "restore_clipboard_after_paste";
 const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
+const SPOKEN_COMMANDS_KEY: &str = "spoken_commands_enabled";
+const SPOKEN_PUNCTUATION_KEY: &str = "spoken_punctuation_enabled";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -462,6 +464,30 @@ pub fn get_text_formatting_enabled(app: &AppHandle) -> bool {
         .get(TEXT_FORMATTING_KEY)
         .and_then(|v| v.as_bool())
         .unwrap_or(true)
+}
+
+/// Parlato : "new line", "new paragraph", "scratch that" (text_processing/
+/// spoken.rs). Actif par defaut.
+pub fn get_spoken_commands_enabled(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return true;
+    };
+    store
+        .get(SPOKEN_COMMANDS_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
+}
+
+/// Parlato : "comma", "period", "question mark"... dits a voix haute.
+/// Inactif par defaut (un mot comme "period" se dit aussi dans une phrase).
+pub fn get_spoken_punctuation_enabled(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return false;
+    };
+    store
+        .get(SPOKEN_PUNCTUATION_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
 }
 
 pub(crate) fn is_vad_enabled(app: &AppHandle) -> bool {
@@ -1198,6 +1224,11 @@ fn mark_enhanced_in_history(app: &AppHandle, run: &Run, enhanced: &str, enhance_
 /// Post-traitement + paste commun aux branches locale et cloud.
 /// Ordre VoiceInk TranscriptionPipeline.swift L67-100 :
 ///   filter -> trim -> formatter (si active) -> word_replacement -> paste.
+/// Parlato : la ponctuation parlee passe entre le filtre et le formateur (le
+/// formateur coupe aux fins de phrase, et le filtre retire les parentheses),
+/// les commandes vocales apres le formateur (le filtre et le formateur
+/// ecrasent les sauts de ligne), puis les mots du dictionnaire, puis le
+/// nettoyage IA et le collage.
 async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u64) -> Result<Outcome> {
     let delivery = run.delivery();
     if run.cancelled() {
@@ -1209,9 +1240,18 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         Vec::new()
     };
     let mut text = output_filter::filter(&text, &fillers);
+    let language = get_language(app);
+
+    if get_spoken_punctuation_enabled(app) {
+        text = spoken::apply(&text, language.as_deref(), spoken::Group::Punctuation);
+    }
 
     if get_text_formatting_enabled(app) {
         text = text_formatter::format(&text);
+    }
+
+    if get_spoken_commands_enabled(app) {
+        text = spoken::apply(&text, language.as_deref(), spoken::Group::Commands);
     }
 
     if let Some(db) = app.try_state::<Database>() {

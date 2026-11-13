@@ -222,7 +222,11 @@
     "deleteAllAfterWindows": "To remove the app too, then uninstall Parlato from Settings > Apps.",
     "supportLabel": "Support Parlato",
     "supportHint": "A coffee helps get Parlato signed for Windows and Mac, so nobody has to click past a warning again.",
-    "supportAlt": "Buy me a coffee"
+    "supportAlt": "Buy me a coffee",
+    "spokenLabel": "Spoken commands",
+    "spokenHint": "Say “new line”, “new paragraph” or “scratch that” (removes the last sentence) while you dictate. English phrases always work, plus the ones in your dictation language.",
+    "spokenPunctLabel": "Spoken punctuation",
+    "spokenPunctHint": "Say “comma”, “period”, “question mark” and so on to type the symbol. Uses your dictation language. Off by default, because words like “period” also occur in normal sentences."
   },
   "history": {
     "confirmDeleteCount": "Delete {{count}} transcription(s)?",

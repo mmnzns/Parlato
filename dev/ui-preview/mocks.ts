@@ -67,6 +67,8 @@ const settings: Record<string, unknown> = {
   },
   text_processing: {
     text_formatting_enabled: true,
+    spoken_commands: true,
+    spoken_punctuation: false,
     remove_filler_words: true,
     filler_words: ["uh", "um", "hmm", "you know"],
     append_trailing_space: true,
@@ -483,6 +485,8 @@ const commands: Record<string, Handler> = {
   // Text processing + settings toggles
   get_text_processing_settings: get("text_processing"),
   set_text_formatting_enabled: (a) => ret(((settings.text_processing as Record<string, unknown>).text_formatting_enabled = a?.enabled)),
+  set_spoken_commands: (a) => ret(((settings.text_processing as Record<string, unknown>).spoken_commands = a?.enabled)),
+  set_spoken_punctuation: (a) => ret(((settings.text_processing as Record<string, unknown>).spoken_punctuation = a?.enabled)),
   set_remove_filler_words: (a) => ret(((settings.text_processing as Record<string, unknown>).remove_filler_words = a?.enabled)),
   set_filler_words: (a) => ret(((settings.text_processing as Record<string, unknown>).filler_words = a?.words)),
   set_append_trailing_space: (a) => ret(((settings.text_processing as Record<string, unknown>).append_trailing_space = a?.enabled)),

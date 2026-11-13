@@ -125,6 +125,10 @@ export type UpdateWordReplacement = {
 
 export type TextProcessingSettings = {
   text_formatting_enabled: boolean;
+  /** "new line", "new paragraph", "scratch that" (on by default). */
+  spoken_commands: boolean;
+  /** "comma", "period", "question mark"... (off by default). */
+  spoken_punctuation: boolean;
   remove_filler_words: boolean;
   filler_words: string[];
   append_trailing_space: boolean;
@@ -417,6 +421,8 @@ export const api = {
     invoke<TextProcessingSettings>("get_text_processing_settings"),
   setTextFormattingEnabled: (enabled: boolean) =>
     invoke<void>("set_text_formatting_enabled", { enabled }),
+  setSpokenCommands: (enabled: boolean) => invoke<void>("set_spoken_commands", { enabled }),
+  setSpokenPunctuation: (enabled: boolean) => invoke<void>("set_spoken_punctuation", { enabled }),
   setRemoveFillerWords: (enabled: boolean) =>
     invoke<void>("set_remove_filler_words", { enabled }),
   setFillerWords: (words: string[]) => invoke<void>("set_filler_words", { words }),

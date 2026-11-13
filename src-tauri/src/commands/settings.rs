@@ -26,6 +26,8 @@ pub fn emit_source_changed(app: &AppHandle) {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TextProcessingSettings {
     pub text_formatting_enabled: bool,
+    pub spoken_commands: bool,
+    pub spoken_punctuation: bool,
     pub remove_filler_words: bool,
     pub filler_words: Vec<String>,
     pub append_trailing_space: bool,
@@ -149,6 +151,8 @@ pub fn set_transcription_source(
 pub fn get_text_processing_settings(app: AppHandle) -> TextProcessingSettings {
     TextProcessingSettings {
         text_formatting_enabled: pipeline::get_text_formatting_enabled(&app),
+        spoken_commands: pipeline::get_spoken_commands_enabled(&app),
+        spoken_punctuation: pipeline::get_spoken_punctuation_enabled(&app),
         remove_filler_words: filler_words::is_enabled(&app),
         filler_words: filler_words::current_list(&app),
         append_trailing_space: pipeline::get_append_trailing_space(&app),
@@ -163,6 +167,20 @@ pub fn set_text_formatting_enabled(app: AppHandle, enabled: bool) -> Result<(), 
         "text_formatting_enabled",
         serde_json::Value::Bool(enabled),
     );
+    store.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_spoken_commands(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
+    store.set("spoken_commands_enabled", serde_json::Value::Bool(enabled));
+    store.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_spoken_punctuation(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
+    store.set("spoken_punctuation_enabled", serde_json::Value::Bool(enabled));
     store.save().map_err(|e| e.to_string())
 }
 

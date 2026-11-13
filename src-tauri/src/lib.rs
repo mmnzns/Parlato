@@ -53,7 +53,7 @@ use commands::settings::{
     set_dictation_language, set_filler_words, set_model_keep_alive, set_remove_filler_words,
     set_restore_clipboard_after_paste, set_selected_input_device, set_selected_whisper_model,
     set_sound_feedback_enabled, set_system_mute_enabled,
-    set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
+    set_spoken_commands, set_spoken_punctuation, set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
     set_speech_threads, set_use_gpu,
 };
 use commands::transcription::{transcribe_file, transcribe_wav, WhisperEngineState};
@@ -329,6 +329,8 @@ pub fn run() {
             set_speech_threads,
             get_text_processing_settings,
             set_text_formatting_enabled,
+            set_spoken_commands,
+            set_spoken_punctuation,
             set_remove_filler_words,
             set_filler_words,
             set_append_trailing_space,

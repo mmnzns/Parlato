@@ -222,7 +222,11 @@
     "deleteAllAfterWindows": "Para quitar también la app, desinstala luego Parlato desde Configuración > Aplicaciones.",
     "supportLabel": "Apoyar Parlato",
     "supportHint": "Un café ayuda a firmar Parlato para Windows y Mac, para que nadie tenga que saltarse un aviso de nuevo.",
-    "supportAlt": "Invítame a un café"
+    "supportAlt": "Invítame a un café",
+    "spokenLabel": "Comandos de voz",
+    "spokenHint": "Di «nueva línea», «nuevo párrafo» o «borra eso» (quita la última frase) mientras dictas. Las frases en inglés siempre funcionan, además de las del idioma en que dictas.",
+    "spokenPunctLabel": "Puntuación hablada",
+    "spokenPunctHint": "Di «coma», «punto», «signo de interrogación», etc. para escribir el símbolo. Usa el idioma en que dictas. Desactivado por defecto, porque palabras como «punto» también aparecen en frases normales."
   },
   "history": {
     "confirmDeleteCount": "¿Eliminar {{count}} transcripción(es) ?",
