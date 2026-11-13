@@ -148,6 +148,12 @@ pub fn ensure_open(app: &AppHandle) {
         .shadow(false)
         .transparent(true);
 
+    // Parlato (macOS) : created hidden, turned into a non-activating panel,
+    // placed, and only then shown, so it never flashes on the wrong Space or
+    // activates the app first.
+    #[cfg(target_os = "macos")]
+    let builder = builder.visible(false);
+
     let window = match builder.build() {
         Ok(w) => w,
         Err(e) => {
@@ -158,6 +164,8 @@ pub fn ensure_open(app: &AppHandle) {
 
     apply_no_activate_style(&window);
     reposition(&window, style);
+    #[cfg(target_os = "macos")]
+    let _ = window.show();
     debug!(style = style.as_str(), "Fenetre recorder creee");
     ensure_popover_window(app);
 }
@@ -220,9 +228,11 @@ fn apply_no_activate_style(window: &tauri::WebviewWindow) {
     }
     // Parlato : on macOS, keep the pill on every Space (desktop), so it
     // follows the user instead of staying on the Space it opened on.
+    // Parlato : and make it a non-activating panel that floats over
+    // full-screen apps (mini_recorder_macos.rs).
     #[cfg(target_os = "macos")]
     {
-        let _ = window.set_visible_on_all_workspaces(true);
+        crate::mini_recorder_macos::make_floating_panel(window, window.label() == POPOVER_LABEL);
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     {
