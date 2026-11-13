@@ -30,7 +30,7 @@ use core_graphics::event::{
 };
 use tracing::{debug, info, warn};
 
-use super::{handle_key, HookContext, HotkeyEvent, HotkeyTrigger, HOOK_CONTEXT};
+use super::{handle_key, HookContext, HotkeyEvent, HotkeyTrigger, HOOK_CONTEXT, VK_FN};
 
 /// Tag put in EVENT_SOURCE_USER_DATA on the events Parlato posts itself
 /// (the Cmd+V of a paste), so its own tap ignores them.
@@ -46,6 +46,12 @@ const NX_DEVICERCMDKEYMASK: u64 = 0x0000_0010;
 const NX_DEVICELALTKEYMASK: u64 = 0x0000_0020;
 const NX_DEVICERALTKEYMASK: u64 = 0x0000_0040;
 const NX_DEVICERCTLKEYMASK: u64 = 0x0000_2000;
+// Parlato 0.16: the Fn / Globe key has no device-dependent bit, only the
+// device-independent "secondary fn" flag (kCGEventFlagMaskSecondaryFn).
+const SECONDARY_FN_MASK: u64 = 0x0080_0000;
+/// macOS key code of Caps Lock (kVK_CapsLock). It only arrives as
+/// FlagsChanged, once per press, with no separate release.
+const KEYCODE_CAPS_LOCK: u16 = 57;
 
 /// Mach port of the live tap, so the callback can re-enable it when macOS
 /// disables it (callback too slow, or secure input).
@@ -174,6 +180,17 @@ fn on_event(_proxy: CGEventTapProxy, etype: CGEventType, event: &CGEvent) -> Cal
         }
         CGEventType::FlagsChanged => {
             let code = event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as u16;
+            // Parlato 0.16: Caps Lock gives one event per press (the key is a
+            // latch, macOS never reports its release), so feed the shared
+            // logic a press and an instant release. It cannot be swallowed
+            // here: the tap runs above the keyboard driver, the Caps Lock
+            // state still toggles (the UI warns about it). So it works as a
+            // tap key, not as hold-to-talk (validate() refuses that mode).
+            if code == KEYCODE_CAPS_LOCK {
+                let _ = handle_key(ctx, 0x14, true);
+                let _ = handle_key(ctx, 0x14, false);
+                return CallbackResult::Keep;
+            }
             let Some((vk, mask)) = modifier_for_keycode(code) else {
                 return CallbackResult::Keep;
             };
@@ -233,8 +250,11 @@ fn release_stale_modifiers(ctx: &HookContext, flags: u64) {
     }
     let stale: Vec<u32> = {
         let watched = ctx.watched.lock();
+        // Parlato 0.16: Fn is checked with the others (its flag is the
+        // secondary-fn bit) but is not part of the device-bit test above.
         ALL_MODIFIERS
             .iter()
+            .chain(std::iter::once(&(VK_FN, SECONDARY_FN_MASK)))
             .filter(|(vk, mask)| watched.key_state[*vk as usize] && flags & mask == 0)
             .map(|(vk, _)| *vk)
             .collect()
@@ -255,6 +275,7 @@ fn modifier_for_keycode(code: u16) -> Option<(u32, u64)> {
         60 => (0xA1, NX_DEVICERSHIFTKEYMASK), // Right Shift   -> VK_RSHIFT
         55 => (0x5B, NX_DEVICELCMDKEYMASK), // Left Command  -> VK_LWIN
         54 => (0x5C, NX_DEVICERCMDKEYMASK), // Right Command -> VK_RWIN
+        63 => (VK_FN, SECONDARY_FN_MASK),   // Fn / Globe -> private VK_FN
         _ => return None,
     })
 }
@@ -376,7 +397,7 @@ fn mac_keycode_to_vk(code: u16) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{mac_keycode_to_vk, modifier_for_keycode};
+    use super::{mac_keycode_to_vk, modifier_for_keycode, KEYCODE_CAPS_LOCK, SECONDARY_FN_MASK, VK_FN};
 
     #[test]
     fn maps_letters_digits_and_escape() {
@@ -391,7 +412,11 @@ mod tests {
     fn maps_right_option_and_command() {
         assert_eq!(modifier_for_keycode(61).map(|m| m.0), Some(0xA5)); // Right Option
         assert_eq!(modifier_for_keycode(54).map(|m| m.0), Some(0x5C)); // Right Command
-        assert_eq!(modifier_for_keycode(63), None); // Fn: not supported yet
+        // Fn / Globe (0.16) and an unknown key code.
+        assert_eq!(modifier_for_keycode(63), Some((VK_FN, SECONDARY_FN_MASK)));
+        assert_eq!(modifier_for_keycode(99), None);
+        // Caps Lock is handled before the modifier table.
+        assert_eq!(modifier_for_keycode(KEYCODE_CAPS_LOCK), None);
     }
 
     #[test]
