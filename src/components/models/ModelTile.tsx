@@ -16,6 +16,7 @@ export function ModelTile({
   kind,
   local,
   pick,
+  recommended,
   name,
   tech,
   description,
@@ -34,6 +35,8 @@ export function ModelTile({
   /** Parlato: plain title ("Best for English"); the model name then moves
    *  to the small line under it in place of the technical id. */
   pick?: string;
+  /** Parlato: tagged "Recommended" for the language the person speaks. */
+  recommended?: boolean;
   name: string;
   tech?: string;
   description?: string;
@@ -66,7 +69,10 @@ export function ModelTile({
       )}
 
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-display text-[15px] leading-5 font-bold">{pick ?? name}</span>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-display text-[15px] leading-5 font-bold">{pick ?? name}</span>
+          {recommended && <RecommendedTag />}
+        </span>
         {pick ? (
           <span className="truncate font-mono text-[11px] text-muted-foreground">{name}</span>
         ) : (
@@ -106,6 +112,16 @@ export function ModelTile({
         {children}
       </div>
     </div>
+  );
+}
+
+/** Small tag on the model Parlato suggests. */
+export function RecommendedTag() {
+  const { t } = useTranslation();
+  return (
+    <span className="rounded-full bg-highlight px-2 py-px text-[11px] leading-4 font-semibold text-[#141416]">
+      {t("speech.recommended")}
+    </span>
   );
 }
 

@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Row, Switch } from "@/components/ui/section";
+import { DictationLanguagePanel } from "@/components/DictationLanguagePanel";
 import { HotkeyCard } from "@/components/HotkeyCard";
 import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { ModelsPage } from "@/components/ModelsPage";
@@ -58,6 +59,11 @@ export function Onboarding({
   const setup = useSetupStatus(step);
   const modelInUse = setup?.model ?? null;
   const [micError, setMicError] = useState<string | null>(null);
+  // The language the person speaks: asked first on the model step, it decides
+  // which model carries the Recommended tag.
+  const [language, setLanguage] = useState("auto");
+  // Continue waits for a speech model that is really in use (Skip does not).
+  const needsModel = step === "model" && !!setup && !modelInUse;
 
   const copy: Record<Step, { label: string; title: string; desc: string }> = {
     access: { label: t("ob.accessLabel"), title: t("ob.accessTitle"), desc: t("ob.accessDesc") },
@@ -160,12 +166,18 @@ export function Onboarding({
             )}
             {step === "model" && (
               <>
-                {setup && !modelInUse && (
-                  <p role="status" className="text-sm font-semibold">
-                    {t("ob.modelNone")}
-                  </p>
-                )}
-                <ModelsPage selectedModelId={selectedModelId} onSelectModel={onSelectModel} />
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border-[1.5px] border-edge bg-card px-5 py-4">
+                  <label htmlFor="ob-language" className="font-display text-[15px] leading-5 font-bold">
+                    {t("ob.languageQuestion")}
+                  </label>
+                  <DictationLanguagePanel bare id="ob-language" onLanguage={setLanguage} />
+                </div>
+                <ModelsPage
+                  selectedModelId={selectedModelId}
+                  onSelectModel={onSelectModel}
+                  language={language}
+                  hideLanguagePicker
+                />
               </>
             )}
             {step === "key" && <HotkeyCard />}
@@ -193,6 +205,11 @@ export function Onboarding({
               />
             ))}
           </div>
+          {needsModel && (
+            <span role="status" className="max-w-[260px] text-right text-xs text-muted-foreground">
+              {t("ob.modelNone")}
+            </span>
+          )}
           {!last && (
             <Button variant="ghost" size="sm" onClick={finish}>
               {t("ob.skip")}
@@ -201,7 +218,7 @@ export function Onboarding({
           <Button variant="outline" size="sm" onClick={() => setIndex((i) => i - 1)} disabled={index === 0}>
             {t("ob.back")}
           </Button>
-          <Button size="sm" onClick={() => (last ? finish() : setIndex((i) => i + 1))}>
+          <Button size="sm" disabled={needsModel} onClick={() => (last ? finish() : setIndex((i) => i + 1))}>
             {last ? t("ob.start") : t("ob.continue")}
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
