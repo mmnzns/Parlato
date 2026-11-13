@@ -48,6 +48,7 @@ export function RecorderRecordButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-label={title}
       className="ml-2.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors duration-150 disabled:cursor-default"
       style={{
         background: colors.surface,

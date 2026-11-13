@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   api,
@@ -18,7 +18,14 @@ import {
 /// `setHoverPopover` is fed by the "recorder:popover-hover" listener, which
 /// lives in the same effect as the other listeners.
 export function useRecorderState(setHoverPopover: (hovering: boolean) => void) {
-  const [stage, setStage] = useState<Stage>("recording");
+  const [stage, setStageState] = useState<Stage>("recording");
+  // Parlato: the listeners below live in a one-shot effect, so they read the
+  // current stage through this ref.
+  const stageRef = useRef<Stage>("recording");
+  const setStage = (s: Stage) => {
+    stageRef.current = s;
+    setStageState(s);
+  };
   const [meterDb, setMeterDb] = useState<number>(-160);
   const [escapeHint, setEscapeHint] = useState(false);
   const [powerSession, setPowerSession] = useState<PowerSession | null>(null);
@@ -47,6 +54,15 @@ export function useRecorderState(setHoverPopover: (hovering: boolean) => void) {
 
     let hintTimer: number | null = null;
     const unlistens = [
+      // Parlato: the pill window is reused between dictations, so a new
+      // recording must wipe whatever the previous one left (a failure text,
+      // a notice, the transcribing stage) instead of showing it stale.
+      listen("recording:started", () => {
+        setFailure("");
+        setNotice(null);
+        setEscapeHint(false);
+        setStage("recording");
+      }),
       listen("recording:stopped", () => {
         setStage("transcribing");
         setEscapeHint(false);
@@ -57,14 +73,31 @@ export function useRecorderState(setHoverPopover: (hovering: boolean) => void) {
         // Parlato: only this dictation's events, not a file being
         // transcribed in the background.
         if (p.job !== "dictation") return;
-        if (p.state === "transcribing") setStage("transcribing");
-        else if (p.state === "enhancing") setStage("enhancing");
-        else if (p.state === "failed") {
-          setFailure(p.message ?? "");
-          setStage("failed");
-        } else if (p.state === "done" && !p.text) setStage("empty");
-        // pasting / done -> VoiceInk dismiss directement sans afficher de
-        // badge. On laisse le stage precedent jusqu'au close.
+        const apply = () => {
+          if (p.state === "transcribing") setStage("transcribing");
+          else if (p.state === "enhancing") setStage("enhancing");
+          else if (p.state === "failed") {
+            setFailure(p.message ?? "");
+            setStage("failed");
+          } else if (p.state === "done" && !p.text) setStage("empty");
+          // pasting / done -> VoiceInk dismiss directement sans afficher de
+          // badge. On laisse le stage precedent jusqu'au close.
+        };
+        // Parlato: while a NEW recording is on, an event can only come from
+        // the previous dictation still being processed, and must not replace
+        // the recording stage. The stage alone is not proof (a very short
+        // dictation can end before this window listened to "recording:
+        // stopped"), so the backend is asked.
+        if (stageRef.current === "recording") {
+          api
+            .isRecording()
+            .then((recording) => {
+              if (!recording) apply();
+            })
+            .catch(() => apply());
+          return;
+        }
+        apply();
       }),
       listen("recorder:notice", () => {
         api.takeRecorderNotice().then(showNotice).catch(console.error);

@@ -193,6 +193,7 @@ export function MiniRecorderView() {
               else openPopover();
             }}
             title={powerSession?.config_name ?? t("miniRecorder.powerMode")}
+            aria-label={powerSession?.config_name ?? t("miniRecorder.powerMode")}
             className={cn(
               // Parlato: no highlight on hover, the pill looks the same with the picker open.
               "mr-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full",
