@@ -32,6 +32,7 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:noWhisper$/, { i18nKey: "errors.noWhisper" }],
   [/^PARLA_ERR:interrupted$/, { i18nKey: "errors.interrupted" }],
   [/^PARLA_ERR:pasteFailed$/, { i18nKey: "errors.pasteFailed" }],
+  [/^PARLA_ERR:copyFailed$/, { i18nKey: "errors.copyFailed" }],
   [/^PARLA_ERR:apiKeyRejected$/, { i18nKey: "errors.apiKeyRejected" }],
   [/^PARLA_ERR:aiNotConfigured$/, { i18nKey: "errors.aiNotConfigured" }],
   [/^PARLA_ERR:fileUnsupported$/, { i18nKey: "errors.fileUnsupported" }],

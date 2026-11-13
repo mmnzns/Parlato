@@ -140,6 +140,7 @@ export type RecorderNotice =
   | { kind: "retryStarted" }
   | { kind: "retryDone" }
   | { kind: "gpuFallback" }
+  | { kind: "aiSkipped" }
   | { kind: "failed"; detail: string };
 
 export type LLMProviderInfo = {

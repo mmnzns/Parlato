@@ -722,10 +722,9 @@ async fn finish_dictation(
 }
 
 /// Parlato : code montre quand seule la copie dans le presse-papiers echoue.
-/// Pas de code dedie dans `translateError.ts` pour l'instant : on reutilise
-/// `transcriptionFailed` ("Use Transcribe again"), le texte est dans
-/// l'historique.
-const COPY_FAILED_CODE: &str = "PARLA_ERR:transcriptionFailed";
+/// Code dedie (`errors.copyFailed` dans `translateError.ts`) : la
+/// transcription a reussi et le texte est dans l'historique.
+const COPY_FAILED_CODE: &str = "PARLA_ERR:copyFailed";
 
 /// Duree d'affichage d'un echec dans la bulle.
 const FAILED_PILL_MS: u64 = 3500;

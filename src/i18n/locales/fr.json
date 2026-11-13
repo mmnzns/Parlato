@@ -437,6 +437,7 @@
     "fileTooLong": "Ce fichier dépasse 2 heures. Coupez-le en parties plus courtes.",
     "interrupted": "Parlato a été fermé avant la fin de cette dictée. Utilisez « Retranscrire » pour réessayer.",
     "pasteFailed": "Impossible de coller dans cette application. Le texte est dans le presse-papiers, prêt à être collé.",
+    "copyFailed": "Impossible de copier dans le presse-papiers. Le texte est enregistré dans l'Historique.",
     "assemblyaiRealtimeOnly": "Universal-3.6 Pro ne prend en charge cette langue qu'en direct, et la connexion en direct a échoué. Pour transcrire cet enregistrement, choisissez une autre langue ou un autre modèle.",
     "downloadOffline": "Pas de connexion au serveur de téléchargement. Vérifiez votre connexion internet et réessayez.",
     "downloadRefused": "Le serveur de téléchargement a refusé la demande (erreur {{status}}). Réessayez plus tard.",

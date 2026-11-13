@@ -437,6 +437,7 @@
     "fileTooLong": "Este archivo dura más de 2 horas. Divídelo en partes más cortas.",
     "interrupted": "Parlato se cerró antes de terminar este dictado. Usa «Transcribir de nuevo» para intentarlo otra vez.",
     "pasteFailed": "No se pudo pegar en esta aplicación. El texto está en el portapapeles, listo para pegar.",
+    "copyFailed": "No se pudo copiar al portapapeles. El texto está guardado en el Historial.",
     "assemblyaiRealtimeOnly": "Universal-3.6 Pro solo admite este idioma en vivo, y la conexión en vivo falló. Para transcribir esta grabación, elige otro idioma u otro modelo.",
     "downloadOffline": "Sin conexión con el servidor de descarga. Revisa tu conexión a internet e inténtalo de nuevo.",
     "downloadRefused": "El servidor de descarga rechazó la solicitud (error {{status}}). Inténtalo más tarde.",
