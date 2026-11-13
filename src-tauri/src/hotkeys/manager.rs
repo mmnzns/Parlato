@@ -713,6 +713,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_refused_start_reset_leaves_ptt_release_silent() {
+        // engine::start refused (review editor open): it resets the state.
+        let m = ptt();
+        let t0 = Instant::now();
+        assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
+        m.mark_recording_state(false);
+        assert_eq!(
+            m.handle_event(released(t0 + ms(1500))),
+            None,
+            "release must not stop a recording that never started"
+        );
+    }
+
+    #[test]
+    fn a_refused_start_reset_lets_toggle_start_on_next_press() {
+        let m = HotkeyManager::with_modes(HotkeyMode::Toggle, HotkeyMode::Toggle);
+        let t0 = Instant::now();
+        assert_eq!(m.handle_event(pressed(t0)), Some(HotkeyAction::StartRecording));
+        m.mark_recording_state(false);
+        m.handle_event(released(t0 + ms(100)));
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(900))),
+            Some(HotkeyAction::StartRecording),
+            "one press starts again, no extra press to stop a ghost"
+        );
+    }
+
     // -- Double-tap (0.16) ---------------------------------------------------
 
     fn ms(n: u64) -> Duration {

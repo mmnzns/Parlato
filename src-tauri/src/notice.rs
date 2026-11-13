@@ -99,6 +99,16 @@ pub fn flush_after_dictation(app: &AppHandle) {
     }
 }
 
+/// Numero de bulle de la derniere notice montree.
+static SHOWN_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// La bulle appartient-elle encore a la derniere notice (personne ne l'a
+/// rouverte depuis) ? Un arret sans enregistrement ne doit pas la fermer.
+pub fn is_showing() -> bool {
+    let shown = SHOWN_GENERATION.load(std::sync::atomic::Ordering::SeqCst);
+    shown != 0 && mini_recorder::generation() == shown
+}
+
 /// Montre `notice` dans la bulle pendant quelques secondes. Ne fait rien
 /// pendant un enregistrement : la bulle est alors occupee. Retourne `true`
 /// si le message a ete montre.
@@ -109,6 +119,7 @@ pub fn send(app: &AppHandle, notice: Notice) -> bool {
     }
     *PENDING.lock() = Some(notice.clone());
     let generation = mini_recorder::show_for_notice(app);
+    SHOWN_GENERATION.store(generation, std::sync::atomic::Ordering::SeqCst);
     let _ = app.emit("recorder:notice", &notice);
     let app = app.clone();
     std::thread::spawn(move || {

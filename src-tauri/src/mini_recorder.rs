@@ -232,7 +232,7 @@ fn apply_no_activate_style(window: &tauri::WebviewWindow) {
     // full-screen apps (mini_recorder_macos.rs).
     #[cfg(target_os = "macos")]
     {
-        crate::mini_recorder_macos::make_floating_panel(window, window.label() == POPOVER_LABEL);
+        crate::mini_recorder_macos::make_floating_panel(window, window.label() == POPOVER_LABEL, false);
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     {

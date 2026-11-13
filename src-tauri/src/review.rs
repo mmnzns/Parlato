@@ -23,6 +23,12 @@
 // Historique : le texte corrige a la main va dans `edited_text` (meme colonne
 // que la correction depuis l'historique), seulement s'il a change.
 //
+// Garde-fous : si la fenetre ne peut pas etre creee, ou si sa page ne se
+// signale pas (`review_text`, appelee au montage) dans les `READY_TIMEOUT`,
+// le texte est colle normalement (comme sans "Review before pasting") au
+// lieu de rester dans une fenetre morte qui bloquerait les dictees. Le
+// bouton Coller / Entree reste inactif tant que le texte n'est pas charge.
+//
 // Une nouvelle dictee est refusee tant que l'editeur est ouvert (`is_open`) :
 // la cible du collage memorisee ne doit pas etre ecrasee par l'editeur.
 
@@ -47,6 +53,8 @@ const HEIGHT: f64 = 250.0;
 /// Laisse la fenetre rendre le premier plan avant de coller.
 const CLOSE_SETTLE: Duration = Duration::from_millis(80);
 const MODIFIER_RELEASE: Duration = Duration::from_millis(500);
+/// Delai accorde a la page pour monter et demander son texte.
+const READY_TIMEOUT: Duration = Duration::from_secs(5);
 
 struct Pending {
     /// Numero de cette ouverture : une fermeture tardive d'une ancienne
@@ -57,6 +65,8 @@ struct Pending {
     history_id: Option<String>,
     /// Touche d'envoi du Power mode de la dictee, pressee apres le collage.
     send: AutoSendKey,
+    /// La page a demande son texte (elle est montee et le montre).
+    ready: bool,
 }
 
 static PENDING: Mutex<Option<Pending>> = Mutex::new(None);
@@ -84,7 +94,7 @@ pub fn open(app: &AppHandle, text: String, history_id: Option<String>, send: Aut
     if let Some(old) = app.get_webview_window(LABEL) {
         let _ = old.close();
     }
-    *PENDING.lock() = Some(Pending { generation, text, history_id, send });
+    *PENDING.lock() = Some(Pending { generation, text, history_id, send, ready: false });
     set_keyboard(true);
 
     let url = WebviewUrl::App("index.html#recorder-review".into());
@@ -102,16 +112,15 @@ pub fn open(app: &AppHandle, text: String, history_id: Option<String>, send: Aut
         Ok(w) => w,
         Err(e) => {
             warn!("Impossible de creer la fenetre de relecture: {e}");
-            // Rien ne s'affiche : on ne perd pas la dictee (elle est dans
-            // l'historique) et on ne bloque pas les suivantes.
-            PENDING.lock().take();
-            set_keyboard(false);
+            // Rien ne s'affiche : repli sur un collage normal (le texte est
+            // aussi dans l'historique) ; les dictees suivantes ne sont pas bloquees.
+            fall_back_to_paste(app, generation);
             return;
         }
     };
     #[cfg(target_os = "macos")]
     {
-        crate::mini_recorder_macos::make_floating_panel(&window, true);
+        crate::mini_recorder_macos::make_floating_panel(&window, true, true);
         // If the panel class could not be installed, fall back to tao's own
         // flag so the field can still take keys.
         let _ = window.set_focusable(true);
@@ -139,6 +148,41 @@ pub fn open(app: &AppHandle, text: String, history_id: Option<String>, send: Aut
         }
     });
     info!("editeur de relecture ouvert");
+
+    // Failsafe: a page that never mounts must not block dictation forever.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(READY_TIMEOUT);
+        let stuck = PENDING
+            .lock()
+            .as_ref()
+            .is_some_and(|p| p.generation == generation && !p.ready);
+        if stuck {
+            warn!("la fenetre de relecture ne s'est pas signalee, repli sur le collage");
+            fall_back_to_paste(&app, generation);
+        }
+    });
+}
+
+/// Ferme l'editeur de l'ouverture `generation` (s'il est encore la) et colle
+/// son texte normalement.
+fn fall_back_to_paste(app: &AppHandle, generation: u64) {
+    let pending = {
+        let mut slot = PENDING.lock();
+        if slot.as_ref().is_some_and(|p| p.generation == generation) {
+            slot.take()
+        } else {
+            None
+        }
+    };
+    let Some(pending) = pending else {
+        return;
+    };
+    close_window(app);
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        deliver(&app, pending.text, pending.send).await;
+    });
 }
 
 fn close_window(app: &AppHandle) {
@@ -151,7 +195,10 @@ fn close_window(app: &AppHandle) {
 /// Le texte a relire (la fenetre le demande au montage).
 #[tauri::command]
 pub fn review_text() -> Option<String> {
-    PENDING.lock().as_ref().map(|p| p.text.clone())
+    let mut slot = PENDING.lock();
+    let pending = slot.as_mut()?;
+    pending.ready = true;
+    Some(pending.text.clone())
 }
 
 /// Entree / bouton Coller : colle `text` dans l'application d'origine.
@@ -168,13 +215,18 @@ pub async fn review_paste(app: AppHandle, text: String) -> Result<(), String> {
     if text.trim() != pending.text.trim() {
         save_edit(&app, pending.history_id.as_deref(), &text);
     }
-    let restore = pipeline::get_restore_clipboard(&app);
-    let to_paste = if pipeline::get_append_trailing_space(&app) {
+    deliver(&app, text, pending.send).await;
+    Ok(())
+}
+
+/// Colle `text` dans l'application d'origine (la fenetre est deja fermee).
+async fn deliver(app: &AppHandle, text: String, send: AutoSendKey) {
+    let restore = pipeline::get_restore_clipboard(app);
+    let to_paste = if pipeline::get_append_trailing_space(app) {
         format!("{text} ")
     } else {
         text
     };
-    let send = pending.send;
     let pasted = tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<()> {
         std::thread::sleep(CLOSE_SETTLE);
         // A still-held modifier (Cmd+Enter) would merge into the paste.
@@ -189,14 +241,13 @@ pub async fn review_paste(app: AppHandle, text: String) -> Result<(), String> {
     })
     .await;
     match pasted {
-        Ok(Ok(())) => feedback::play(&app, Cue::Stop),
+        Ok(Ok(())) => feedback::play(app, Cue::Stop),
         Ok(Err(e)) => {
             warn!("review paste: {e}");
-            crate::notice::send(&app, crate::notice::Notice::Failed("PARLA_ERR:pasteFailed".into()));
+            crate::notice::send(app, crate::notice::Notice::Failed("PARLA_ERR:pasteFailed".into()));
         }
         Err(e) => warn!("review paste join: {e}"),
     }
-    Ok(())
 }
 
 /// Echap / bouton Annuler : rien n'est colle, le texte reste dans l'historique.

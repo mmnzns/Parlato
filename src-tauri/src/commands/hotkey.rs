@@ -142,7 +142,10 @@ pub fn set_hotkey_config(
     state: State<HotkeyManagerState>,
     config: HotkeyConfig,
 ) -> Result<(), String> {
-    validate(&config)?;
+    // A shortcut the person already had is not re-checked against the system
+    // list (it may have become reserved in 0.16): see `validate_with`.
+    let saved = load(&app);
+    validate_with(&config, Some(&saved), cfg!(target_os = "macos"))?;
     persist(&app, &config)?;
     apply_live(&state.0, &config);
     crate::tray::refresh(&app);
@@ -225,12 +228,19 @@ fn standalone_allowed(vk: u32) -> bool {
 ///  - `PARLA_ERR:shortcutUnsupported:<action>` : touche absente de cette
 ///    plateforme (Left Win / Menu sur Mac, Fn sur Windows).
 ///  - `PARLA_ERR:shortcutCapsHold:<action>` : Caps Lock en Hold-to-talk sur Mac.
+#[cfg(test)]
 pub fn validate(cfg: &HotkeyConfig) -> Result<(), String> {
     validate_on(cfg, cfg!(target_os = "macos"))
 }
 
 /// `validate` pour une plateforme donnee (les tests couvrent les deux).
+#[cfg(test)]
 fn validate_on(cfg: &HotkeyConfig, mac: bool) -> Result<(), String> {
+    validate_with(cfg, None, mac)
+}
+
+/// Every (name, trigger) pair of a config, unset ones included.
+fn named_triggers(cfg: &HotkeyConfig) -> Vec<(&'static str, HotkeyTrigger)> {
     let mut entries: Vec<(&'static str, HotkeyTrigger)> = vec![
         ("primary", cfg.primary.trigger),
         ("secondary", cfg.secondary.trigger),
@@ -239,6 +249,18 @@ fn validate_on(cfg: &HotkeyConfig, mac: bool) -> Result<(), String> {
     for a in UtilityAction::ALL {
         entries.push((action_id(a), cfg.actions.trigger_for(a)));
     }
+    entries
+}
+
+/// `validate_on`, with the config currently saved. A system shortcut that is
+/// UNCHANGED from `saved` is let through (grandfathered): a 0.15 person whose
+/// utility sits on Ctrl+C would otherwise be unable to save anything on that
+/// card. Only a newly set or changed shortcut is refused. No warning is shown
+/// for the grandfathered ones (there is no place for it in the card), it is
+/// only logged.
+fn validate_with(cfg: &HotkeyConfig, saved: Option<&HotkeyConfig>, mac: bool) -> Result<(), String> {
+    let saved_entries = saved.map(named_triggers).unwrap_or_default();
+    let entries = named_triggers(cfg);
     let entries: Vec<(&'static str, HotkeyTrigger)> = entries
         .into_iter()
         .filter(|(_, t)| !matches!(t, HotkeyTrigger::None))
@@ -280,7 +302,13 @@ fn validate_on(cfg: &HotkeyConfig, mac: bool) -> Result<(), String> {
                     reserved::reserved_windows(*vk, *ctrl, *alt, *shift, *win)
                 };
                 if let Some(id) = reserved {
-                    return Err(format!("PARLA_ERR:shortcutSystem:{name}:{id}"));
+                    let unchanged = saved_entries
+                        .iter()
+                        .any(|(n, t)| n == name && t == trigger);
+                    if !unchanged {
+                        return Err(format!("PARLA_ERR:shortcutSystem:{name}:{id}"));
+                    }
+                    tracing::warn!(shortcut = %name, id, "raccourci systeme conserve (deja enregistre)");
                 }
                 // Echap seul comme touche de dictee : le double-Echap qui
                 // annule l'enregistrement ne peut plus exister (chaque Echap
@@ -650,6 +678,38 @@ mod tests {
                 format!("PARLA_ERR:shortcutSystem:openHistory:{id}")
             );
         }
+    }
+
+    #[test]
+    fn an_unchanged_system_shortcut_is_grandfathered_but_a_new_one_is_not() {
+        // 0.15 person: open-history utility on Ctrl+C, saved before the list.
+        let ctrl_c = combo(0x43, true, false, false);
+        let mut saved = HotkeyConfig::defaults();
+        saved.actions.open_history = ctrl_c;
+
+        // Editing another field of the card keeps Ctrl+C and saves.
+        let mut edited = saved.clone();
+        edited.actions.copy_last_transcription = combo(0x7C, false, false, false);
+        assert!(validate_with(&edited, Some(&saved), WIN).is_ok());
+
+        // Changing it to another reserved shortcut is refused.
+        let mut changed = saved.clone();
+        changed.actions.open_history = combo(0x56, true, false, false);
+        assert_eq!(
+            validate_with(&changed, Some(&saved), WIN).unwrap_err(),
+            "PARLA_ERR:shortcutSystem:openHistory:ctrlV"
+        );
+
+        // The same Ctrl+C on a DIFFERENT action is new there: refused.
+        let mut moved = saved.clone();
+        moved.actions.copy_last_transcription = ctrl_c;
+        assert_eq!(
+            validate_with(&moved, Some(&saved), WIN).unwrap_err(),
+            "PARLA_ERR:shortcutSystem:copyLast:ctrlC"
+        );
+
+        // Without a saved config (first save) it is refused as before.
+        assert!(validate_with(&saved, None, WIN).is_err());
     }
 
     #[test]

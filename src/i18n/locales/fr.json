@@ -869,7 +869,7 @@
     "wordPlaceholder": "Tapez un mot, puis Entrée",
     "removeWord": "Retirer {{word}}",
     "replTitle": "Remplacements",
-    "replDesc": "Dites une courte phrase, obtenez un texte plus long. Pratique pour adresses, e-mails et formules de fin.",
+    "replDesc": "Corrigez les mots que Parlato se trompe souvent : quand il entend la partie de gauche, il écrit celle de droite. Pour un texte plus long, utilisez les Extraits ci-dessous.",
     "whenYouSay": "quand vous dites",
     "parlatoWrites": "Parlato écrit",
     "sayPlaceholder": "mon adresse",

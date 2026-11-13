@@ -1425,6 +1425,11 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     if delivery == Delivery::Paste && get_review_before_paste(app) {
         let send = crate::power_mode::session::auto_send_key(app, run.power.as_ref());
         emit_state(app, run, PipelineState::Done, None, Some(text.clone()), Some(duration_ms));
+        // The editor shows the uncleaned text: say so (the pill notice appears
+        // after the dictation ends and never takes the keyboard from the editor).
+        if ai_skipped && run.job == Job::Dictation {
+            crate::notice::ai_skipped_after_dictation();
+        }
         crate::review::open(app, text, run.history_id.clone(), send);
         return Ok(Outcome::Review);
     }

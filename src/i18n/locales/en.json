@@ -869,7 +869,7 @@
     "wordPlaceholder": "Type a word, then Enter",
     "removeWord": "Remove {{word}}",
     "replTitle": "Replacements",
-    "replDesc": "Say a short phrase, get something longer. Handy for addresses, emails and sign-offs.",
+    "replDesc": "Fix words Parlato keeps getting wrong: when it hears the left side, it writes the right side. For longer text, use Snippets below.",
     "whenYouSay": "when you say",
     "parlatoWrites": "Parlato writes",
     "sayPlaceholder": "my address",

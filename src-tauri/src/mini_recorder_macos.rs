@@ -32,7 +32,7 @@
 // so we turn it into an NSPanel subclass at run time, the way tauri-nspanel
 // does, with a safety check (see `panel_class`).
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::OnceLock;
 
 use objc2::runtime::{AnyClass, AnyObject, Bool, ClassBuilder, Sel};
@@ -97,15 +97,24 @@ const COLLECTION_BEHAVIOR: usize = (1 << 0) | (1 << 4) | (1 << 6) | (1 << 8);
 /// NSFloatingWindowLevel (VoiceInk `.floating`).
 const LEVEL_FLOATING: isize = 3;
 
-/// Whether the pill may become the key window (take keyboard input). Off for
-/// the recorder: the app being typed into must keep the keyboard. A feature
-/// that needs typing in the pill (editing the text before pasting) turns it on
-/// only while its editor is open, with `set_accepts_key`.
+/// The one window allowed to become key: the "Review before pasting" editor
+/// (its NSWindow pointer, 0 = none). The pill and the popover share the panel
+/// class but never become key: the app being typed into must keep the keyboard.
+static KEY_WINDOW: AtomicUsize = AtomicUsize::new(0);
+
+/// Whether the editor may become key right now: on only while it is open.
 static ACCEPTS_KEY: AtomicBool = AtomicBool::new(false);
 
 /// Used by the "Review before pasting" editor (review.rs): on while it is open.
+/// Only the window registered with `make_floating_panel(.., key_window: true)`
+/// is affected.
 pub fn set_accepts_key(accepts: bool) {
     ACCEPTS_KEY.store(accepts, Ordering::SeqCst);
+}
+
+/// Whether `this` may become key: it is the editor window and the editor is open.
+fn key_allowed(this: usize, key_window: usize, accepts: bool) -> bool {
+    accepts && key_window != 0 && this == key_window
 }
 
 /// Makes `window` the key window WITHOUT activating the app (tao's own
@@ -130,8 +139,12 @@ pub fn make_key(window: &WebviewWindow) {
     });
 }
 
-extern "C" fn can_become_key(_this: &AnyObject, _cmd: Sel) -> Bool {
-    Bool::new(ACCEPTS_KEY.load(Ordering::SeqCst))
+extern "C" fn can_become_key(this: &AnyObject, _cmd: Sel) -> Bool {
+    Bool::new(key_allowed(
+        this as *const AnyObject as usize,
+        KEY_WINDOW.load(Ordering::SeqCst),
+        ACCEPTS_KEY.load(Ordering::SeqCst),
+    ))
 }
 
 extern "C" fn can_become_main(_this: &AnyObject, _cmd: Sel) -> Bool {
@@ -166,9 +179,11 @@ fn panel_class(window_class: &AnyClass) -> Option<&'static AnyClass> {
 
 /// Makes `window` a non-activating, floating panel that appears over
 /// full-screen apps on every Space. `above_pill` raises the level one step
-/// (the popover). Safe to call more than once on the same window. The work
-/// runs on the main thread; it is queued before any later `show()`.
-pub fn make_floating_panel(window: &WebviewWindow, above_pill: bool) {
+/// (the popover). `key_window` registers this window as the only one that may
+/// become key (the review editor; see `set_accepts_key`); every other panel
+/// never does. Safe to call more than once on the same window. The work runs
+/// on the main thread; it is queued before any later `show()`.
+pub fn make_floating_panel(window: &WebviewWindow, above_pill: bool, key_window: bool) {
     // Fallback and extra safety: tao's own "may not become key" flag.
     let _ = window.set_focusable(false);
     let level = LEVEL_FLOATING + isize::from(above_pill);
@@ -200,9 +215,28 @@ pub fn make_floating_panel(window: &WebviewWindow, above_pill: bool) {
                 let _: () = msg_send![obj, setFloatingPanel: Bool::YES];
                 let _: () = msg_send![obj, setHidesOnDeactivate: Bool::NO];
             }
+            if key_window {
+                KEY_WINDOW.store(obj as usize, Ordering::SeqCst);
+            } else if KEY_WINDOW.load(Ordering::SeqCst) == obj as usize {
+                KEY_WINDOW.store(0, Ordering::SeqCst);
+            }
             let _: () = msg_send![obj, setLevel: level];
             let _: () = msg_send![obj, setCollectionBehavior: COLLECTION_BEHAVIOR];
         }
         tracing::debug!(label = w.label(), "recorder window configured as floating panel");
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::key_allowed;
+
+    #[test]
+    fn only_the_registered_window_takes_keys_and_only_while_open() {
+        assert!(key_allowed(7, 7, true));
+        assert!(!key_allowed(7, 7, false), "editor closed");
+        assert!(!key_allowed(8, 7, true), "pill / popover");
+        assert!(!key_allowed(8, 0, true), "nothing registered");
+        assert!(!key_allowed(0, 0, true));
+    }
 }

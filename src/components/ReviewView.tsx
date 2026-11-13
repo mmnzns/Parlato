@@ -46,9 +46,10 @@ export function ReviewView() {
   }, [loaded]);
 
   function paste() {
-    if (done.current) return;
+    // Not before the text has loaded: Enter then would send "" (a cancel).
+    if (done.current || text === null) return;
     done.current = true;
-    api.reviewPaste(text ?? "").catch(console.error);
+    api.reviewPaste(text).catch(console.error);
   }
 
   function cancel() {
@@ -63,6 +64,7 @@ export function ReviewView() {
         <textarea
           ref={area}
           autoFocus
+          readOnly={!loaded}
           value={text ?? ""}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -70,7 +72,7 @@ export function ReviewView() {
             if (e.nativeEvent.isComposing) return;
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              paste();
+              if (loaded) paste();
             } else if (e.key === "Escape") {
               e.preventDefault();
               cancel();
@@ -94,7 +96,8 @@ export function ReviewView() {
           <button
             type="button"
             onClick={paste}
-            className="h-7 shrink-0 rounded-full bg-[#B5E61D] px-3 text-[12px] font-semibold text-black hover:brightness-95"
+            disabled={!loaded}
+            className="h-7 shrink-0 rounded-full bg-[#B5E61D] px-3 text-[12px] font-semibold text-black hover:brightness-95 disabled:opacity-50"
           >
             {t("review.paste")}
           </button>

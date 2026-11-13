@@ -122,7 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   seconds, fails or returns nothing, Parlato now transcribes the saved recording
   instead. The recording of those dictations is kept in History too.
 - If the microphone is unplugged or the disk fills up during a recording, Parlato
-  stops and tells you instead of carrying on with silence.
+  stops, transcribes what it already heard and tells you, instead of carrying on
+  with silence.
 - When the microphone is blocked in your computer's privacy settings, the pill
   now says so, and Fix it opens the Permissions page.
 - If Parlato quit or crashed during a dictation using a power mode, your own

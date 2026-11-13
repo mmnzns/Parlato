@@ -267,15 +267,19 @@ pub fn start_recording_core_with_chunk(
         }
     };
     let (handle, id, wav_path) = started;
+    // Les modeles ne se liberent pas pendant l'enregistrement, aussi long
+    // soit-il : il compte comme activite des son debut. Compte AVANT de passer
+    // en `Recording` : un arret ne peut prendre le handle qu'apres, donc son
+    // `recording_finished` trouve toujours l'activite comptee (compter apres
+    // laissait l'activite coincee si l'arret arrivait entre les deux).
+    crate::transcription::pipeline::recording_started();
     if let Some(orphan) = state.0.lock().finish_start(handle) {
         // Ne devrait pas arriver (seul ce chemin quitte `Starting`) : on ne
         // laisse pas le peripherique ouvert.
         let _ = orphan.stop();
+        crate::transcription::pipeline::recording_finished(app);
         anyhow::bail!("l'enregistreur a change d'etat pendant son demarrage");
     }
-    // Les modeles ne se liberent pas pendant l'enregistrement, aussi long
-    // soit-il : il compte comme activite des son debut.
-    crate::transcription::pipeline::recording_started();
 
     info!(recording_id = %id, dictation_id, path = %wav_path.display(), "Enregistrement demarre");
 

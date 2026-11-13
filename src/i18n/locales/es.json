@@ -869,7 +869,7 @@
     "wordPlaceholder": "Escribe una palabra y pulsa Intro",
     "removeWord": "Quitar {{word}}",
     "replTitle": "Reemplazos",
-    "replDesc": "Di una frase corta y obtén algo más largo. Útil para direcciones, correos y despedidas.",
+    "replDesc": "Corrige palabras que Parlato se sigue equivocando: cuando oye lo de la izquierda, escribe lo de la derecha. Para textos más largos, usa los Fragmentos de abajo.",
     "whenYouSay": "cuando dices",
     "parlatoWrites": "Parlato escribe",
     "sayPlaceholder": "mi dirección",

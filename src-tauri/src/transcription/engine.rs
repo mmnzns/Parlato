@@ -161,6 +161,11 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
     // is refused with a message (finish or close the editor first).
     if crate::review::is_open() {
         crate::notice::send(app, crate::notice::Notice::Failed(crate::review::OPEN_CODE.to_string()));
+        // The press that got us here already marked the state machine as
+        // recording: undo it (like the failure branch below), or hold-to-talk
+        // would "stop" on release and toggle/hybrid would need two presses.
+        manager.mark_recording_state(false);
+        keyboard_hook::set_recording_active(false);
         return false;
     }
     let _ = app.emit("hotkey:action", "start");
@@ -297,8 +302,12 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
                     crate::notice::Notice::Failed(RECORDING_FAILED_CODE.to_string()),
                 );
             } else {
-                // Rien n'enregistrait (demarrage rate) : rien a dire.
-                mini_recorder::close(app);
+                // Rien n'enregistrait (demarrage rate) : rien a dire. Sauf si la
+                // bulle montre un message (editeur ouvert, micro refuse) : le
+                // relachement du raccourci ne doit pas le fermer.
+                if !crate::notice::is_showing() {
+                    mini_recorder::close(app);
+                }
             }
             crate::tray::refresh(app);
         }
