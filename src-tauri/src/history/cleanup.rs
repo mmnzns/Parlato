@@ -157,20 +157,56 @@ pub fn run_once(app: &AppHandle) {
                         .unwrap_or_default()
                         .into_iter()
                         .collect();
-                if let Ok(iter) = std::fs::read_dir(&dir) {
-                    for entry in iter.flatten() {
-                        let name = entry
-                            .file_name()
-                            .to_string_lossy()
-                            .into_owned();
-                        if !referenced.contains(&name) {
-                            let _ = std::fs::remove_file(entry.path());
-                        }
-                    }
+                let removed = sweep_orphans(&dir, &referenced, ORPHAN_MIN_AGE);
+                if removed > 0 {
+                    info!(count = removed, "fichiers audio orphelins purges");
                 }
             }
         }
     }
+}
+
+/// Parlato : age minimum d'un fichier avant d'etre juge orphelin. Un
+/// enregistrement en cours (une longue dictee, un streaming) a un fichier
+/// recent que rien ne reference encore ou deja : il ne doit jamais etre
+/// supprime sous ses pieds.
+const ORPHAN_MIN_AGE: Duration = Duration::from_secs(60 * 60);
+
+/// Supprime les fichiers de `dir` que `referenced` ne cite pas et qui n'ont
+/// pas ete modifies depuis `min_age`. Renvoie le nombre de fichiers
+/// supprimes. Un fichier dont la date est illisible est conserve.
+fn sweep_orphans(
+    dir: &std::path::Path,
+    referenced: &std::collections::HashSet<String>,
+    min_age: Duration,
+) -> usize {
+    let Ok(iter) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let now = std::time::SystemTime::now();
+    let mut removed = 0;
+    for entry in iter.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if referenced.contains(&name) {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        if !meta.is_file() {
+            continue;
+        }
+        let old_enough = meta
+            .modified()
+            .ok()
+            .and_then(|m| now.duration_since(m).ok())
+            .map(|age| age >= min_age)
+            .unwrap_or(false);
+        if old_enough && std::fs::remove_file(entry.path()).is_ok() {
+            removed += 1;
+        }
+    }
+    removed
 }
 
 /// Timer de cleanup quotidien. A spawn dans setup() apres l'init DB.
@@ -183,4 +219,37 @@ pub fn spawn_daily_timer(app: AppHandle) {
             run_once(&app);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn touch(dir: &std::path::Path, name: &str, age: Duration) {
+        let f = std::fs::File::create(dir.join(name)).unwrap();
+        f.set_modified(std::time::SystemTime::now() - age).unwrap();
+    }
+
+    #[test]
+    fn sweep_keeps_recent_and_referenced_files() {
+        let dir = tempfile::tempdir().unwrap();
+        touch(dir.path(), "recording-now.wav", Duration::from_secs(30));
+        touch(dir.path(), "old-orphan.wav", Duration::from_secs(2 * 3600));
+        touch(dir.path(), "old-kept.wav", Duration::from_secs(2 * 3600));
+        let referenced: HashSet<String> = ["old-kept.wav".to_string()].into();
+        let removed = sweep_orphans(dir.path(), &referenced, ORPHAN_MIN_AGE);
+        assert_eq!(removed, 1);
+        assert!(dir.path().join("recording-now.wav").exists());
+        assert!(dir.path().join("old-kept.wav").exists());
+        assert!(!dir.path().join("old-orphan.wav").exists());
+    }
+
+    #[test]
+    fn sweep_leaves_subfolders_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        assert_eq!(sweep_orphans(dir.path(), &HashSet::new(), Duration::ZERO), 0);
+        assert!(dir.path().join("sub").exists());
+    }
 }

@@ -99,6 +99,16 @@ pub fn insert_pending(
     Ok(id)
 }
 
+/// Parlato : renseigne la duree de l'audio d'une ligne creee avant la fin de
+/// l'enregistrement (dictee streaming : la duree n'est connue qu'a l'arret).
+pub fn set_audio_duration(conn: &Connection, id: &str, duration_sec: f64) -> Result<()> {
+    conn.execute(
+        "UPDATE transcriptions SET duration_sec = ?1 WHERE id = ?2",
+        params![duration_sec, id],
+    )?;
+    Ok(())
+}
+
 #[derive(Debug, Default)]
 pub struct TranscribeFields<'a> {
     pub text: &'a str,
@@ -175,9 +185,12 @@ pub fn mark_failed(conn: &Connection, id: &str, err: &str) -> Result<()> {
     // echoue. On suit la meme convention. Parlato : on ne garde qu'un code
     // court, jamais le texte du provider (corps de reponse, URL...).
     let err = crate::transcription::error_code::storable_error_code(err);
+    // Parlato : une ligne deja transcrite garde son texte (une erreur plus
+    // tard dans le pipeline ne doit jamais effacer ce que la personne a dicte).
     conn.execute(
         "UPDATE transcriptions
-         SET status = 'failed', text = ?1
+         SET status = 'failed',
+             text = CASE WHEN text IS NULL OR text = '' THEN ?1 ELSE text END
          WHERE id = ?2",
         params![format!("Transcription Failed: {err}"), id],
     )?;
@@ -466,7 +479,7 @@ pub fn delete_older_than(
     let ts = older_than.to_rfc3339();
     let mut stmt = conn.prepare(
         "SELECT audio_file_name FROM transcriptions
-         WHERE timestamp < ?1 AND audio_file_name IS NOT NULL",
+         WHERE timestamp < ?1 AND audio_file_name IS NOT NULL AND status != 'pending'",
     )?;
     let wavs: Vec<String> = stmt
         .query_map(params![ts], |r| r.get::<_, Option<String>>(0))?
@@ -474,7 +487,7 @@ pub fn delete_older_than(
         .collect();
     drop(stmt);
     conn.execute(
-        "DELETE FROM transcriptions WHERE timestamp < ?1",
+        "DELETE FROM transcriptions WHERE timestamp < ?1 AND status != 'pending'",
         params![ts],
     )?;
     Ok(wavs)
@@ -489,7 +502,7 @@ pub fn clear_audio_older_than(
     let ts = older_than.to_rfc3339();
     let mut stmt = conn.prepare(
         "SELECT audio_file_name FROM transcriptions
-         WHERE timestamp < ?1 AND audio_file_name IS NOT NULL",
+         WHERE timestamp < ?1 AND audio_file_name IS NOT NULL AND status != 'pending'",
     )?;
     let wavs: Vec<String> = stmt
         .query_map(params![ts], |r| r.get::<_, Option<String>>(0))?
@@ -498,7 +511,7 @@ pub fn clear_audio_older_than(
     drop(stmt);
     conn.execute(
         "UPDATE transcriptions SET audio_file_name = NULL
-         WHERE timestamp < ?1",
+         WHERE timestamp < ?1 AND status != 'pending'",
         params![ts],
     )?;
     Ok(wavs)
@@ -616,6 +629,67 @@ mod tests {
             .query_row("SELECT text FROM transcriptions WHERE id = ?1", params![id], |r| r.get(0))
             .unwrap();
         assert_eq!(text, "Transcription Failed: PARLA_ERR:providerHttp:422");
+    }
+
+    #[test]
+    fn mark_failed_keeps_a_stored_transcript() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let id = insert_pending(&conn, Some("a.wav"), Some(2.0)).unwrap();
+        let fields = TranscribeFields {
+            text: "words the person dictated",
+            transcription_duration_sec: 0.5,
+            transcription_model_name: "local / tiny",
+            ..Default::default()
+        };
+        mark_transcribed(&conn, &id, &fields).unwrap();
+        mark_failed(&conn, &id, "PARLA_ERR:pasteFailed").unwrap();
+        let (status, text): (String, String) = conn
+            .query_row(
+                "SELECT status, text FROM transcriptions WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(text, "words the person dictated");
+        assert_eq!(status, "failed");
+    }
+
+    #[test]
+    fn retention_never_touches_a_pending_row() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let live = insert_pending(&conn, Some("live.wav"), None).unwrap();
+        let done = insert_pending(&conn, Some("done.wav"), Some(1.0)).unwrap();
+        mark_transcribed(
+            &conn,
+            &done,
+            &TranscribeFields { text: "x", ..Default::default() },
+        )
+        .unwrap();
+        let later = Utc::now() + chrono::Duration::minutes(5);
+        assert_eq!(clear_audio_older_than(&conn, later).unwrap(), vec!["done.wav"]);
+        conn.execute(
+            "UPDATE transcriptions SET audio_file_name = 'done.wav' WHERE id = ?1",
+            params![done],
+        )
+        .unwrap();
+        assert_eq!(delete_older_than(&conn, later).unwrap(), vec!["done.wav"]);
+        assert_eq!(count(&conn).unwrap(), 1);
+        assert_eq!(all_audio_file_names(&conn).unwrap(), vec!["live.wav"]);
+        let _ = live;
+    }
+
+    #[test]
+    fn set_audio_duration_updates_the_row() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::init(&conn).unwrap();
+        let id = insert_pending(&conn, Some("a.wav"), None).unwrap();
+        set_audio_duration(&conn, &id, 4.5).unwrap();
+        let d: f64 = conn
+            .query_row("SELECT duration_sec FROM transcriptions WHERE id = ?1", params![id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(d, 4.5);
     }
 
     #[test]
