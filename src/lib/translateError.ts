@@ -15,7 +15,8 @@
 import type { TFunction } from "i18next";
 
 type ErrorMapping = {
-  i18nKey: string;
+  /** The locale key, or a function of the regex groups when it depends on them. */
+  i18nKey: string | ((groups: string[]) => string);
   /** Builds interpolation args from the regex match (g[0] is the whole match,
    *  g[1] the first captured group). */
   args?: (groups: string[], t: TFunction) => Record<string, unknown>;
@@ -121,6 +122,31 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
       args: (g, t) => ({ action: t(`hotkey.additional.actionNames.${g[1]}`) }),
     },
   ],
+  // 0.16: shortcuts the system already uses, and the new key kinds.
+  [
+    /^PARLA_ERR:shortcutSystem:([^:]+):([^:]+)$/,
+    {
+      i18nKey: (g) => `errors.systemShortcut.${g[2]}`,
+      args: (g, t) => ({ action: t(`hotkey.additional.actionNames.${g[1]}`) }),
+    },
+  ],
+  ...(
+    [
+      "shortcutEscNeedsCancel",
+      "shortcutTwoModifiers",
+      "shortcutDictationOnly",
+      "shortcutUnsupported",
+      "shortcutCapsHold",
+    ] as const
+  ).map(
+    (code): [RegExp, ErrorMapping] => [
+      new RegExp(`^PARLA_ERR:${code}:(.+)$`),
+      {
+        i18nKey: `errors.${code}`,
+        args: (g, t) => ({ action: t(`hotkey.additional.actionNames.${g[1]}`) }),
+      },
+    ],
+  ),
   [/^PARLA_ERR:historyEmpty$/, { i18nKey: "errors.historyEmpty" }],
   [/^PARLA_ERR:lastTranscriptionEmpty$/, { i18nKey: "errors.lastTranscriptionEmpty" }],
   [/^PARLA_ERR:audioMissing$/, { i18nKey: "errors.audioMissing" }],
@@ -136,7 +162,8 @@ export function translateError(t: TFunction, raw: string | null | undefined): st
     const match = pattern.exec(raw);
     if (!match) continue;
     const args = mapping.args ? mapping.args(match, t) : undefined;
-    return t(mapping.i18nKey, args);
+    const key = typeof mapping.i18nKey === "function" ? mapping.i18nKey(match) : mapping.i18nKey;
+    return t(key, args);
   }
   return raw;
 }

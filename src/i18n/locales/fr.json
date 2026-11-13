@@ -454,7 +454,42 @@
     "transcriptionFailed": "La transcription a échoué. Utilisez Transcrire à nouveau pour réessayer.",
     "cliNotFound": "La commande est introuvable. Vérifiez la ligne de commande de votre nettoyage IA.",
     "cliFailed": "La commande s'est arrêtée avec une erreur (code {{code}}). Vérifiez la ligne de commande de votre nettoyage IA.",
-    "cliEmpty": "La commande n'a rien renvoyé. Vérifiez la ligne de commande de votre nettoyage IA."
+    "cliEmpty": "La commande n'a rien renvoyé. Vérifiez la ligne de commande de votre nettoyage IA.",
+    "shortcutEscNeedsCancel": "Échap sert aussi à annuler un enregistrement. Pour l'utiliser pour la dictée, définissez d'abord un autre raccourci pour Annuler l'enregistrement dans Raccourcis supplémentaires ({{action}}).",
+    "shortcutTwoModifiers": "Choisissez deux touches de modification ou plus ensemble, comme Ctrl et Win ({{action}}).",
+    "shortcutDictationOnly": "Cette touche ou cette combinaison ne peut servir qu'à la dictée ({{action}}).",
+    "shortcutUnsupported": "Cette touche ne peut pas être utilisée sur cet ordinateur ({{action}}).",
+    "shortcutCapsHold": "Sur un Mac, Verr Maj ne fonctionne qu'en appui bref. Choisissez « Appuyer pour démarrer, appuyer pour arrêter » ou « Maintenir ou appuyer », ou une autre touche ({{action}}).",
+    "systemShortcut": {
+      "winL": "Win+L verrouille déjà votre ordinateur. Choisissez un autre raccourci ({{action}}).",
+      "winD": "Win+D affiche déjà le bureau. Choisissez un autre raccourci ({{action}}).",
+      "winE": "Win+E ouvre déjà l'Explorateur de fichiers. Choisissez un autre raccourci ({{action}}).",
+      "winR": "Win+R ouvre déjà la boîte Exécuter. Choisissez un autre raccourci ({{action}}).",
+      "winI": "Win+I ouvre déjà les Paramètres. Choisissez un autre raccourci ({{action}}).",
+      "winV": "Win+V ouvre déjà l'historique du presse-papiers. Choisissez un autre raccourci ({{action}}).",
+      "winPeriod": "Win+. ouvre déjà le panneau des émojis. Choisissez un autre raccourci ({{action}}).",
+      "winTab": "Win+Tab ouvre déjà la Vue des tâches. Choisissez un autre raccourci ({{action}}).",
+      "winShiftS": "Win+Maj+S fait déjà une capture d'écran. Choisissez un autre raccourci ({{action}}).",
+      "altTab": "Alt+Tab passe déjà d'une fenêtre à l'autre. Choisissez un autre raccourci ({{action}}).",
+      "altF4": "Alt+F4 ferme déjà la fenêtre active. Choisissez un autre raccourci ({{action}}).",
+      "ctrlAltDel": "Ctrl+Alt+Suppr ouvre déjà l'écran de sécurité de Windows. Choisissez un autre raccourci ({{action}}).",
+      "ctrlShiftEsc": "Ctrl+Maj+Échap ouvre déjà le Gestionnaire des tâches. Choisissez un autre raccourci ({{action}}).",
+      "ctrlC": "Ctrl+C copie déjà dans toutes les applications. Choisissez un autre raccourci ({{action}}).",
+      "ctrlV": "Ctrl+V colle déjà dans toutes les applications. Choisissez un autre raccourci ({{action}}).",
+      "ctrlX": "Ctrl+X coupe déjà dans toutes les applications. Choisissez un autre raccourci ({{action}}).",
+      "ctrlZ": "Ctrl+Z annule déjà dans toutes les applications. Choisissez un autre raccourci ({{action}}).",
+      "ctrlY": "Ctrl+Y rétablit déjà dans toutes les applications. Choisissez un autre raccourci ({{action}}).",
+      "ctrlA": "Ctrl+A sélectionne déjà tout dans toutes les applications. Choisissez un autre raccourci ({{action}}).",
+      "ctrlS": "Ctrl+S enregistre déjà dans toutes les applications. Choisissez un autre raccourci ({{action}}).",
+      "cmdSpace": "Commande+Espace ouvre déjà Spotlight. Choisissez un autre raccourci ({{action}}).",
+      "cmdTab": "Commande+Tab passe déjà d'une application à l'autre. Choisissez un autre raccourci ({{action}}).",
+      "cmdShift3": "Commande+Maj+3 fait déjà une capture de tout l'écran. Choisissez un autre raccourci ({{action}}).",
+      "cmdShift4": "Commande+Maj+4 fait déjà une capture d'une sélection. Choisissez un autre raccourci ({{action}}).",
+      "cmdShift5": "Commande+Maj+5 ouvre déjà les outils de capture et d'enregistrement de l'écran. Choisissez un autre raccourci ({{action}}).",
+      "ctrlCmdQ": "Contrôle+Commande+Q verrouille déjà l'écran de votre Mac. Choisissez un autre raccourci ({{action}}).",
+      "cmdOptEsc": "Commande+Option+Échap ouvre déjà Forcer à quitter. Choisissez un autre raccourci ({{action}}).",
+      "cmdShift": "Commande+Maj fait partie de nombreux raccourcis du Mac (captures d'écran, Rétablir et d'autres). Choisissez une autre combinaison ({{action}})."
+    }
   },
   "prompts": {
     "default": {
@@ -478,7 +513,11 @@
       "rightWin": "Windows droit",
       "rightShift": "Maj droite",
       "leftShift": "Maj gauche",
-      "custom": "Touche ou combinaison personnalisée..."
+      "custom": "Touche ou combinaison personnalisée...",
+      "leftWin": "Windows gauche",
+      "capsLock": "Verr Maj",
+      "menu": "Touche Menu",
+      "fn": "Touche Fn / Globe"
     },
     "modes": {
       "toggle": "Appuyer pour démarrer, appuyer pour arrêter",
@@ -493,7 +532,10 @@
       "typesTextWarning": "Cette touche continuera d'écrire son caractère, et l'appuyer n'importe où lancera aussi la dictée.",
       "useThisKey": "Utiliser cette touche",
       "chooseAnother": "En choisir une autre",
-      "macReserved": "Les raccourcis Commande appartiennent à macOS et à vos apps (copier, coller, quitter...). Ajoutez Contrôle ou Option, ex Contrôle + Option + R."
+      "macReserved": "Les raccourcis Commande appartiennent à macOS et à vos apps (copier, coller, quitter...). Ajoutez Contrôle ou Option, ex Contrôle + Option + R.",
+      "hintDictation": "Appuyez sur la touche ou la combinaison à utiliser (p. ex. F13, R, Ctrl + Alt + R). Pour deux touches de modification seules, maintenez-les ensemble (p. ex. Ctrl + Win) puis relâchez. Ici, Échap peut être une touche de dictée : fermez cette fenêtre avec Annuler.",
+      "escWarning": "Échap sert aussi à annuler un enregistrement et à fermer des boîtes de dialogue. Pour l'utiliser pour la dictée, définissez d'abord un autre raccourci pour Annuler l'enregistrement dans Raccourcis supplémentaires.",
+      "tellSides": "Distinguer les touches de modification gauche et droite"
     },
     "editCombo": "Cliquer pour modifier la touche ou la combinaison",
     "additional": {
@@ -523,6 +565,18 @@
         "retryLast": "Réessayer la dernière transcription",
         "openHistory": "Ouvrir l'historique"
       }
+    },
+    "notes": {
+      "chord": "Maintenez les deux touches pour parler. Si vous appuyez sur une autre touche pendant ce temps, Parlato abandonne l'enregistrement : vos autres raccourcis continuent donc de fonctionner.",
+      "capsLockWindows": "Tant que Verr Maj est votre touche de dictée, elle n'active plus ni ne désactive les majuscules.",
+      "capsLockMac": "Sur un Mac, cette touche active ou désactive aussi les majuscules, et elle ne fonctionne qu'en appui bref, pas comme Maintenir pour parler.",
+      "leftWin": "Les raccourcis Windows qui commencent par cette touche (comme Win + E) lanceront brièvement un enregistrement puis l'annuleront. Parlato empêche l'ouverture du menu Démarrer.",
+      "menu": "Tant que la touche Menu est votre touche de dictée, elle n'ouvre plus de menus contextuels.",
+      "fn": "macOS peut aussi utiliser la touche Fn pour les émojis ou la dictée. Vous pouvez le changer dans Réglages Système > Clavier."
+    },
+    "doubleTap": {
+      "title": "Double appui pour continuer l'enregistrement",
+      "description": "Appuyez deux fois rapidement sur la touche pour continuer à enregistrer sans la maintenir, puis appuyez une fois de plus pour arrêter. Cela concerne Maintenir pour parler ; les autres modes fonctionnent déjà ainsi."
     }
   },
   "voice": {
@@ -1059,7 +1113,8 @@
     },
     "errors": {
       "shortcutReserved": "Option+chiffre est réservé au changement de mode Power pendant l'enregistrement ({{action}}).",
-      "shortcutNeedsModifier": "Cette touche nécessite un modificateur (Contrôle, Option, Maj ou Commande) ({{action}})."
+      "shortcutNeedsModifier": "Cette touche nécessite un modificateur (Contrôle, Option, Maj ou Commande) ({{action}}).",
+      "shortcutTwoModifiers": "Choisissez deux touches de modification ou plus ensemble, comme Contrôle et Option ({{action}})."
     },
     "hotkey": {
       "altGrTip": "Sur Mac, Option sert aussi à taper des caractères spéciaux (comme é ou ©). Si Option droite vous gêne, choisissez Commande droite ou une touche ou combinaison personnalisée.",
@@ -1068,11 +1123,13 @@
         "leftAlt": "Option gauche",
         "rightCtrl": "Contrôle droit",
         "leftCtrl": "Contrôle gauche",
-        "rightWin": "Commande droite"
+        "rightWin": "Commande droite",
+        "leftWin": "Commande gauche"
       },
       "record": {
         "hint": "Appuyez sur la touche ou la combinaison que vous voulez utiliser (ex. F13, R, Contrôle + Option + R, Contrôle + Option + Espace). Échap annule.",
-        "needsModifier": "Pour les raccourcis additionnels (copier, coller, réessayer, historique, annuler), une touche seule n'est autorisée que pour F1-F24, Home, End, PageUp/Down et Suppr. Sinon ajoutez Contrôle, Option, Maj ou Commande. Les raccourcis de dictée acceptent n'importe quelle touche seule."
+        "needsModifier": "Pour les raccourcis additionnels (copier, coller, réessayer, historique, annuler), une touche seule n'est autorisée que pour F1-F24, Home, End, PageUp/Down et Suppr. Sinon ajoutez Contrôle, Option, Maj ou Commande. Les raccourcis de dictée acceptent n'importe quelle touche seule.",
+        "hintDictation": "Appuyez sur la touche ou la combinaison à utiliser (p. ex. F13, R, Contrôle + Option + R). Pour deux touches de modification seules, maintenez-les ensemble (p. ex. Contrôle + Option) puis relâchez. Ici, Échap peut être une touche de dictée : fermez cette fenêtre avec Annuler."
       }
     },
     "settings": {
@@ -1118,7 +1175,17 @@
     "right": "Droite",
     "down": "Bas",
     "insert": "Inser",
-    "printScreen": "Impr écran"
+    "printScreen": "Impr écran",
+    "pause": "Pause",
+    "menu": "Menu",
+    "numLock": "Verr Num",
+    "scrollLock": "Arrêt défil",
+    "volumeMute": "Muet",
+    "volumeDown": "Volume -",
+    "volumeUp": "Volume +",
+    "nextTrack": "Piste suivante",
+    "prevTrack": "Piste précédente",
+    "playPause": "Lecture/Pause"
   },
   "shortcutWording": {
     "hold": {

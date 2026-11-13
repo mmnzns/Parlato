@@ -454,7 +454,42 @@
     "transcriptionFailed": "La transcripción falló. Usa Transcribir de nuevo para intentarlo otra vez.",
     "cliNotFound": "No se encontró el comando. Revisa la línea de comandos de tu limpieza con IA.",
     "cliFailed": "El comando terminó con un error (código {{code}}). Revisa la línea de comandos de tu limpieza con IA.",
-    "cliEmpty": "El comando no devolvió nada. Revisa la línea de comandos de tu limpieza con IA."
+    "cliEmpty": "El comando no devolvió nada. Revisa la línea de comandos de tu limpieza con IA.",
+    "shortcutEscNeedsCancel": "Esc también sirve para cancelar una grabación. Para usarla en el dictado, primero define otro atajo para Cancelar grabación en Atajos adicionales ({{action}}).",
+    "shortcutTwoModifiers": "Elige dos o más teclas modificadoras a la vez, como Ctrl y Win ({{action}}).",
+    "shortcutDictationOnly": "Esta tecla o combinación solo se puede usar para el dictado ({{action}}).",
+    "shortcutUnsupported": "Esta tecla no se puede usar en este ordenador ({{action}}).",
+    "shortcutCapsHold": "En un Mac, Bloq Mayús solo funciona con una pulsación. Elige \"Pulsar para empezar, pulsar para parar\" o \"Mantener o pulsar\", u otra tecla ({{action}}).",
+    "systemShortcut": {
+      "winL": "Win+L ya bloquea tu ordenador. Elige otro atajo ({{action}}).",
+      "winD": "Win+D ya muestra el escritorio. Elige otro atajo ({{action}}).",
+      "winE": "Win+E ya abre el Explorador de archivos. Elige otro atajo ({{action}}).",
+      "winR": "Win+R ya abre la ventana Ejecutar. Elige otro atajo ({{action}}).",
+      "winI": "Win+I ya abre la Configuración. Elige otro atajo ({{action}}).",
+      "winV": "Win+V ya abre el historial del portapapeles. Elige otro atajo ({{action}}).",
+      "winPeriod": "Win+. ya abre el panel de emojis. Elige otro atajo ({{action}}).",
+      "winTab": "Win+Tab ya abre la Vista de tareas. Elige otro atajo ({{action}}).",
+      "winShiftS": "Win+Shift+S ya hace una captura de pantalla. Elige otro atajo ({{action}}).",
+      "altTab": "Alt+Tab ya cambia entre ventanas. Elige otro atajo ({{action}}).",
+      "altF4": "Alt+F4 ya cierra la ventana actual. Elige otro atajo ({{action}}).",
+      "ctrlAltDel": "Ctrl+Alt+Supr ya abre la pantalla de seguridad de Windows. Elige otro atajo ({{action}}).",
+      "ctrlShiftEsc": "Ctrl+Shift+Esc ya abre el Administrador de tareas. Elige otro atajo ({{action}}).",
+      "ctrlC": "Ctrl+C ya copia en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlV": "Ctrl+V ya pega en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlX": "Ctrl+X ya corta en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlZ": "Ctrl+Z ya deshace en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlY": "Ctrl+Y ya rehace en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlA": "Ctrl+A ya selecciona todo en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlS": "Ctrl+S ya guarda en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "cmdSpace": "Comando+Espacio ya abre Spotlight. Elige otro atajo ({{action}}).",
+      "cmdTab": "Comando+Tab ya cambia entre aplicaciones. Elige otro atajo ({{action}}).",
+      "cmdShift3": "Comando+Mayús+3 ya captura toda la pantalla. Elige otro atajo ({{action}}).",
+      "cmdShift4": "Comando+Mayús+4 ya captura una selección de la pantalla. Elige otro atajo ({{action}}).",
+      "cmdShift5": "Comando+Mayús+5 ya abre las herramientas de captura y grabación de pantalla. Elige otro atajo ({{action}}).",
+      "ctrlCmdQ": "Control+Comando+Q ya bloquea la pantalla de tu Mac. Elige otro atajo ({{action}}).",
+      "cmdOptEsc": "Comando+Opción+Esc ya abre Forzar salida. Elige otro atajo ({{action}}).",
+      "cmdShift": "Comando+Mayús forma parte de muchos atajos del Mac (capturas de pantalla, Rehacer y más). Elige otra combinación ({{action}})."
+    }
   },
   "prompts": {
     "default": {
@@ -478,7 +513,11 @@
       "rightWin": "Windows derecho",
       "rightShift": "Mayús derecha",
       "leftShift": "Mayús izquierda",
-      "custom": "Tecla o combinación personalizada..."
+      "custom": "Tecla o combinación personalizada...",
+      "leftWin": "Windows izquierdo",
+      "capsLock": "Bloq Mayús",
+      "menu": "Tecla Menú",
+      "fn": "Tecla Fn / Globo"
     },
     "modes": {
       "toggle": "Pulsar para empezar, pulsar para parar",
@@ -493,7 +532,10 @@
       "typesTextWarning": "Esta tecla seguirá escribiendo su carácter, y al pulsarla en cualquier sitio también se iniciará el dictado.",
       "useThisKey": "Usar esta tecla",
       "chooseAnother": "Elegir otra",
-      "macReserved": "Los atajos con Comando pertenecen a macOS y a tus apps (copiar, pegar, salir...). Agrega Control u Opción, ej. Control + Opción + R."
+      "macReserved": "Los atajos con Comando pertenecen a macOS y a tus apps (copiar, pegar, salir...). Agrega Control u Opción, ej. Control + Opción + R.",
+      "hintDictation": "Pulsa la tecla o combinación que quieras usar (p. ej. F13, R, Ctrl + Alt + R). Para dos teclas modificadoras solas, mantén las dos pulsadas a la vez (p. ej. Ctrl + Win) y suéltalas. Aquí Esc puede ser una tecla de dictado, así que cierra esta ventana con Cancelar.",
+      "escWarning": "Esc también sirve para cancelar una grabación y cerrar diálogos. Para usarla en el dictado, primero define otro atajo para Cancelar grabación en Atajos adicionales.",
+      "tellSides": "Distinguir las teclas modificadoras izquierda y derecha"
     },
     "editCombo": "Clic para cambiar la tecla o la combinación",
     "additional": {
@@ -523,6 +565,18 @@
         "retryLast": "Reintentar la última transcripción",
         "openHistory": "Abrir el historial"
       }
+    },
+    "notes": {
+      "chord": "Mantén las dos teclas pulsadas para hablar. Si pulsas cualquier otra tecla mientras las mantienes, Parlato descarta la grabación, así tus otros atajos siguen funcionando.",
+      "capsLockWindows": "Mientras Bloq Mayús sea tu tecla de dictado, ya no activa ni desactiva las mayúsculas.",
+      "capsLockMac": "En un Mac, esta tecla también activa o desactiva las mayúsculas, y solo funciona con una pulsación, no como Mantener para hablar.",
+      "leftWin": "Los atajos de Windows que empiezan con esta tecla (como Win + E) iniciarán una grabación un instante y la cancelarán. Parlato evita que se abra el menú Inicio.",
+      "menu": "Mientras la tecla Menú sea tu tecla de dictado, ya no abre menús contextuales.",
+      "fn": "macOS también puede usar la tecla Fn para los emojis o el dictado. Puedes cambiarlo en Ajustes del Sistema > Teclado."
+    },
+    "doubleTap": {
+      "title": "Doble pulsación para seguir grabando",
+      "description": "Pulsa la tecla dos veces rápido para seguir grabando sin mantenerla, y púlsala una vez más para parar. Se aplica a Mantener para hablar; los otros modos ya funcionan así."
     }
   },
   "voice": {
@@ -1059,7 +1113,8 @@
     },
     "errors": {
       "shortcutReserved": "Opción+número está reservado para cambiar de modo Power durante la grabación ({{action}}).",
-      "shortcutNeedsModifier": "Esta tecla necesita un modificador (Control, Opción, Mayúsculas o Comando) ({{action}})."
+      "shortcutNeedsModifier": "Esta tecla necesita un modificador (Control, Opción, Mayúsculas o Comando) ({{action}}).",
+      "shortcutTwoModifiers": "Elige dos o más teclas modificadoras a la vez, como Control y Opción ({{action}})."
     },
     "hotkey": {
       "altGrTip": "En un Mac, Opción también escribe caracteres especiales (como é o ©). Si Opción derecha te estorba, elige Comando derecha o una tecla o combinación personalizada.",
@@ -1068,11 +1123,13 @@
         "leftAlt": "Opción izquierda",
         "rightCtrl": "Control derecho",
         "leftCtrl": "Control izquierdo",
-        "rightWin": "Comando derecho"
+        "rightWin": "Comando derecho",
+        "leftWin": "Comando izquierdo"
       },
       "record": {
         "hint": "Pulsa la tecla o combinación que quieras usar (ej. F13, R, Control + Opción + R, Control + Opción + Espacio). Esc cancela.",
-        "needsModifier": "Para los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se permite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, añade Control, Opción, Shift o Comando. Los atajos de dictado aceptan cualquier tecla sola."
+        "needsModifier": "Para los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se permite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, añade Control, Opción, Shift o Comando. Los atajos de dictado aceptan cualquier tecla sola.",
+        "hintDictation": "Pulsa la tecla o combinación que quieras usar (p. ej. F13, R, Control + Opción + R). Para dos teclas modificadoras solas, mantén las dos pulsadas a la vez (p. ej. Control + Opción) y suéltalas. Aquí Esc puede ser una tecla de dictado, así que cierra esta ventana con Cancelar."
       }
     },
     "settings": {
@@ -1118,7 +1175,17 @@
     "right": "Derecha",
     "down": "Abajo",
     "insert": "Insert",
-    "printScreen": "Impr Pant"
+    "printScreen": "Impr Pant",
+    "pause": "Pausa",
+    "menu": "Menú",
+    "numLock": "Bloq Num",
+    "scrollLock": "Bloq Despl",
+    "volumeMute": "Silenciar",
+    "volumeDown": "Bajar volumen",
+    "volumeUp": "Subir volumen",
+    "nextTrack": "Pista siguiente",
+    "prevTrack": "Pista anterior",
+    "playPause": "Reproducir/Pausa"
   },
   "shortcutWording": {
     "hold": {
