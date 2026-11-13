@@ -176,17 +176,20 @@ pub fn get_retention_settings(app: AppHandle) -> RetentionSettings {
 }
 
 #[command]
-pub fn set_retention_settings(
+pub async fn set_retention_settings(
     app: AppHandle,
     settings: RetentionSettings,
 ) -> Result<(), String> {
     cleanup::save(&app, &settings).map_err(|e| e.to_string())?;
     // Declenche un passage immediat pour appliquer les nouveaux criteres.
-    cleanup::run_once(&app);
-    Ok(())
+    // Parlato : sur un fil de travail (il lit le disque et efface des
+    // fichiers), pas sur le fil de l'interface.
+    tokio::task::spawn_blocking(move || cleanup::run_once(&app))
+        .await
+        .map_err(|e| format!("task join: {e}"))
 }
 
 #[command]
-pub fn run_history_cleanup(app: AppHandle) {
-    cleanup::run_once(&app);
+pub async fn run_history_cleanup(app: AppHandle) {
+    let _ = tokio::task::spawn_blocking(move || cleanup::run_once(&app)).await;
 }
