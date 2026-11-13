@@ -47,7 +47,7 @@ export function WhisperModelCard({
   onSetDefault,
 }: Props) {
   const { t } = useTranslation();
-  const pct = p ? Math.round((p.downloaded / Math.max(1, p.total)) * 100) : null;
+  const pct = p && p.total > 0 ? Math.round((p.downloaded / p.total) * 100) : null;
   const meta = [
     m.multilingual || m.imported
       ? m.language_codes.length > 1
@@ -123,7 +123,20 @@ export function WhisperModelCard({
         )
       }
     >
-      {p && <TileProgress pct={pct} label={`${pct ?? 0}%`} />}
+      {p && (
+        <TileProgress
+          pct={pct}
+          label={
+            pct === null
+              ? t("speech.connecting")
+              : t("speech.downloadProgress", {
+                  done: formatBytes(p.downloaded),
+                  total: formatBytes(p.total),
+                  pct,
+                })
+          }
+        />
+      )}
       {error && (
         <p className="text-xs text-destructive">{t("whisperModels.errorPrefix", { message: translateError(t, error) })}</p>
       )}

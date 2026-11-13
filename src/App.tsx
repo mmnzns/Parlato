@@ -24,8 +24,11 @@ import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { TranscribePanel } from "@/components/TranscribePanel";
 import { UpdateChecker } from "@/components/UpdateChecker";
 import { VadPanel } from "@/components/VadPanel";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { api, type UseGpu } from "@/lib/tauri";
 import "./App.css";
+
+const lowerFirst = (s: string) => s.charAt(0).toLocaleLowerCase() + s.slice(1);
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -34,6 +37,8 @@ function App() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const crumb = useCrumb(view);
+  const setup = useSetupStatus(view);
+  const missing = setup?.missing ?? null;
 
   useEffect(() => {
     // "Use graphics card": the label under the local models follows it. The
@@ -115,8 +120,14 @@ function App() {
             <>
               <CompactHero
                 crumb={crumb}
-                title={t("hero.dashboardTitle")}
-                description={t("hero.dashboardDescription")}
+                title={missing ? t("hero.almostTitle") : t("hero.dashboardTitle")}
+                description={
+                  missing
+                    ? t("hero.almostDescription", {
+                        missing: lowerFirst(t(`setup.${missing}`)),
+                      })
+                    : t("hero.dashboardDescription")
+                }
               />
               <DashboardPanel onNavigate={setView} />
             </>

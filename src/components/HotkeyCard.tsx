@@ -15,6 +15,7 @@
 // Reset to defaults wipe la config user et remet Right Alt + Hybrid.
 
 import { useEffect, useState } from "react";
+import { notifySetupChanged } from "@/lib/setupStatus";
 import { useTranslation } from "react-i18next";
 import { Plus, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,7 @@ export function HotkeyCard() {
       const merged = { ...next, actions: current.actions };
       await api.setHotkeyConfig(merged);
       setConfig(merged);
+      notifySetupChanged();
     } catch (e) {
       setError(translateError(t, String(e)));
       api.getHotkeyConfig().then(setConfig).catch(console.error);
@@ -120,11 +122,14 @@ export function HotkeyCard() {
   }
 
   async function reset() {
+    setError(null);
     try {
       const c = await api.resetHotkeyConfig();
       setConfig(c);
       setShowSecondary(false);
+      notifySetupChanged();
     } catch (e) {
+      setError(t("common.saveFailed"));
       console.error(e);
     }
   }
@@ -302,6 +307,7 @@ function TriggerPicker({
           type="button"
           onClick={onEditCombo}
           title={t("hotkey.editCombo")}
+          aria-label={`${formatCombo(slot.trigger)}. ${t("hotkey.editCombo")}`}
           className="flex h-[34px] items-center rounded-sm border-[1.5px] border-edge bg-card px-2.5 font-mono text-xs font-semibold shadow-btn transition-colors hover:bg-muted"
         >
           {formatCombo(slot.trigger)}

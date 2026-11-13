@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Block, RadioRow, Section } from "@/components/ui/section";
 import { api, type AudioDeviceInfo, type AudioMeter } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { notifySetupChanged } from "@/lib/setupStatus";
+import { translateError } from "@/lib/translateError";
 
 const SILENT: AudioMeter = { rms_db: -160, peak_db: -160 };
 // Speech usually sits between -40 and -10 dBFS RMS.
@@ -33,6 +35,9 @@ export function MicrophonePanel() {
   const [busy, setBusy] = useState(false);
   const [meter, setMeter] = useState<AudioMeter>(SILENT);
   const [heard, setHeard] = useState(false);
+  // First seconds of a test: not "too quiet" yet, the person has not spoken.
+  const [listening, setListening] = useState(false);
+  const listenTimer = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const poll = useRef<number | null>(null);
 
@@ -58,21 +63,30 @@ export function MicrophonePanel() {
       const [list, stored] = await Promise.all([api.listAudioDevices(), api.getSelectedInputDevice()]);
       setDevices(list);
       setSelected(stored && list.some((d) => d.name === stored) ? stored : null);
+      notifySetupChanged();
     } catch (e) {
-      setError(String(e));
+      setError(translateError(t, String(e)));
     }
   }
 
   async function choose(name: string | null) {
+    const prev = selected;
     setSelected(name);
     try {
       await api.setSelectedInputDevice(name);
+      notifySetupChanged();
     } catch (e) {
-      setError(String(e));
+      setSelected(prev);
+      setError(translateError(t, String(e)));
     }
   }
 
   function stopPolling() {
+    if (listenTimer.current !== null) {
+      window.clearTimeout(listenTimer.current);
+      listenTimer.current = null;
+    }
+    setListening(false);
     if (poll.current !== null) {
       window.clearInterval(poll.current);
       poll.current = null;
@@ -92,6 +106,8 @@ export function MicrophonePanel() {
         setHeard(false);
         await api.startRecording(selected);
         setTesting(true);
+        setListening(true);
+        listenTimer.current = window.setTimeout(() => setListening(false), 2000);
         poll.current = window.setInterval(async () => {
           try {
             const m = await api.getAudioMeter();
@@ -103,7 +119,7 @@ export function MicrophonePanel() {
         }, 60);
       }
     } catch (e) {
-      setError(String(e));
+      setError(translateError(t, String(e)));
       stopPolling();
     } finally {
       setBusy(false);
@@ -162,7 +178,7 @@ export function MicrophonePanel() {
                 )}
               >
                 <AudioLines className="h-3.5 w-3.5" />
-                {heard ? t("voice.hearing") : t("voice.quiet")}
+                {heard ? t("voice.hearing") : listening ? t("voice.listening") : t("voice.quiet")}
               </span>
             )}
           </span>

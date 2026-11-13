@@ -25,6 +25,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
+import { MISSING_VIEW } from "@/lib/setupStatus";
 import { cn } from "@/lib/utils";
 
 export type View =
@@ -104,6 +106,10 @@ export function Sidebar({
   // Re-read on every navigation so the status card reflects a shortcut
   // just changed on the Microphone & shortcut page.
   const { label: hotkeyLabel } = useHotkeyLabel(current);
+  // Ready only when dictation can really work (model, shortcut, mic, and on
+  // a Mac Accessibility); otherwise the first missing step is a link.
+  const setup = useSetupStatus(current);
+  const ready = !!setup && !setup.missing;
   // Parlato: installed version, shown under the status card.
   const [version, setVersion] = useState("");
   useEffect(() => {
@@ -167,14 +173,23 @@ export function Sidebar({
           <span
             className={cn(
               "h-2 w-2 rounded-full",
-              hotkeyLabel ? "bg-rec ring-[3px] ring-rec/25" : "bg-sidebar-muted",
+              ready ? "bg-rec ring-[3px] ring-rec/25" : "bg-sidebar-muted",
             )}
           />
           <span className="text-[13px] font-semibold">
-            {hotkeyLabel ? t("sidebar.statusReady") : t("sidebar.statusNoShortcut")}
+            {setup ? (ready ? t("sidebar.statusReady") : t("sidebar.statusSetup")) : "\u00a0"}
           </span>
         </div>
-        {hotkeyLabel && (
+        {setup?.missing && (
+          <button
+            type="button"
+            onClick={() => onSelect(MISSING_VIEW[setup.missing!])}
+            className="cursor-pointer self-start rounded-[3px] text-left text-xs leading-5 text-sidebar-foreground underline underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t(`setup.${setup.missing}`)}
+          </button>
+        )}
+        {ready && hotkeyLabel && (
           <div className="whitespace-nowrap text-xs leading-5 text-sidebar-muted">
             {/* Parlato: the key chip opens the shortcut settings. */}
             <button

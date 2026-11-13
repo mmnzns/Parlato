@@ -53,6 +53,8 @@ import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
 import { removeFromComputer, removeNote } from "@/lib/removeModel";
 import { modelName } from "@/lib/modelText";
+import { useSaveFailure } from "@/hooks/useSaveFailure";
+import { speechModelInUse } from "@/lib/setupStatus";
 import { fail, type Status } from "@/lib/status";
 import { isCancelled, translateError } from "@/lib/translateError";
 
@@ -94,6 +96,8 @@ export function ModelsPage({
     {},
   );
   const [whisperStatus, setWhisperStatus] = useState<Record<string, Status>>({});
+  // "Couldn't save that" for the Use buttons and the key removal.
+  const saveFailure = useSaveFailure();
 
   // selectedModelId dans une ref pour les callbacks des listeners montes
   // une seule fois (meme intention que l'auto-selection de l'ancien
@@ -150,6 +154,7 @@ export function ModelsPage({
         });
         await refresh();
         if (!selectedRef.current) onSelectModel(e.payload.id);
+        await adoptIfNoneInUse("whisper", e.payload.id);
       }),
       listen<DownloadError>("model:download:error", (e) => {
         setWhisperProgress((p) => {
@@ -177,7 +182,7 @@ export function ModelsPage({
             const { [e.payload.id]: _, ...rest } = p;
             return rest;
           });
-          refresh();
+          refresh().then(() => adoptIfNoneInUse("parakeet", e.payload.id));
         },
       ),
       // Le backend emet cet event sur annulation, echec HTTP ou toute
@@ -203,6 +208,33 @@ export function ModelsPage({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /// Parlato: a model that just finished downloading becomes the one in use
+  /// when nothing else is, so the setup wizard cannot end with no model.
+  async function adoptIfNoneInUse(kind: "whisper" | "parakeet", id: string) {
+    try {
+      if (await speechModelInUse(t)) return;
+      if (kind === "whisper") {
+        onSelectModel(id);
+        await api.setTranscriptionKind("local");
+      } else {
+        await setDefaultParakeet(id);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function cancelDownload(kind: "whisper" | "parakeet", id: string) {
+    try {
+      if (kind === "whisper") await api.cancelDownloadWhisperModel(id);
+      else await api.cancelDownloadParakeetModel(id);
+    } catch (e) {
+      const text = fail(translateError(t, String(e)));
+      if (kind === "whisper") setWhisperStatus((st) => ({ ...st, [id]: text }));
+      else setParakeetStatus((st) => ({ ...st, [id]: text }));
+    }
+  }
 
   // --- Whisper ---
 
@@ -272,11 +304,14 @@ export function ModelsPage({
     // selected_whisper_model (via App.handleSelectModel) puis bascule du
     // kind : set_transcription_source n'ecrit pas selected_whisper_model,
     // et set_transcription_kind preserve les selections cloud/parakeet.
+    const prev = selectedRef.current;
+    saveFailure.clear();
     onSelectModel(id);
     try {
       await api.setTranscriptionKind("local");
     } catch (e) {
-      console.error(e);
+      onSelectModel(prev);
+      saveFailure.fail(e);
     }
   }
 
@@ -351,7 +386,7 @@ export function ModelsPage({
         parakeet_model_id: id,
       });
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
     }
   }
 
@@ -375,21 +410,27 @@ export function ModelsPage({
         parakeet_model_id: source?.parakeet_model_id,
       });
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
     }
   }
 
   async function removeKey(providerId: string) {
+    const provider = providers.find((p) => p.id === providerId)?.display_name ?? providerId;
+    const active = source?.kind === "cloud" && source.cloud_provider === providerId;
+    const message =
+      t("speech.confirmRemoveKey", { provider }) + (active ? ` ${t("speech.confirmRemoveKeySwitch")}` : "");
+    if (!(await confirmDelete(message, t("speech.removeKey")))) return;
+    saveFailure.clear();
     try {
       await api.deleteApiKey(providerId);
       // Le provider actif perd sa cle -> retomber sur local (equivalent
       // VoiceInk clearCurrentTranscriptionModel dans clearAPIKey).
-      if (source?.kind === "cloud" && source.cloud_provider === providerId) {
+      if (active) {
         await api.setTranscriptionKind("local");
       }
       await refresh();
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
     }
   }
 
@@ -458,7 +499,7 @@ export function ModelsPage({
             error={whisperErrors[row.model.id] ?? null}
             status={whisperStatus[row.model.id] || null}
             onDownload={() => downloadWhisper(row.model.id)}
-            onCancelDownload={() => api.cancelDownloadWhisperModel(row.model.id)}
+            onCancelDownload={() => cancelDownload("whisper", row.model.id)}
             onDelete={() => deleteWhisper(row.model.id)}
             onRemoveEverywhere={() => removeWhisperEverywhere(row.model.id)}
             onSetDefault={() => setDefaultWhisper(row.model.id)}
@@ -474,7 +515,7 @@ export function ModelsPage({
             progress={parakeetProgress[row.model.id] ?? null}
             status={parakeetStatus[row.model.id] || null}
             onDownload={() => downloadParakeet(row.model.id)}
-            onCancelDownload={() => api.cancelDownloadParakeetModel(row.model.id)}
+            onCancelDownload={() => cancelDownload("parakeet", row.model.id)}
             onDelete={() => deleteParakeet(row.model.id)}
             onRemoveEverywhere={() => removeParakeetEverywhere(row.model.id)}
             onSetDefault={() => setDefaultParakeet(row.model.id)}
@@ -516,6 +557,7 @@ export function ModelsPage({
         </div>
         <DictationLanguagePanel onLanguage={setLanguage} />
       </section>
+      {saveFailure.notice}
 
       <div className="grid grid-cols-[216px_minmax(0,1fr)] items-start gap-4">
         <nav aria-label={t("speech.companies")} className="flex flex-col gap-1.5">

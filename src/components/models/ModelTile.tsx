@@ -120,7 +120,11 @@ export function TileProgress({ pct, label }: { pct: number | null; label?: React
         aria-valuemax={100}
         className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
       >
-        <div className="h-full bg-primary transition-[width]" style={{ width: `${pct ?? 0}%` }} />
+        {pct === null ? (
+          <div className="h-full w-full animate-pulse bg-primary/40" />
+        ) : (
+          <div className="h-full bg-primary transition-[width]" style={{ width: `${pct}%` }} />
+        )}
       </div>
       {label && <span className="font-mono text-[11px] text-muted-foreground">{label}</span>}
     </div>

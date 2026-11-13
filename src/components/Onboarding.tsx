@@ -25,10 +25,12 @@ import { HotkeyCard } from "@/components/HotkeyCard";
 import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { ModelsPage } from "@/components/ModelsPage";
 import { useHotkeyLabel, wordingMode } from "@/hooks/useHotkeyLabel";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { AccessibilityAction, MicrophoneAction, PermissionRow } from "@/components/PermissionsPanel";
 import { api, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import { translateError } from "@/lib/translateError";
 import { Mic, ShieldCheck } from "lucide-react";
 
 type Step = "access" | "mic" | "model" | "key" | "try";
@@ -51,6 +53,11 @@ export function Onboarding({
   const { label: keyLabel, mode } = useHotkeyLabel(step);
   const wording = `shortcutWording.${wordingMode(mode)}`;
   const key = keyLabel ?? t("hotkey.options.rightAlt");
+  // Which speech model is in use right now (null = none): shown on the model
+  // step and checked on the last one.
+  const setup = useSetupStatus(step);
+  const modelInUse = setup?.model ?? null;
+  const [micError, setMicError] = useState<string | null>(null);
 
   const copy: Record<Step, { label: string; title: string; desc: string }> = {
     access: { label: t("ob.accessLabel"), title: t("ob.accessTitle"), desc: t("ob.accessDesc") },
@@ -122,7 +129,7 @@ export function Onboarding({
           <div className="mx-auto flex max-w-[760px] flex-col gap-[22px] px-10 pt-10 pb-8">
             <header className="flex flex-col gap-1.5">
               <span className="font-mono text-[11px] text-muted-foreground">
-                {t("ob.stepOf", { n: index + 1 })}
+                {t("ob.stepOf", { n: index + 1, total: STEPS.length })}
               </span>
               <h1 className="font-display text-[28px] leading-8 font-extrabold tracking-[-0.035em]">
                 {copy[step].title}
@@ -136,15 +143,43 @@ export function Onboarding({
                 <MicrophonePanel />
                 <button
                   type="button"
-                  onClick={() => api.openPrivacyMicrophone()}
+                  onClick={() => {
+                    setMicError(null);
+                    api.openPrivacyMicrophone().catch((e) => setMicError(translateError(t, String(e))));
+                  }}
                   className="self-start text-xs font-semibold underline underline-offset-[3px]"
                 >
                   {t("ob.micSettings")}
                 </button>
+                {micError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {micError}
+                  </p>
+                )}
               </>
             )}
-            {step === "model" && <ModelsPage selectedModelId={selectedModelId} onSelectModel={onSelectModel} />}
+            {step === "model" && (
+              <>
+                {setup && (
+                  <p role="status" className="text-sm font-semibold">
+                    {modelInUse ? t("ob.modelUsing", { name: modelInUse }) : t("ob.modelNone")}
+                  </p>
+                )}
+                <ModelsPage selectedModelId={selectedModelId} onSelectModel={onSelectModel} />
+              </>
+            )}
             {step === "key" && <HotkeyCard />}
+            {step === "try" && setup && !modelInUse && (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center gap-3 rounded-lg border-[1.5px] border-edge bg-muted px-4 py-3 text-sm"
+              >
+                <span className="min-w-0 flex-1">{t("ob.tryNoModel")}</span>
+                <Button size="sm" onClick={() => setIndex(STEPS.indexOf("model"))}>
+                  {t("ob.tryNoModelButton")}
+                </Button>
+              </div>
+            )}
             {step === "try" && <TryStep keyLabel={key} wording={wording} />}
           </div>
         </div>

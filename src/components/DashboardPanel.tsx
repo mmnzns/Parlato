@@ -28,7 +28,7 @@ import type { TFunction } from "i18next";
 import type { View } from "@/components/Sidebar";
 import { useCopyButton } from "@/hooks/useCopyButton";
 import { useHotkeyLabel, wordingMode } from "@/hooks/useHotkeyLabel";
-import { modelName } from "@/lib/modelText";
+import { speechModelInUse } from "@/lib/setupStatus";
 import { api, type HotkeyMode, type TranscriptionRecord } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 
@@ -93,10 +93,9 @@ type SetupState = {
 };
 
 async function loadSetup(t: TFunction): Promise<SetupState> {
-  const [devices, selectedDevice, source, aiEnabled, llm] = await Promise.all([
+  const [devices, selectedDevice, aiEnabled, llm] = await Promise.all([
     api.listAudioDevices().catch(() => []),
     api.getSelectedInputDevice().catch(() => null),
-    api.getTranscriptionSource().catch(() => null),
     api.getEnhancementEnabled().catch(() => false),
     api.getLlmSelection().catch(() => null),
   ]);
@@ -109,20 +108,8 @@ async function loadSetup(t: TFunction): Promise<SetupState> {
         : t("dashboard.micDefault");
   }
 
-  let model: string | null = null;
-  if (source?.kind === "local" && source.whisper_model_id) {
-    const models = await api.listWhisperModels().catch(() => []);
-    const found = models.find((m) => m.id === source.whisper_model_id);
-    model = found ? modelName(t, found.id, found.display_name) : source.whisper_model_id;
-  } else if (source?.kind === "parakeet" && source.parakeet_model_id) {
-    const models = await api.listParakeetModels().catch(() => []);
-    const found = models.find((m) => m.id === source.parakeet_model_id);
-    model = found ? modelName(t, found.id, found.display_name) : source.parakeet_model_id;
-  } else if (source?.kind === "cloud" && source.cloud_provider) {
-    const providers = await api.listCloudProviders().catch(() => []);
-    const name = providers.find((p) => p.id === source.cloud_provider)?.display_name ?? source.cloud_provider;
-    model = source.cloud_model ? `${name} · ${source.cloud_model}` : name;
-  }
+  // Same rule as the sidebar: a model counts only when it can really run.
+  const model = await speechModelInUse(t);
 
   return {
     mic,

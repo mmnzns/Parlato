@@ -116,10 +116,18 @@ export function ParakeetModelCard({
         )
       }
     >
-      {prog && pct !== null && (
+      {prog && (
         <TileProgress
           pct={pct}
-          label={`${formatBytes(prog.downloaded)} / ${formatBytes(prog.total)} (${pct}%)`}
+          label={
+            pct === null
+              ? t("speech.connecting")
+              : t("speech.downloadProgress", {
+                  done: formatBytes(prog.downloaded),
+                  total: formatBytes(prog.total),
+                  pct,
+                })
+          }
         />
       )}
       {st && (

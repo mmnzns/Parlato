@@ -16,6 +16,7 @@ import { ExternalLink, KeyRound, Loader2, ShieldCheck, Trash2 } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { ModelTile } from "@/components/models/ModelTile";
 import { modelNotes } from "@/lib/modelText";
+import { translateError } from "@/lib/translateError";
 import type { CloudModel } from "./types";
 
 type VerifyStatus = "none" | "success" | "failure";
@@ -68,7 +69,7 @@ export function CloudModelCard({
       setIsExpanded(false);
     } catch (e) {
       setVerifyStatus("failure");
-      setVerifyError(String(e));
+      setVerifyError(translateError(t, String(e)));
     } finally {
       setVerifying(false);
     }
