@@ -48,7 +48,7 @@
     "permissionsTitle": "Permisos",
     "permissionsDescription": "Parlato comprueba los accesos del sistema necesarios para funcionar correctamente.",
     "audioTitle": "Micrófono y atajo",
-    "audioDescription": "Qué micrófono usa Parlato y qué tecla inicia el dictado.",
+    "audioDescription": "Qué micrófono usa Parlato, qué tecla inicia el dictado y cómo trata los silencios.",
     "dictionaryTitle": "Diccionario",
     "dictionaryDescription": "Enseña a Parlato nombres y palabras que suele equivocar.",
     "settingsTitle": "Ajustes",
@@ -244,8 +244,7 @@
   "parakeet": {
     "downloading": "descargando...",
     "cancelled": "Cancelado",
-    "errorPrefix": "Error: {{message}}",
-    "confirmDelete": "¿Eliminar el modelo Parakeet {{id}}?"
+    "errorPrefix": "Error: {{message}}"
   },
   "llmLocal": {
     "contextSize": "Tamaño del contexto",
@@ -255,9 +254,7 @@
     "cancel": "Cancelar",
     "downloading": "descargando...",
     "cancelled": "Cancelado",
-    "errorPrefix": "Error: {{message}}",
-    "confirmDelete": "¿Eliminar el modelo {{id}} ?",
-    "deleteModel": "Eliminar solo de Parlato"
+    "errorPrefix": "Error: {{message}}"
   },
   "enhancement": {
     "ollamaBaseUrl": "Base URL Ollama",
@@ -334,7 +331,7 @@
     "modelTitle": "Detector de silencios",
     "notDownloaded": "No descargado (menos de 1 MB).",
     "size": "Descargado, {{size}}",
-    "delete": "Eliminar solo de Parlato",
+    "delete": "Eliminar",
     "downloadingLabel": "Descargando: {{pct}} %",
     "downloadButton": "Descargar",
     "errorPrefix": "Error: {{message}}"
@@ -415,7 +412,8 @@
       "retryDone": "Listo, copiado al portapapeles",
       "gpuFallback": "Falló la gráfica, se usó el procesador",
       "aiSkipped": "La limpieza con IA no se hizo. Se pegó tal como lo dijiste."
-    }
+    },
+    "fixIt": "Arreglarlo"
   },
   "errors": {
     "apiKeyMissing": "Clave API ausente para {{provider}}.",
@@ -729,12 +727,12 @@
     "keepAliveHours_one": "{{count}} hora",
     "keepAliveHours_other": "{{count}} horas",
     "keepAliveRecommended": "{{label}} (recomendado)",
-    "confirmDeleteModel": "¿Eliminar {{name}}? Tendrás que descargarlo de nuevo para usarlo.",
     "confirmRemoveKey": "¿Quitar tu clave de {{provider}}? Tendrás que pegarla de nuevo para usar este servicio.",
     "confirmRemoveKeySwitch": "Parlato cambiará a un modelo de este ordenador.",
     "downloadingElsewhere": "Descargando en otra app",
     "connecting": "Iniciando la descarga…",
-    "downloadProgress": "{{done}} de {{total}} ({{pct}} %)"
+    "downloadProgress": "{{done}} de {{total}} ({{pct}} %)",
+    "recommended": "Recomendado"
   },
   "tf": {
     "dropTitle": "Suelta aquí un archivo de audio o vídeo",
@@ -865,7 +863,7 @@
     "micSettings": "¿La barra no se mueve? Abrir los ajustes de micrófono del ordenador",
     "modelLabel": "Modelo de voz",
     "modelTitle": "Elige un modelo de voz",
-    "modelDesc": "Parlato necesita un modelo de voz para convertir tu voz en texto. Para inglés, prueba Parakeet Unified. Para otros idiomas europeos, prueba Parakeet Ultra. Es una descarga única de unos 670 MB y después funciona sin conexión. Puedes cambiarlo cuando quieras en Modelo de voz.",
+    "modelDesc": "Parlato necesita un modelo de voz para convertir tu voz en texto. Elige el que lleva la etiqueta Recomendado para tu idioma. Es una descarga única y después funciona sin conexión. Puedes cambiarlo cuando quieras en Modelo de voz.",
     "modelNone": "Descarga un modelo y pulsa Usar para continuar.",
     "keyLabel": "Tu atajo",
     "keyTitle": "¿Qué tecla inicia el dictado?",
@@ -883,14 +881,10 @@
     "skip": "Saltar la configuración",
     "accessLabel": "Permisos",
     "accessTitle": "Permite Parlato en tu Mac",
-    "accessDesc": "macOS pregunta antes de que una app use el micrófono o escriba por ti. Parlato necesita ambos: el micrófono para oírte y la Accesibilidad para oír tu atajo y pegar el texto. Nada sale de tu ordenador salvo que elijas un servicio en línea."
+    "accessDesc": "macOS pregunta antes de que una app use el micrófono o escriba por ti. Parlato necesita ambos: el micrófono para oírte y la Accesibilidad para oír tu atajo y pegar el texto. Nada sale de tu ordenador salvo que elijas un servicio en línea.",
+    "languageQuestion": "¿Qué idioma hablas?"
   },
   "removeModel": {
-    "action": "Eliminar de todas las apps de este ordenador",
-    "confirmTitle": "¿Eliminar {{name}} de todas las apps de este ordenador?",
-    "bodyShared": "Se eliminará de Parlato y de {{apps}}, y liberará {{size}}.",
-    "bodyAlone": "Esto libera {{size}}.",
-    "confirmButton": "Eliminar",
     "inUse": "{{name}} está abierto en otra aplicación. Ciérralo allí primero y vuelve a intentarlo.",
     "oldCopies": "Eliminado. Algunos archivos antiguos estaban en uso y desaparecerán tras reiniciar."
   },
@@ -1161,5 +1155,20 @@
     "accessibility": "Permite la Accesibilidad",
     "micAccess": "Permite el micrófono",
     "mic": "Conecta un micrófono"
+  },
+  "deleteModel": {
+    "title": "¿Eliminar {{name}}?",
+    "sharedBody": "{{apps}} también usan este modelo. Elimínalo solo de Parlato o de todas las apps.",
+    "importedBody": "Esto lo quita de Parlato.",
+    "aloneBody": "Esto libera {{size}}.",
+    "fromParlato": "Eliminar de Parlato",
+    "everywhere": "Eliminar en todas partes y liberar {{size}}"
+  },
+  "downloads": {
+    "one": "Descargando {{name}}…",
+    "onePct": "Descargando {{name}}… {{pct}} %",
+    "many": "{{count}} descargas…",
+    "manyPct": "{{count}} descargas… {{pct}} %",
+    "cancel": "Cancelar"
   }
 }

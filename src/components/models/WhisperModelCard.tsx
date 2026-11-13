@@ -5,7 +5,7 @@
 // Parlato: rendered through the Workbench ModelTile.
 
 import { useTranslation } from "react-i18next";
-import { Download, HardDrive, Loader2, Trash2, X } from "lucide-react";
+import { Download, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelTile, TileProgress } from "@/components/models/ModelTile";
 import { modelName, modelNotes } from "@/lib/modelText";
@@ -19,6 +19,8 @@ import { isFailure, statusText, type Status } from "@/lib/status";
 type Props = {
   /** Parlato: plain title from companies.ts ("Best for English"). */
   pick?: string;
+  /** The model Parlato suggests for the language spoken. */
+  recommended?: boolean;
   model: WhisperModelState;
   isCurrent: boolean;
   progress: DownloadProgress | null;
@@ -28,14 +30,13 @@ type Props = {
   onDownload: () => void;
   onCancelDownload: () => void;
   onDelete: () => void;
-  /** "Remove from this computer": Delete for every app. Not for imports. */
-  onRemoveEverywhere: () => void;
   onSetDefault: () => void;
 };
 
 export function WhisperModelCard({
   model: m,
   pick,
+  recommended,
   isCurrent,
   progress: p,
   error,
@@ -43,7 +44,6 @@ export function WhisperModelCard({
   onDownload,
   onCancelDownload,
   onDelete,
-  onRemoveEverywhere,
   onSetDefault,
 }: Props) {
   const { t } = useTranslation();
@@ -62,36 +62,23 @@ export function WhisperModelCard({
     .join(" · ");
 
   const deleteButton = (
-    <div className="flex items-center">
-      {!m.imported && (
-        <Button
-          size="icon"
-          variant="ghost"
-          className="text-muted-foreground"
-          onClick={onRemoveEverywhere}
-          title={t("removeModel.action")}
-          aria-label={t("removeModel.action")}
-        >
-          <HardDrive className="h-4 w-4" />
-        </Button>
-      )}
-      <Button
-        size="icon"
-        variant="ghost"
-        className="text-muted-foreground"
-        onClick={onDelete}
-        title={t("speech.delete")}
-        aria-label={t("speech.delete")}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </div>
+    <Button
+      size="icon"
+      variant="ghost"
+      className="text-muted-foreground"
+      onClick={onDelete}
+      title={t("common.delete")}
+      aria-label={t("common.delete")}
+    >
+      <Trash2 className="h-4 w-4" />
+    </Button>
   );
 
   return (
     <ModelTile
       current={isCurrent}
       pick={pick}
+      recommended={recommended}
       local
       name={modelName(t, m.id, m.display_name)}
       tech={m.id}

@@ -159,7 +159,8 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
 }
 
 /// Parlato: "Allow" asks macOS the first time; after that (or on Windows)
-/// the button opens the microphone privacy settings.
+/// the button opens the microphone privacy settings. On a Mac it is shown
+/// only while the permission is not allowed.
 export function MicrophoneAction({
   state,
   onChange,
@@ -183,6 +184,10 @@ export function MicrophoneAction({
       </Button>
     );
   }
+  // Allowed: nothing to open (like Accessibility). Windows does not report the
+  // privacy switch for desktop apps (the status only says a microphone was
+  // found), so there the button stays as the way to that page.
+  if (isMac && state?.ok) return null;
   return (
     <Button size="sm" variant="outline" onClick={() => api.openPrivacyMicrophone().catch(onError)}>
       {t("permissions.microphoneAction")}

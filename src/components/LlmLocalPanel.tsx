@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Check, ChevronRight, Download, HardDrive, Loader2, Trash2, Upload } from "lucide-react";
+import { Check, ChevronRight, Download, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Row } from "@/components/ui/section";
 import { modelNotes } from "@/lib/modelText";
-import { removeFromComputer, removeNote } from "@/lib/removeModel";
+import { RecommendedTag } from "@/components/models/ModelTile";
+import { RECOMMENDED_LOCAL_AI } from "@/components/models/companies";
+import { useDeleteModel } from "@/components/DeleteModelDialog";
+import { activeDownloadsOnce } from "@/lib/downloads";
+import { removeEverywhere, removeNote } from "@/lib/removeModel";
 import { cn } from "@/lib/utils";
 import {
   api,
@@ -13,7 +17,6 @@ import {
   type LlamaCppSettings,
 } from "@/lib/tauri";
 import { useSaveFailure } from "@/hooks/useSaveFailure";
-import { confirmDelete } from "@/lib/confirmDelete";
 import { formatBytes } from "@/lib/format";
 import { fail, isFailure, statusText, type Status } from "@/lib/status";
 import { isCancelled, translateError } from "@/lib/translateError";
@@ -33,9 +36,18 @@ export function LlmLocalPanel({ onSelectedChange }: { onSelectedChange?: (id: st
   const [progress, setProgress] = useState<Record<string, DownloadProgress>>({});
   const [status, setStatus] = useState<Record<string, Status>>({});
   const saveFailure = useSaveFailure();
+  const deleteModel = useDeleteModel();
 
   useEffect(() => {
     refresh();
+    // A download that kept running while this page was closed.
+    activeDownloadsOnce("llm").then((list) =>
+      setProgress((p) => {
+        const next = { ...p };
+        for (const d of list) next[d.id] ??= { id: d.id, downloaded: d.downloaded, total: d.total };
+        return next;
+      }),
+    );
     const unProg = listen<DownloadProgress>(
       "llm_model:download:progress",
       (e) =>
@@ -120,29 +132,25 @@ export function LlmLocalPanel({ onSelectedChange }: { onSelectedChange?: (id: st
     // Backend emits llm_model:download:error which triggers UI cleanup.
   }
 
-  async function remove(id: string) {
-    if (!(await confirmDelete(t("llmLocal.confirmDelete", { id })))) return;
-    try {
-      await api.deleteGgufModel(id);
-      await refresh();
-    } catch (e) {
-      setStatus((s) => ({ ...s, [id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
-    }
-  }
-
-  /** "Remove from this computer": Delete for every app, after a confirmation. */
-  async function removeEverywhere(m: GgufModelState) {
+  /** The one Delete: asks (see DeleteModelDialog), then lets go for Parlato
+   *  only or erases the model for every app. */
+  async function remove(m: GgufModelState) {
+    const choice = await deleteModel.ask({
+      name: m.display_name,
+      bytes: m.on_disk_bytes ?? m.size_bytes,
+      otherApps: m.other_apps,
+      imported: m.imported,
+    });
+    if (choice === "cancel") return;
     setStatus((s) => ({ ...s, [m.id]: "" }));
     try {
-      const outcome = await removeFromComputer(t, {
-        id: m.id,
-        name: m.display_name,
-        bytes: m.on_disk_bytes ?? m.size_bytes,
-        otherApps: m.other_apps,
-      });
-      if (outcome === "cancelled") return;
-      const note = removeNote(t, outcome, m.display_name);
-      if (note) setStatus((s) => ({ ...s, [m.id]: note.failure ? fail(note.text) : note.text }));
+      if (choice === "parlato") {
+        await api.deleteGgufModel(m.id);
+      } else {
+        const outcome = await removeEverywhere(m.id);
+        const note = removeNote(t, outcome, m.display_name);
+        if (note) setStatus((s) => ({ ...s, [m.id]: note.failure ? fail(note.text) : note.text }));
+      }
       await refresh();
     } catch (e) {
       setStatus((s) => ({ ...s, [m.id]: fail(t("llmLocal.errorPrefix", { message: translateError(t, String(e)) })) }));
@@ -199,6 +207,7 @@ export function LlmLocalPanel({ onSelectedChange }: { onSelectedChange?: (id: st
       </Block>
 
       {saveFailure.notice}
+      {deleteModel.dialog}
       {models.map((m) => {
         const prog = progress[m.id];
         const st = status[m.id];
@@ -216,6 +225,7 @@ export function LlmLocalPanel({ onSelectedChange }: { onSelectedChange?: (id: st
               label={
                 <span className="flex flex-wrap items-center gap-2">
                   {m.display_name}
+                  {m.id === RECOMMENDED_LOCAL_AI && <RecommendedTag />}
                   {isSelected && (
                     <span className="flex items-center gap-1 text-xs font-semibold text-positive">
                       <Check className="h-3.5 w-3.5" />
@@ -254,26 +264,14 @@ export function LlmLocalPanel({ onSelectedChange }: { onSelectedChange?: (id: st
                   {pct !== null ? `${pct}%` : ""} {t("llmLocal.cancel")}
                 </Button>
               )}
-              {m.downloaded && !m.imported && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-muted-foreground"
-                  onClick={() => removeEverywhere(m)}
-                  title={t("removeModel.action")}
-                  aria-label={t("removeModel.action")}
-                >
-                  <HardDrive className="h-4 w-4" />
-                </Button>
-              )}
               {m.downloaded && m.removable && (
                 <Button
                   size="icon"
                   variant="ghost"
                   className="text-muted-foreground"
-                  onClick={() => remove(m.id)}
-                  title={t("llmLocal.deleteModel")}
-                  aria-label={t("llmLocal.deleteModel")}
+                  onClick={() => remove(m)}
+                  title={t("common.delete")}
+                  aria-label={t("common.delete")}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

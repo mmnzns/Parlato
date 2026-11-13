@@ -48,7 +48,7 @@
     "permissionsTitle": "Permissions",
     "permissionsDescription": "Parlato checks the system access it needs to work correctly.",
     "audioTitle": "Microphone & shortcut",
-    "audioDescription": "Which microphone Parlato uses and which key starts dictation.",
+    "audioDescription": "Which microphone Parlato uses, which key starts dictation, and how it handles silence.",
     "dictionaryTitle": "Dictionary",
     "dictionaryDescription": "Teach Parlato names and words it keeps getting wrong.",
     "settingsTitle": "Settings",
@@ -244,8 +244,7 @@
   "parakeet": {
     "downloading": "downloading...",
     "cancelled": "Canceled",
-    "errorPrefix": "Error: {{message}}",
-    "confirmDelete": "Delete Parakeet model {{id}}?"
+    "errorPrefix": "Error: {{message}}"
   },
   "llmLocal": {
     "contextSize": "Context size",
@@ -255,9 +254,7 @@
     "cancel": "Cancel",
     "downloading": "downloading...",
     "cancelled": "Canceled",
-    "errorPrefix": "Error: {{message}}",
-    "confirmDelete": "Delete model {{id}}?",
-    "deleteModel": "Delete from Parlato only"
+    "errorPrefix": "Error: {{message}}"
   },
   "enhancement": {
     "ollamaBaseUrl": "Ollama Base URL",
@@ -334,7 +331,7 @@
     "modelTitle": "Silence detector",
     "notDownloaded": "Not downloaded (under 1 MB).",
     "size": "Downloaded, {{size}}",
-    "delete": "Delete from Parlato only",
+    "delete": "Delete",
     "downloadingLabel": "Downloading: {{pct}}%",
     "downloadButton": "Download",
     "errorPrefix": "Error: {{message}}"
@@ -415,7 +412,8 @@
       "retryDone": "Done, copied to clipboard",
       "gpuFallback": "Graphics card failed, used processor",
       "aiSkipped": "AI cleanup didn't run. Pasted as spoken."
-    }
+    },
+    "fixIt": "Fix it"
   },
   "errors": {
     "apiKeyMissing": "API key missing for {{provider}}.",
@@ -729,12 +727,12 @@
     "keepAliveHours_one": "{{count}} hour",
     "keepAliveHours_other": "{{count}} hours",
     "keepAliveRecommended": "{{label}} (recommended)",
-    "confirmDeleteModel": "Delete {{name}}? You will need to download it again to use it.",
     "confirmRemoveKey": "Remove your {{provider}} key? You'll need to paste it again to use this service.",
     "confirmRemoveKeySwitch": "Parlato will switch to a model on this computer.",
     "downloadingElsewhere": "Downloading in another app",
     "connecting": "Starting download…",
-    "downloadProgress": "{{done}} of {{total}} ({{pct}}%)"
+    "downloadProgress": "{{done}} of {{total}} ({{pct}}%)",
+    "recommended": "Recommended"
   },
   "tf": {
     "dropTitle": "Drop an audio or video file here",
@@ -865,7 +863,7 @@
     "micSettings": "Bar not moving? Open your computer's microphone settings",
     "modelLabel": "Speech model",
     "modelTitle": "Pick a speech model",
-    "modelDesc": "Parlato needs one speech model to turn your voice into text. For English, try Parakeet Unified. For other European languages, try Parakeet Ultra. It's a one-time download of about 670 MB, then it works offline. You can change it any time in Speech model.",
+    "modelDesc": "Parlato needs one speech model to turn your voice into text. Pick the one marked Recommended for your language. It's a one-time download, then it works offline. You can change it any time in Speech model.",
     "modelNone": "Download a model, then press Use to continue.",
     "keyLabel": "Your shortcut",
     "keyTitle": "Which key should start dictation?",
@@ -883,14 +881,10 @@
     "skip": "Skip setup",
     "accessLabel": "Permissions",
     "accessTitle": "Allow Parlato on your Mac",
-    "accessDesc": "macOS asks before an app can use the microphone or type for you. Parlato needs both: the microphone to hear you, Accessibility to hear your shortcut and paste the text. Nothing leaves your computer unless you pick an online service."
+    "accessDesc": "macOS asks before an app can use the microphone or type for you. Parlato needs both: the microphone to hear you, Accessibility to hear your shortcut and paste the text. Nothing leaves your computer unless you pick an online service.",
+    "languageQuestion": "Which language do you speak?"
   },
   "removeModel": {
-    "action": "Delete from all apps on this computer",
-    "confirmTitle": "Delete {{name}} from all apps on this computer?",
-    "bodyShared": "This deletes it from Parlato and from {{apps}}, and frees {{size}}.",
-    "bodyAlone": "This frees {{size}}.",
-    "confirmButton": "Delete",
     "inUse": "{{name}} is open in another app. Close it there first, then try again.",
     "oldCopies": "Deleted. A few old files were in use and will go after a restart."
   },
@@ -1161,5 +1155,20 @@
     "accessibility": "Allow Accessibility",
     "micAccess": "Allow the microphone",
     "mic": "Connect a microphone"
+  },
+  "deleteModel": {
+    "title": "Delete {{name}}?",
+    "sharedBody": "{{apps}} also use this model. Delete it from Parlato only, or from every app.",
+    "importedBody": "This removes it from Parlato.",
+    "aloneBody": "This frees {{size}}.",
+    "fromParlato": "Delete from Parlato",
+    "everywhere": "Delete everywhere and free {{size}}"
+  },
+  "downloads": {
+    "one": "Downloading {{name}}…",
+    "onePct": "Downloading {{name}}… {{pct}}%",
+    "many": "{{count}} downloads…",
+    "manyPct": "{{count}} downloads… {{pct}}%",
+    "cancel": "Cancel"
   }
 }

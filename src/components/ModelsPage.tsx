@@ -27,9 +27,11 @@ import { ImportModelCard } from "@/components/models/ImportModelCard";
 import { ParakeetModelCard } from "@/components/models/ParakeetModelCard";
 import { WhisperModelCard } from "@/components/models/WhisperModelCard";
 import {
+  companyOfModel,
   companyOfSource,
   LOCAL_COMPANIES,
   pickModelId,
+  recommendedSpeechModel,
   RUNS_NOTE,
 } from "@/components/models/companies";
 import {
@@ -52,7 +54,9 @@ import {
 import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
 import { notifySetupChanged } from "@/lib/setupStatus";
-import { removeFromComputer, removeNote } from "@/lib/removeModel";
+import { useDeleteModel } from "@/components/DeleteModelDialog";
+import { activeDownloadsOnce } from "@/lib/downloads";
+import { removeEverywhere, removeNote } from "@/lib/removeModel";
 import { modelName } from "@/lib/modelText";
 import { useSaveFailure } from "@/hooks/useSaveFailure";
 import { speechModelInUse } from "@/lib/setupStatus";
@@ -71,11 +75,19 @@ export function ModelsPage({
   selectedModelId,
   onSelectModel,
   hardware,
+  language: languageProp,
+  hideLanguagePicker = false,
 }: {
   selectedModelId: string | null;
   onSelectModel: (id: string | null) => Promise<void>;
   /** One-line hardware summary shown under the local company header. */
   hardware?: string;
+  /** Setup wizard: the language the person chose in its own picker, which
+   *  drives the picks and the Recommended tag. */
+  language?: string;
+  /** Setup wizard: it shows the language question above, so the "in use" bar
+   *  does not repeat it. */
+  hideLanguagePicker?: boolean;
 }) {
   const { t } = useTranslation();
   const [whisper, setWhisper] = useState<WhisperModelState[]>([]);
@@ -86,7 +98,9 @@ export function ModelsPage({
   // Parlato: company picked in the list (null = follow the model in use),
   // dictation language (for English-only picks) and "Show all versions".
   const [chosenCompany, setChosenCompany] = useState<string | null>(null);
-  const [language, setLanguage] = useState("auto");
+  const [pickedLanguage, setLanguage] = useState("auto");
+  const language = languageProp ?? pickedLanguage;
+  const deleteModel = useDeleteModel();
   const [showAll, setShowAll] = useState(false);
   const [whisperProgress, setWhisperProgress] = useState<
     Record<string, DownloadProgress>
@@ -142,6 +156,22 @@ export function ModelsPage({
 
   useEffect(() => {
     refresh();
+    // A download that kept running while this page was closed: show its
+    // progress instead of a Download button.
+    activeDownloadsOnce("whisper").then((list) =>
+      setWhisperProgress((p) => {
+        const next = { ...p };
+        for (const d of list) next[d.id] ??= { id: d.id, downloaded: d.downloaded, total: d.total };
+        return next;
+      }),
+    );
+    activeDownloadsOnce("parakeet").then((list) =>
+      setParakeetProgress((p) => {
+        const next = { ...p };
+        for (const d of list) next[d.id] ??= { id: d.id, downloaded: d.downloaded, total: d.total, current_file: "" };
+        return next;
+      }),
+    );
     const unlisteners = [
       listen<TranscriptionSource>("source:changed", (e) => {
         if (e.payload?.kind) setSource(e.payload);
@@ -271,36 +301,30 @@ export function ModelsPage({
     }
   }
 
+  /** The one Delete: asks (see DeleteModelDialog), then lets go for Parlato
+   *  only or erases the model for every app. */
   async function deleteWhisper(id: string) {
-    // Parlato: confirm like Parakeet and local AI models; a Whisper model is
-    // a 75 MB to 3 GB download.
-    const name = modelName(t, id, whisper.find((m) => m.id === id)?.display_name ?? id);
-    if (!(await confirmDelete(t("speech.confirmDeleteModel", { name })))) return;
-    try {
-      await api.deleteWhisperModel(id);
-      if (selectedRef.current === id) await quietly(onSelectModel(null));
-      await refresh();
-    } catch (e) {
-      setWhisperErrors((er) => ({ ...er, [id]: String(e) }));
-    }
-  }
-
-  /** "Remove from this computer": Delete for every app, after a confirmation. */
-  async function removeWhisperEverywhere(id: string) {
     const m = whisper.find((x) => x.id === id);
     const name = modelName(t, id, m?.display_name ?? id);
+    const choice = await deleteModel.ask({
+      name,
+      bytes: m?.on_disk_bytes ?? m?.size_bytes,
+      otherApps: m?.other_apps,
+      imported: m?.imported,
+    });
+    if (choice === "cancel") return;
     setWhisperStatus((s) => ({ ...s, [id]: "" }));
     try {
-      const outcome = await removeFromComputer(t, {
-        id,
-        name,
-        bytes: m?.on_disk_bytes ?? m?.size_bytes,
-        otherApps: m?.other_apps,
-      });
-      if (outcome === "cancelled") return;
+      if (choice === "parlato") {
+        await api.deleteWhisperModel(id);
+        if (selectedRef.current === id) await quietly(onSelectModel(null));
+        await refresh();
+        return;
+      }
+      const outcome = await removeEverywhere(id);
       const note = removeNote(t, outcome, name);
       if (note) setWhisperStatus((s) => ({ ...s, [id]: note.failure ? fail(note.text) : note.text }));
-      // Same as Delete: the model in use is gone, so nothing is selected.
+      // The model in use is gone, so nothing is selected.
       if (outcome !== "in_use" && selectedRef.current === id) await quietly(onSelectModel(null));
       await refresh();
     } catch (e) {
@@ -356,32 +380,23 @@ export function ModelsPage({
   }
 
   async function deleteParakeet(id: string) {
-    if (!(await confirmDelete(t("parakeet.confirmDelete", { id })))) return;
-    try {
-      await api.deleteParakeetModel(id);
-      await refresh();
-    } catch (e) {
-      setParakeetStatus((s) => ({
-        ...s,
-        [id]: fail(t("parakeet.errorPrefix", { message: translateError(t, String(e)) })),
-      }));
-    }
-  }
-
-  async function removeParakeetEverywhere(id: string) {
     const m = parakeet.find((x) => x.id === id);
     const name = modelName(t, id, m?.display_name ?? id);
+    const choice = await deleteModel.ask({
+      name,
+      bytes: m?.on_disk_bytes ?? m?.size_bytes,
+      otherApps: m?.other_apps,
+    });
+    if (choice === "cancel") return;
     setParakeetStatus((s) => ({ ...s, [id]: "" }));
     try {
-      const outcome = await removeFromComputer(t, {
-        id,
-        name,
-        bytes: m?.on_disk_bytes ?? m?.size_bytes,
-        otherApps: m?.other_apps,
-      });
-      if (outcome === "cancelled") return;
-      const note = removeNote(t, outcome, name);
-      if (note) setParakeetStatus((s) => ({ ...s, [id]: note.failure ? fail(note.text) : note.text }));
+      if (choice === "parlato") {
+        await api.deleteParakeetModel(id);
+      } else {
+        const outcome = await removeEverywhere(id);
+        const note = removeNote(t, outcome, name);
+        if (note) setParakeetStatus((s) => ({ ...s, [id]: note.failure ? fail(note.text) : note.text }));
+      }
       await refresh();
     } catch (e) {
       setParakeetStatus((s) => ({
@@ -473,7 +488,13 @@ export function ModelsPage({
   );
 
   const activeCompany = companyOfSource(source, !!defaultDisplayName);
-  const company = chosenCompany ?? activeCompany ?? "nvidia";
+  // Parlato: the model suggested for the language spoken; with nothing in use
+  // yet its company is the one shown first.
+  const recommendedId = useMemo(
+    () => recommendedSpeechModel(language, parakeet.find((m) => m.id === "parakeet-ultra")?.language_codes),
+    [language, parakeet],
+  );
+  const company = chosenCompany ?? activeCompany ?? companyOfModel(recommendedId) ?? "nvidia";
   const localCompany = LOCAL_COMPANIES.find((c) => c.id === company);
 
   /// Rows of the chosen company: picks first (local), then the other
@@ -501,6 +522,7 @@ export function ModelsPage({
   const showRest = !localCompany || showAll || currentHidden;
 
   function renderRow(row: ModelRow, pick?: string) {
+    const recommended = row.type !== "cloud" && row.key === recommendedId;
     const current = isRowCurrent(row, source);
     switch (row.type) {
       case "whisper":
@@ -508,6 +530,7 @@ export function ModelsPage({
           <WhisperModelCard
             key={row.key}
             pick={pick}
+            recommended={recommended}
             model={row.model}
             isCurrent={current}
             progress={whisperProgress[row.model.id] ?? null}
@@ -516,7 +539,6 @@ export function ModelsPage({
             onDownload={() => downloadWhisper(row.model.id)}
             onCancelDownload={() => cancelDownload("whisper", row.model.id)}
             onDelete={() => deleteWhisper(row.model.id)}
-            onRemoveEverywhere={() => removeWhisperEverywhere(row.model.id)}
             onSetDefault={() => setDefaultWhisper(row.model.id)}
           />
         );
@@ -525,6 +547,7 @@ export function ModelsPage({
           <ParakeetModelCard
             key={row.key}
             pick={pick}
+            recommended={recommended}
             model={row.model}
             isCurrent={current}
             progress={parakeetProgress[row.model.id] ?? null}
@@ -532,7 +555,6 @@ export function ModelsPage({
             onDownload={() => downloadParakeet(row.model.id)}
             onCancelDownload={() => cancelDownload("parakeet", row.model.id)}
             onDelete={() => deleteParakeet(row.model.id)}
-            onRemoveEverywhere={() => removeParakeetEverywhere(row.model.id)}
             onSetDefault={() => setDefaultParakeet(row.model.id)}
           />
         );
@@ -570,9 +592,10 @@ export function ModelsPage({
             {defaultDisplayName ?? t("speech.noneYet")}
           </span>
         </div>
-        <DictationLanguagePanel onLanguage={setLanguage} />
+        {!hideLanguagePicker && <DictationLanguagePanel onLanguage={setLanguage} />}
       </section>
       {saveFailure.notice}
+      {deleteModel.dialog}
 
       <div className="grid grid-cols-[216px_minmax(0,1fr)] items-start gap-4">
         <nav aria-label={t("speech.companies")} className="flex flex-col gap-1.5">

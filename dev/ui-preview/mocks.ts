@@ -123,6 +123,8 @@ function markDownloaded(m: { downloaded: boolean; on_disk_bytes: number | null; 
   m.path = `/mock/Models/${m.id}`;
 }
 markDownloaded(whisperModels.find((m) => m.id === "whisper-turbo")!);
+// Shared with Talaan in the preview, so Delete shows the two-choice dialog.
+whisperModels.find((m) => m.id === "whisper-turbo")!.other_apps = ["Talaan"];
 
 type Parakeet = {
   id: string; display_name: string; multilingual: boolean; is_quantized: boolean; size_bytes: number;
@@ -143,7 +145,7 @@ const parakeetModels: Parakeet[] = [
   parakeet("parakeet-v3-full", "Parakeet v3 (full precision)", true, false, 2500, 0.8, 0.88, "25 European languages, larger."),
   parakeet("parakeet-v2", "Parakeet v2 (compressed)", false, true, 640, 0.9, 0.84, "English only."),
   parakeet("parakeet-v2-full", "Parakeet v2 (full precision)", false, false, 2400, 0.8, 0.87, "English only, larger."),
-  parakeet("parakeet-ultra", "Parakeet Ultra", false, true, 380, 0.97, 0.7, "Smallest and fastest, English only."),
+  parakeet("parakeet-ultra", "Parakeet Ultra", true, true, 380, 0.97, 0.7, "Smallest and fastest, many European languages."),
   parakeet("parakeet-unified-en", "Parakeet Unified (English)", false, true, 700, 0.85, 0.86, "English with punctuation."),
   parakeet("parakeet-unified-en-full", "Parakeet Unified (English, full)", false, false, 2600, 0.75, 0.89, "English with punctuation, larger."),
 ];
@@ -317,10 +319,15 @@ async function simulateDownload(
   if (!m) throw new Error("PARLA_ERR:unknownModel");
   cancelled.delete(id);
   const steps = 8;
+  const kind = prefix === "model" ? "whisper" : prefix === "parakeet_model" ? "parakeet" : "llm";
+  const active: ActiveDownload = { id, kind, name: (m as { display_name?: string }).display_name ?? id, downloaded: 0, total: m.size_bytes };
+  activeDownloads.set(id, active);
   for (let i = 1; i <= steps; i++) {
     await sleep(350);
+    active.downloaded = Math.round((m.size_bytes * (i - 1)) / steps);
     if (cancelled.has(id)) {
       cancelled.delete(id);
+      activeDownloads.delete(id);
       await emit(`${prefix}:download:error`, { id, message: "PARLA_ERR:cancelled" });
       throw new Error("PARLA_ERR:cancelled");
     }
@@ -328,11 +335,15 @@ async function simulateDownload(
     if (prefix === "parakeet_model") payload.current_file = "encoder.onnx";
     await emit(`${prefix}:download:progress`, payload);
   }
+  activeDownloads.delete(id);
   markDownloaded(m as Parameters<typeof markDownloaded>[0]);
   await emit(`${prefix}:download:complete`, { id, path: m.path });
   return m.path;
 }
 const cancelled = new Set<string>();
+type ActiveDownload = { id: string; kind: "whisper" | "parakeet" | "llm" | "vad"; name: string; downloaded: number; total: number };
+/** Downloads running right now, for list_active_downloads. */
+const activeDownloads = new Map<string, ActiveDownload>();
 
 // -- Command table ----------------------------------------------------------
 
@@ -529,12 +540,15 @@ const commands: Record<string, Handler> = {
 
   // VAD
   vad_get_state: get("vad"),
+  list_active_downloads: () => [...activeDownloads.values()],
   vad_download: async () => {
     const v = settings.vad as Record<string, unknown>;
+    activeDownloads.set("vad", { id: "vad", kind: "vad", name: "Voice detection", downloaded: 0, total: 885_000 });
     for (let i = 1; i <= 5; i++) {
       await sleep(250);
       await emit("vad:download:progress", { downloaded: i * 177_000, total: 885_000 });
     }
+    activeDownloads.delete("vad");
     Object.assign(v, { downloaded: true, path: "/mock/Models/vad/ggml-silero-v6.2.0.bin", on_disk_bytes: 885_000 });
     await emit("vad:download:complete", null);
     return v.path;

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { isMac } from "@/lib/platform";
+import i18n from "@/i18n";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -13,8 +13,9 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function powerShortcutLabel(slot: number | null | undefined): string | null {
   if (slot == null || slot < 0 || slot > 9) return null;
-  // Parlato: the same key is called Option on a Mac.
-  const mod = isMac ? "Option" : "Alt";
+  // Parlato: the same key is Option on a Mac; the name follows the app's
+  // language (Opcion in Spanish) through keys.alt and its Mac override.
+  const mod = i18n.t("keys.alt");
   return slot < 9 ? `${mod}+${slot + 1}` : `${mod}+0`;
 }
 

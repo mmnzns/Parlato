@@ -750,8 +750,9 @@ async fn finish_dictation(
 /// transcription a reussi et le texte est dans l'historique.
 const COPY_FAILED_CODE: &str = "PARLA_ERR:copyFailed";
 
-/// Duree d'affichage d'un echec dans la bulle.
-const FAILED_PILL_MS: u64 = 3500;
+/// Duree d'affichage d'un echec dans la bulle (assez pour lire et pour
+/// cliquer "Fix it").
+const FAILED_PILL_MS: u64 = 6000;
 /// Duree d'affichage de "Rien entendu" (dictee sans parole).
 const EMPTY_PILL_MS: u64 = 1500;
 
