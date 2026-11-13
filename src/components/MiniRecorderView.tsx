@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { LayoutGrid, X } from "lucide-react";
 import { api } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
+import { fixViewFor } from "@/lib/errorFix";
 import { cn, modeBadge } from "@/lib/utils";
 import { AudioVisualizer, StaticVisualizer } from "./mini-recorder/AudioVisualizer";
 import { FailureText } from "./mini-recorder/FailureText";
@@ -66,6 +67,13 @@ export function MiniRecorderView() {
   } = useRecorderState(setHoverPopover);
 
   const failureText = stage === "failed" ? translateError(t, failure) : "";
+  // "Fix it": the page that solves this failure. The pill does not take focus
+  // (WS_EX_NOACTIVATE on Windows); opening the main window is the person's
+  // own click.
+  const fixView = stage === "failed" ? fixViewFor(failure) : null;
+  const openFix = () => {
+    api.showMainWindow(fixView).catch(console.error);
+  };
   const expanded = stage === "failed" || stage === "notice";
   const isNotch = style === "notch";
   const hasEnabledConfigs = powerConfigs.some((c) => c.is_enabled);
@@ -114,7 +122,7 @@ export function MiniRecorderView() {
       >
         {failureText && !isNotch && (
           <>
-            <FailureText text={failureText} />
+            <FailureText text={failureText} fixLabel={t("miniRecorder.fixIt")} onFix={fixView ? openFix : undefined} />
             <div className="h-px bg-white/15" />
           </>
         )}
@@ -214,7 +222,7 @@ export function MiniRecorderView() {
         {failureText && isNotch && (
           <>
             <div className="h-px bg-white/15" />
-            <FailureText text={failureText} />
+            <FailureText text={failureText} fixLabel={t("miniRecorder.fixIt")} onFix={fixView ? openFix : undefined} />
           </>
         )}
       </div>
