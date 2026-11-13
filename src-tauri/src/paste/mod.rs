@@ -51,9 +51,9 @@ pub fn remember_foreground() {
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
     let hwnd = unsafe { GetForegroundWindow() };
     let raw = hwnd.0 as isize;
-    if raw == 0 {
-        return;
-    }
+    // Parlato : pas de fenetre au premier plan (0) : on efface l'ancienne
+    // cible au lieu de la garder, sinon le collage suivant irait dans une
+    // fenetre qui n'est plus celle de la dictee.
     let cell = SAVED_FOREGROUND.get_or_init(|| StdMutex::new(0));
     if let Ok(mut g) = cell.lock() {
         *g = raw;

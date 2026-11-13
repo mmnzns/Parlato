@@ -93,8 +93,9 @@ pub fn capture_and_ocr(app: &AppHandle) -> Result<Option<String>> {
         let text = ocr::recognize_png(&cap.png)?;
         let elapsed = start.elapsed();
         info!(
+            // Parlato : jamais le titre de la fenetre dans les logs (il peut
+            // porter un nom de document, un objet de mail, une URL).
             w_app = %cap.app_name,
-            title = %cap.window_title,
             chars = text.len(),
             ms = elapsed.as_millis() as u64,
             "Screen context OCR"
