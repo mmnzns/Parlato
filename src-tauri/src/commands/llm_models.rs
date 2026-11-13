@@ -68,17 +68,23 @@ pub async fn import_gguf_model(
     app: AppHandle,
     state: State<'_, ModelStoreState>,
 ) -> Result<String, String> {
-    // Native file picker -> .gguf only.
-    let file = app
-        .dialog()
-        .file()
-        .add_filter("GGUF", &["gguf"])
-        .blocking_pick_file();
-    let Some(fp) = file else {
+    // Native file picker -> .gguf only. Callback version: the result comes
+    // through a channel, so this worker thread is not blocked while the
+    // dialog is open (same as export_history_csv).
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog().file().add_filter("GGUF", &["gguf"]).pick_file(move |file| {
+        let _ = tx.send(file);
+    });
+    let Some(fp) = rx.await.map_err(|e| e.to_string())? else {
         return Err(download::CANCELLED.into());
     };
     let p: PathBuf = fp.as_path().map(|p| p.to_path_buf()).ok_or_else(|| "chemin invalide".to_string())?;
-    imports::import_gguf(&state.0.llm_dir(), &p).map_err(|e| e.to_string())
+    // The copy of a multi-GB file must not run on the async worker either.
+    let llm_dir = state.0.llm_dir();
+    tokio::task::spawn_blocking(move || imports::import_gguf(&llm_dir, &p))
+        .await
+        .map_err(|e| format!("task join: {e}"))?
+        .map_err(|e| e.to_string())
 }
 
 // ---- Selection + inference settings ---------------------------------------

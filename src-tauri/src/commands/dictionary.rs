@@ -50,13 +50,15 @@ pub async fn export_dictionary_csv(app: AppHandle) -> Result<Option<String>, Str
         all.sort_by_key(|w| w.original_text.to_lowercase());
         dictionary_csv::serialize(&all)
     };
-    let Some(path) = app
-        .dialog()
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
         .file()
         .set_file_name("parlato-dictionary.csv")
         .add_filter("CSV", &["csv"])
-        .blocking_save_file()
-    else {
+        .save_file(move |path| {
+            let _ = tx.send(path);
+        });
+    let Some(path) = rx.await.map_err(|e| e.to_string())? else {
         return Ok(None);
     };
     let p = path.as_path().ok_or_else(|| "chemin invalide".to_string())?.to_path_buf();
@@ -71,7 +73,11 @@ pub async fn export_dictionary_csv(app: AppHandle) -> Result<Option<String>, Str
 pub async fn import_dictionary_csv(app: AppHandle) -> Result<Option<ImportSummary>, String> {
     /// A dictionary file is a few KB; refuse anything absurd.
     const MAX_BYTES: u64 = 5 * 1024 * 1024;
-    let Some(path) = app.dialog().file().add_filter("CSV", &["csv", "txt"]).blocking_pick_file() else {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog().file().add_filter("CSV", &["csv", "txt"]).pick_file(move |path| {
+        let _ = tx.send(path);
+    });
+    let Some(path) = rx.await.map_err(|e| e.to_string())? else {
         return Ok(None);
     };
     let p = path.as_path().ok_or_else(|| "chemin invalide".to_string())?.to_path_buf();

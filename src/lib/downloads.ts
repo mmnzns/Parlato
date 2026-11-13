@@ -133,11 +133,14 @@ export async function activeDownloadsOnce(kind: Kind): Promise<ActiveDownload[]>
 }
 
 /** Cancels a download through the command of its kind. Voice detection has no
- *  cancel command (it is under 1 MB). */
+ *  command of its own, but its download registers under the id "vad" like the
+ *  others, and the backend cancels any download by id (models/store.rs
+ *  `cancel_download`), so the Whisper cancel command reaches it. */
 export async function cancelActiveDownload(d: ActiveDownload): Promise<void> {
   if (d.kind === "whisper") await api.cancelDownloadWhisperModel(d.id);
   else if (d.kind === "parakeet") await api.cancelDownloadParakeetModel(d.id);
   else if (d.kind === "llm") await api.cancelDownloadGgufModel(d.id);
+  else if (d.kind === "vad") await api.cancelDownloadWhisperModel(d.id);
 }
 
 /** Page that shows a download's card. */

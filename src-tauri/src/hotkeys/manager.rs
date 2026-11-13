@@ -911,6 +911,37 @@ mod tests {
     }
 
     #[test]
+    fn is_recording_holds_through_double_tap() {
+        // engine.rs reads is_recording() to tell a dictation cycle from the
+        // settings microphone test; the deferred stop must not look like "idle".
+        let m = ptt();
+        let t0 = Instant::now();
+        assert!(!m.is_recording());
+        m.handle_event(pressed(t0));
+        assert!(m.is_recording());
+        m.handle_event(released(t0 + ms(100)));
+        assert!(m.next_deadline().is_some());
+        assert!(m.is_recording(), "stop is deferred, the cycle is still live");
+        // Second tap: hands-free, still recording.
+        m.handle_event(pressed(t0 + ms(250)));
+        m.handle_event(released(t0 + ms(300)));
+        assert!(m.is_recording());
+        // A tap stops it.
+        assert_eq!(
+            m.handle_event(pressed(t0 + ms(2000))),
+            Some(HotkeyAction::StopRecording)
+        );
+        assert!(!m.is_recording());
+        // A lone tap whose window runs out ends the cycle on the tick.
+        let t1 = t0 + ms(5000);
+        m.handle_event(pressed(t1));
+        m.handle_event(released(t1 + ms(100)));
+        assert!(m.is_recording());
+        assert_eq!(m.on_tick(t1 + ms(2000)), Some(HotkeyAction::StopRecording));
+        assert!(!m.is_recording());
+    }
+
+    #[test]
     fn double_escape_clears_a_pending_tap() {
         let m = ptt();
         let t0 = Instant::now();

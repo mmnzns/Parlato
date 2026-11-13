@@ -133,7 +133,6 @@ export function Sidebar({
       : downloadPct === null
         ? t("downloads.many", { count: downloads.length })
         : t("downloads.manyPct", { count: downloads.length, pct: downloadPct });
-  const cancellable = downloads.filter((d) => d.kind !== "vad");
   // Parlato: installed version, shown under the status card.
   const [version, setVersion] = useState("");
   useEffect(() => {
@@ -205,10 +204,10 @@ export function Sidebar({
               {downloadLabel}
             </span>
           </button>
-          {cancellable.length > 0 && (
+          {downloads.length > 0 && (
             <button
               type="button"
-              onClick={() => cancellable.forEach((d) => cancelActiveDownload(d).catch(console.error))}
+              onClick={() => downloads.forEach((d) => cancelActiveDownload(d).catch(console.error))}
               aria-label={t("downloads.cancel")}
               title={t("downloads.cancel")}
               className="flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-[3px] px-1.5 text-xs font-semibold outline-none hover:bg-nav-hover focus-visible:ring-2 focus-visible:ring-ring"

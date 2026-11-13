@@ -10,10 +10,10 @@ const RULES: Array<[RegExp, View | (() => View | null)]> = [
   [/^PARLA_ERR:(noWhisper|noParakeet|modelNotDownloaded|parakeetIncomplete|apiKey|cloudUnconfigured)\b/, "models"],
   // The AI cleanup provider rejected the key, or no model is chosen: AI cleanup.
   [/^PARLA_ERR:(aiNotConfigured|apiKeyRejected)\b/, "enhancement"],
-  // Microphone permission, and Accessibility (the shortcut and paste): Permissions.
-  [/^PARLA_ERR:(micPermission|micDenied|micAccess|accessibility\w*)\b/, "permissions"],
-  // The microphone went away or cannot be opened: Microphone & shortcut.
-  [/^PARLA_ERR:mic\w*/, "audio"],
+  // The microphone was unplugged or switched off during the recording
+  // (audio/recorder.rs): Microphone & shortcut. diskFull has no fix link, and
+  // neither have the shortcut codes (the message says what to change).
+  [/^PARLA_ERR:micLost$/, "audio"],
   // On a Mac a failed paste is almost always the Accessibility permission.
   [/^PARLA_ERR:pasteFailed$/, () => (isMac ? "permissions" : null)],
 ];
