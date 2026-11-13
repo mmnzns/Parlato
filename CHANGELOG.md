@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Spoken commands** (Settings, on by default): say "new line", "new paragraph"
+  or "scratch that" (removes the last sentence you said) while you dictate. In
+  Spanish: "nueva línea", "nuevo párrafo", "borra eso". In French: "nouvelle
+  ligne", "nouveau paragraphe", "efface ça". English phrases always work, plus
+  the ones in your dictation language. They are applied before AI cleanup.
+- **Spoken punctuation** (Settings, off by default): say "comma", "period",
+  "question mark", "open quote" and so on to type the symbol, in English,
+  Spanish and French (your dictation language).
+- **Snippets** on the Dictionary page: say a trigger phrase, get a saved text,
+  several lines if you like. Said alone, only the saved text is inserted (AI
+  cleanup is skipped); said inside a sentence, just those words are replaced and
+  AI cleanup never rewrites the snippet. Import and export as a CSV file
+  (trigger, text).
+- **Review before pasting** (Settings, off by default): the finished text opens
+  in a small editor. Enter pastes it into the app you were in, Shift+Enter adds
+  a line, Esc keeps it in History only. A text you changed is kept in History as
+  your edited version. You can't start a new dictation while the editor is open.
+- When the microphone is blocked in your computer's privacy settings, the pill
+  now says so, and Fix it opens the Permissions page.
+
 ### Fixed
 - The Keep audio recordings menu in Settings shows its choices (After 1 day,
   After 7 days...) instead of internal names. The Delete old dictations menu

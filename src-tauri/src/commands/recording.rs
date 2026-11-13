@@ -249,6 +249,10 @@ pub fn start_recording_core_with_chunk(
     device_name: Option<String>,
     on_chunk: Option<ChunkCallback>,
 ) -> anyhow::Result<RecordingStarted> {
+    // Parlato : pas de dictee tant que l'editeur "Review before pasting" est ouvert.
+    if crate::review::is_open() {
+        anyhow::bail!(crate::review::OPEN_CODE);
+    }
     // Parlato : le verrou n'est tenu que le temps de passer en `Starting` puis
     // d'enregistrer le resultat, jamais pendant l'ouverture du peripherique.
     if !state.0.lock().begin_start() {

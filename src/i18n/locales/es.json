@@ -226,7 +226,9 @@
     "spokenLabel": "Comandos de voz",
     "spokenHint": "Di «nueva línea», «nuevo párrafo» o «borra eso» (quita la última frase) mientras dictas. Las frases en inglés siempre funcionan, además de las del idioma en que dictas.",
     "spokenPunctLabel": "Puntuación hablada",
-    "spokenPunctHint": "Di «coma», «punto», «signo de interrogación», etc. para escribir el símbolo. Usa el idioma en que dictas. Desactivado por defecto, porque palabras como «punto» también aparecen en frases normales."
+    "spokenPunctHint": "Di «coma», «punto», «signo de interrogación», etc. para escribir el símbolo. Usa el idioma en que dictas. Desactivado por defecto, porque palabras como «punto» también aparecen en frases normales.",
+    "reviewLabel": "Revisar antes de pegar",
+    "reviewHint": "Tras cada dictado, un pequeño editor muestra el texto. Intro lo pega, Mayús+Intro añade una línea y Esc lo deja solo en el Historial."
   },
   "history": {
     "confirmDeleteCount": "¿Eliminar {{count}} transcripción(es) ?",
@@ -520,7 +522,8 @@
     "micPermission": "Parlato no tiene permiso para usar el micrófono. Permítelo en los ajustes de privacidad de tu ordenador.",
     "snippetInvalid": "Un fragmento necesita una frase con al menos una palabra y algo de texto (no demasiado largo).",
     "snippetExists": "Ya tienes un fragmento con esa frase.",
-    "snippetMissing": "Ese fragmento ya no existe."
+    "snippetMissing": "Ese fragmento ya no existe.",
+    "reviewOpen": "Pega o cierra el editor de texto antes de volver a dictar."
   },
   "prompts": {
     "default": {
@@ -1309,5 +1312,11 @@
     "many": "{{count}} descargas…",
     "manyPct": "{{count}} descargas… {{pct}} %",
     "cancel": "Cancelar"
+  },
+  "review": {
+    "textLabel": "Texto para pegar",
+    "hint": "Intro pega · Mayús+Intro nueva línea · Esc cancela",
+    "cancel": "Cancelar",
+    "paste": "Pegar"
   }
 }

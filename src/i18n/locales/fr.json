@@ -226,7 +226,9 @@
     "spokenLabel": "Commandes vocales",
     "spokenHint": "Dites « nouvelle ligne », « nouveau paragraphe » ou « efface ça » (supprime la dernière phrase) pendant que vous dictez. Les phrases en anglais fonctionnent toujours, ainsi que celles de la langue de dictée.",
     "spokenPunctLabel": "Ponctuation dictée",
-    "spokenPunctHint": "Dites « virgule », « point », « point d'interrogation », etc. pour écrire le symbole. Utilise la langue de dictée. Désactivé par défaut, car des mots comme « point » se disent aussi dans les phrases normales."
+    "spokenPunctHint": "Dites « virgule », « point », « point d'interrogation », etc. pour écrire le symbole. Utilise la langue de dictée. Désactivé par défaut, car des mots comme « point » se disent aussi dans les phrases normales.",
+    "reviewLabel": "Relire avant de coller",
+    "reviewHint": "Après chaque dictée, un petit éditeur affiche le texte. Entrée le colle, Maj+Entrée ajoute une ligne, Échap le garde dans l'historique seulement."
   },
   "history": {
     "confirmDeleteCount": "Supprimer {{count}} transcription(s) ?",
@@ -520,7 +522,8 @@
     "micPermission": "Parlato n'a pas l'autorisation d'utiliser le microphone. Autorisez-le dans les réglages de confidentialité de votre ordinateur.",
     "snippetInvalid": "Un extrait a besoin d'une phrase d'au moins un mot et d'un texte (pas trop long).",
     "snippetExists": "Vous avez déjà un extrait avec cette phrase.",
-    "snippetMissing": "Cet extrait n'existe plus."
+    "snippetMissing": "Cet extrait n'existe plus.",
+    "reviewOpen": "Collez ou fermez l'éditeur de texte avant de dicter à nouveau."
   },
   "prompts": {
     "default": {
@@ -1309,5 +1312,11 @@
     "many": "{{count}} téléchargements…",
     "manyPct": "{{count}} téléchargements… {{pct}} %",
     "cancel": "Annuler"
+  },
+  "review": {
+    "textLabel": "Texte à coller",
+    "hint": "Entrée colle · Maj+Entrée nouvelle ligne · Échap annule",
+    "cancel": "Annuler",
+    "paste": "Coller"
   }
 }

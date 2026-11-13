@@ -288,6 +288,53 @@ fn pill_position(
     (x.round() as i32, y.round() as i32)
 }
 
+/// Parlato : position (pixels physiques) de l'editeur "Review before pasting",
+/// centre dans la zone utile, son bas a `gap` pixels logiques au-dessus du bas
+/// de la zone utile, borne a l'ecran. Fonction pure, testee ci-dessous.
+fn review_position(screen: PxRect, work: PxRect, scale: f64, w: f64, h: f64, gap: f64) -> (i32, i32) {
+    let win_w = (w * scale).round();
+    let win_h = (h * scale).round();
+    let x = work.x as f64 + (work.w as f64 - win_w) / 2.0;
+    let y = (work.y + work.h) as f64 - win_h - (gap * scale).round();
+    let x = x.min((screen.x + screen.w) as f64 - win_w).max(screen.x as f64);
+    let y = y.min((screen.y + screen.h) as f64 - win_h).max(screen.y as f64);
+    (x.round() as i32, y.round() as i32)
+}
+
+/// Parlato : place la fenetre de l'editeur (`review.rs`) au-dessus de
+/// l'endroit de la bulle, sur l'ecran sous la souris. Meme logique que
+/// `reposition` (points AppKit sur macOS, pixels physiques sur Windows).
+pub(crate) fn place_review(window: &tauri::WebviewWindow, w: f64, h: f64) {
+    use tauri::PhysicalPosition;
+    #[cfg(target_os = "macos")]
+    if let Some((screen, work)) = crate::mini_recorder_macos::screen_under_mouse(window) {
+        let (x, y) = review_position(screen, work, 1.0, w, h, BOTTOM_GAP);
+        let _ = window.set_size(LogicalSize::new(w, h));
+        let _ = window.set_position(LogicalPosition::new(x as f64, y as f64));
+        return;
+    }
+    let monitor = window
+        .cursor_position()
+        .ok()
+        .and_then(|p| window.monitor_from_point(p.x, p.y).ok().flatten())
+        .or_else(|| window.primary_monitor().ok().flatten());
+    let Some(monitor) = monitor else {
+        return;
+    };
+    let scale = monitor.scale_factor();
+    let screen = PxRect {
+        x: monitor.position().x,
+        y: monitor.position().y,
+        w: monitor.size().width as i32,
+        h: monitor.size().height as i32,
+    };
+    let work = work_area(window, screen, scale, &monitor);
+    let (x, y) = review_position(screen, work, scale, w, h, BOTTOM_GAP);
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+    let _ = window.set_size(LogicalSize::new(w, h));
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+}
+
 /// Parlato : zone utile de l'ecran en pixels physiques (Windows : rcWork,
 /// origine en haut a gauche). Sur macOS, `reposition` passe d'abord par
 /// NSScreen en points (voir `mini_recorder_macos.rs`) ; ceci n'est que le
@@ -438,6 +485,30 @@ mod tests {
     /// Visible pill bottom, in physical pixels, for a window at `y`.
     fn pill_bottom(y: i32, scale: f64) -> i32 {
         y + ((HEIGHT - PILL_BOTTOM_INSET) * scale).round() as i32
+    }
+
+    #[test]
+    fn the_review_editor_sits_above_the_taskbar_and_stays_on_screen() {
+        // 1920x1080 at 100%, taskbar 48 high at the bottom.
+        let screen = r(0, 0, 1920, 1080);
+        let work = r(0, 0, 1920, 1032);
+        let (x, y) = review_position(screen, work, 1.0, 440.0, 250.0, 20.0);
+        assert_eq!(x, (1920 - 440) / 2);
+        assert_eq!(y, 1032 - 250 - 20);
+        // 150%: sizes scale, the gap too.
+        let screen = r(0, 0, 2880, 1620);
+        let work = r(0, 0, 2880, 1548);
+        let (x, y) = review_position(screen, work, 1.5, 440.0, 250.0, 20.0);
+        assert_eq!(x, (2880 - 660) / 2);
+        assert_eq!(y, 1548 - 375 - 30);
+        // A secondary screen with an offset origin.
+        let screen = r(-1920, 200, 1920, 1080);
+        let (x, y) = review_position(screen, screen, 1.0, 440.0, 250.0, 20.0);
+        assert_eq!(x, -1920 + (1920 - 440) / 2);
+        assert_eq!(y, 200 + 1080 - 250 - 20);
+        // A screen smaller than the window never pushes it off the left/top.
+        let tiny = r(100, 50, 300, 200);
+        assert_eq!(review_position(tiny, tiny, 1.0, 440.0, 250.0, 20.0), (100, 50));
     }
 
     /// Mixed-DPI Mac (global points, top-left origin; Cocoa y flipped with the

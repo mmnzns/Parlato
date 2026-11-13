@@ -142,6 +142,7 @@ export function SettingsPanel() {
       if (key === "text_formatting_enabled") await api.setTextFormattingEnabled(value);
       if (key === "spoken_commands") await api.setSpokenCommands(value);
       if (key === "spoken_punctuation") await api.setSpokenPunctuation(value);
+      if (key === "review_before_paste") await api.setReviewBeforePaste(value);
       if (key === "remove_filler_words") await api.setRemoveFillerWords(value);
       if (key === "append_trailing_space") await api.setAppendTrailingSpace(value);
       if (key === "restore_clipboard_after_paste") await api.setRestoreClipboardAfterPaste(value);
@@ -399,6 +400,13 @@ export function SettingsPanel() {
                 id="set-spoken-punct"
                 checked={text.spoken_punctuation}
                 onChange={() => toggleText("spoken_punctuation")}
+              />
+            </Row>
+            <Row htmlFor="set-review" label={t("settings.reviewLabel")} description={t("settings.reviewHint")}>
+              <Switch
+                id="set-review"
+                checked={text.review_before_paste}
+                onChange={() => toggleText("review_before_paste")}
               />
             </Row>
             <Row htmlFor="set-fillers" label={t("settings.fillersLabel")} description={t("settings.fillersHint")}>

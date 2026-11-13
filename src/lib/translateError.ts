@@ -165,6 +165,8 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:diskFull$/, { i18nKey: "errors.diskFull" }],
   // The system refused the microphone when the recording started (audio/recorder.rs,
   // commands/recording.rs).
+  // A dictation was refused because the review editor is still open (review.rs).
+  [/^PARLA_ERR:reviewOpen$/, { i18nKey: "errors.reviewOpen" }],
   [/^PARLA_ERR:micPermission$/, { i18nKey: "errors.micPermission" }],
   [/^PARLA_ERR:assemblyaiRealtimeOnly$/, { i18nKey: "errors.assemblyaiRealtimeOnly" }],
 ];

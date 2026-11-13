@@ -147,6 +147,8 @@ export type TextProcessingSettings = {
   spoken_commands: boolean;
   /** "comma", "period", "question mark"... (off by default). */
   spoken_punctuation: boolean;
+  /** Show the text in an editor instead of pasting it (off by default). */
+  review_before_paste: boolean;
   remove_filler_words: boolean;
   filler_words: string[];
   append_trailing_space: boolean;
@@ -441,6 +443,13 @@ export const api = {
     invoke<void>("set_text_formatting_enabled", { enabled }),
   setSpokenCommands: (enabled: boolean) => invoke<void>("set_spoken_commands", { enabled }),
   setSpokenPunctuation: (enabled: boolean) => invoke<void>("set_spoken_punctuation", { enabled }),
+  setReviewBeforePaste: (enabled: boolean) => invoke<void>("set_review_before_paste", { enabled }),
+  /** Review editor window: the text waiting to be reviewed. */
+  reviewText: () => invoke<string | null>("review_text"),
+  /** Review editor window: paste this text into the app the person was in. */
+  reviewPaste: (text: string) => invoke<void>("review_paste", { text }),
+  /** Review editor window: keep the dictation in History only. */
+  reviewCancel: () => invoke<void>("review_cancel"),
   setRemoveFillerWords: (enabled: boolean) =>
     invoke<void>("set_remove_filler_words", { enabled }),
   setFillerWords: (words: string[]) => invoke<void>("set_filler_words", { words }),

@@ -226,7 +226,9 @@
     "spokenLabel": "Spoken commands",
     "spokenHint": "Say “new line”, “new paragraph” or “scratch that” (removes the last sentence) while you dictate. English phrases always work, plus the ones in your dictation language.",
     "spokenPunctLabel": "Spoken punctuation",
-    "spokenPunctHint": "Say “comma”, “period”, “question mark” and so on to type the symbol. Uses your dictation language. Off by default, because words like “period” also occur in normal sentences."
+    "spokenPunctHint": "Say “comma”, “period”, “question mark” and so on to type the symbol. Uses your dictation language. Off by default, because words like “period” also occur in normal sentences.",
+    "reviewLabel": "Review before pasting",
+    "reviewHint": "After each dictation, a small editor shows the text. Enter pastes it, Shift+Enter adds a line, Esc keeps it in History only."
   },
   "history": {
     "confirmDeleteCount": "Delete {{count}} transcription(s)?",
@@ -520,7 +522,8 @@
     "micPermission": "Parlato isn't allowed to use the microphone. Allow it in your computer's privacy settings.",
     "snippetInvalid": "A snippet needs a phrase with at least one word and some text (not too long).",
     "snippetExists": "You already have a snippet with that phrase.",
-    "snippetMissing": "That snippet no longer exists."
+    "snippetMissing": "That snippet no longer exists.",
+    "reviewOpen": "Paste or close the text editor before dictating again."
   },
   "prompts": {
     "default": {
@@ -1309,5 +1312,11 @@
     "many": "{{count}} downloads…",
     "manyPct": "{{count}} downloads… {{pct}}%",
     "cancel": "Cancel"
+  },
+  "review": {
+    "textLabel": "Text to paste",
+    "hint": "Enter pastes · Shift+Enter new line · Esc cancels",
+    "cancel": "Cancel",
+    "paste": "Paste"
   }
 }

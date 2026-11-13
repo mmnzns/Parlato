@@ -54,6 +54,7 @@ const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
 const SPOKEN_COMMANDS_KEY: &str = "spoken_commands_enabled";
 const SPOKEN_PUNCTUATION_KEY: &str = "spoken_punctuation_enabled";
+const REVIEW_BEFORE_PASTE_KEY: &str = "review_before_paste";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -492,6 +493,17 @@ pub fn get_spoken_punctuation_enabled(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+/// Parlato : "Review before pasting" (review.rs). Inactif par defaut.
+pub fn get_review_before_paste(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return false;
+    };
+    store
+        .get(REVIEW_BEFORE_PASTE_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 pub(crate) fn is_vad_enabled(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
         return false;
@@ -794,6 +806,9 @@ pub enum Outcome {
     NotPasted,
     /// Annule depuis la bulle pendant le traitement : rien n'est colle.
     Cancelled,
+    /// Parlato : le texte attend dans l'editeur "Review before pasting"
+    /// (review.rs) ; c'est lui qui colle, ou non.
+    Review,
     /// Parlato : transcription reussie (la ligne d'historique reste
     /// "transcrite") mais la copie dans le presse-papiers a echoue (Reessayer,
     /// Transcrire un fichier).
@@ -1402,6 +1417,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // Annule pendant le nettoyage IA.
     if run.cancelled() {
         return Ok(Outcome::Cancelled);
+    }
+
+    // Parlato : "Review before pasting" : une dictee au raccourci attend dans
+    // l'editeur au lieu d'etre collee. Le texte est deja dans l'historique ;
+    // la fin de la dictee (bulle, modeles, Power mode) se passe comme d'habitude.
+    if delivery == Delivery::Paste && get_review_before_paste(app) {
+        let send = crate::power_mode::session::auto_send_key(app, run.power.as_ref());
+        emit_state(app, run, PipelineState::Done, None, Some(text.clone()), Some(duration_ms));
+        crate::review::open(app, text, run.history_id.clone(), send);
+        return Ok(Outcome::Review);
     }
 
     emit_state(
