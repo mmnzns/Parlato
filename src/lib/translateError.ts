@@ -160,6 +160,9 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   // Recording stopped by itself (audio/recorder.rs).
   [/^PARLA_ERR:micLost$/, { i18nKey: "errors.micLost" }],
   [/^PARLA_ERR:diskFull$/, { i18nKey: "errors.diskFull" }],
+  // The system refused the microphone when the recording started (audio/recorder.rs,
+  // commands/recording.rs).
+  [/^PARLA_ERR:micPermission$/, { i18nKey: "errors.micPermission" }],
   [/^PARLA_ERR:assemblyaiRealtimeOnly$/, { i18nKey: "errors.assemblyaiRealtimeOnly" }],
 ];
 

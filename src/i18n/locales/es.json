@@ -512,7 +512,8 @@
     "historyItemMissing": "Ese dictado ya no está en el historial.",
     "csvTooBig": "Ese archivo es demasiado grande para una lista del diccionario.",
     "csvNotUtf8": "Ese archivo no es texto UTF-8. Guárdalo como CSV (UTF-8) e inténtalo de nuevo.",
-    "csvEmpty": "No se encontraron palabras en ese archivo."
+    "csvEmpty": "No se encontraron palabras en ese archivo.",
+    "micPermission": "Parlato no tiene permiso para usar el micrófono. Permítelo en los ajustes de privacidad de tu ordenador."
   },
   "prompts": {
     "default": {

@@ -229,6 +229,14 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
         keyboard_hook::set_power_shortcut_count(0);
         manager.mark_recording_state(false);
         mini_recorder::close(app);
+        // Parlato : a refused microphone is the one start failure the person
+        // can fix, so say it (the pill closed above shows the message).
+        if e.to_string() == crate::audio::recorder::MIC_PERMISSION_CODE {
+            crate::notice::send(
+                app,
+                crate::notice::Notice::Failed(crate::audio::recorder::MIC_PERMISSION_CODE.to_string()),
+            );
+        }
         false
     } else {
         manager.mark_recording_state(true);

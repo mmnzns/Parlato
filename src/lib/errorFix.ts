@@ -14,6 +14,9 @@ const RULES: Array<[RegExp, View | (() => View | null)]> = [
   // (audio/recorder.rs): Microphone & shortcut. diskFull has no fix link, and
   // neither have the shortcut codes (the message says what to change).
   [/^PARLA_ERR:micLost$/, "audio"],
+  // The system refused the microphone (privacy settings): the Permissions page
+  // shows its state and opens the right system pane.
+  [/^PARLA_ERR:micPermission$/, "permissions"],
   // On a Mac a failed paste is almost always the Accessibility permission.
   [/^PARLA_ERR:pasteFailed$/, () => (isMac ? "permissions" : null)],
 ];

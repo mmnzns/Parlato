@@ -512,7 +512,8 @@
     "historyItemMissing": "That dictation is no longer in History.",
     "csvTooBig": "That file is too big for a Dictionary list.",
     "csvNotUtf8": "That file isn't UTF-8 text. Save it as CSV (UTF-8) and try again.",
-    "csvEmpty": "No words found in that file."
+    "csvEmpty": "No words found in that file.",
+    "micPermission": "Parlato isn't allowed to use the microphone. Allow it in your computer's privacy settings."
   },
   "prompts": {
     "default": {

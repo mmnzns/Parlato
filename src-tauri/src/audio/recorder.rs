@@ -77,6 +77,35 @@ impl RecorderFailureKind {
     }
 }
 
+/// Code montre quand le systeme refuse l'acces au micro (`errors.micPermission`
+/// dans `translateError.ts`, lien "Fix it" vers la page Permissions).
+pub const MIC_PERMISSION_CODE: &str = "PARLA_ERR:micPermission";
+
+/// Parlato : l'erreur de capture dit-elle que l'acces au micro est refuse ?
+/// Windows : un refus de la confidentialite remonte de WASAPI en E_ACCESSDENIED
+/// (0x80070005, le message `windows` se termine par ce code, quelle que soit la
+/// langue du systeme). Les textes anglais couvrent les autres moteurs.
+fn is_access_denied(message: &str) -> bool {
+    let m = message.to_lowercase();
+    m.contains("0x80070005")
+        || m.contains("access is denied")
+        || m.contains("e_accessdenied")
+        || m.contains("permission denied")
+        || m.contains("not authorized")
+        || m.contains("not authorised")
+}
+
+/// Remplace une erreur d'ouverture de la capture par le code
+/// `PARLA_ERR:micPermission` quand c'est un refus d'acces ; sinon la garde.
+fn classify_open_error(e: anyhow::Error) -> anyhow::Error {
+    if is_access_denied(&format!("{e:#}")) {
+        warn!("acces au micro refuse par le systeme");
+        anyhow!(MIC_PERMISSION_CODE)
+    } else {
+        e
+    }
+}
+
 /// Parlato : rapport envoye quand le worker s'arrete sur une erreur, une fois
 /// le WAV ferme (ou abandonne).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,7 +288,7 @@ fn run_worker(
     let supported = match device.default_input_config() {
         Ok(c) => c,
         Err(e) => {
-            let e = anyhow!("default_input_config: {e}");
+            let e = classify_open_error(anyhow!("default_input_config: {e}"));
             let _ = ready_tx.send(Err(anyhow!("{e}")));
             return Err(e);
         }
@@ -310,13 +339,14 @@ fn run_worker(
     let stream = match build_input_stream(&device, sample_format, sample_tx, stream_lost.clone()) {
         Ok(s) => s,
         Err(e) => {
+            let e = classify_open_error(e);
             let _ = ready_tx.send(Err(anyhow!("{e}")));
             return Err(e);
         }
     };
 
     if let Err(e) = stream.play() {
-        let e = anyhow!("stream play: {e}");
+        let e = classify_open_error(anyhow!("stream play: {e}"));
         let _ = ready_tx.send(Err(anyhow!("{e}")));
         return Err(e);
     }
@@ -607,6 +637,21 @@ mod tests {
         let (tx, rx) = mpsc::channel::<Result<()>>();
         assert!(signal_ready(&tx, &abandoned));
         assert!(rx.try_recv().unwrap().is_ok());
+    }
+
+    #[test]
+    fn access_denied_errors_become_the_permission_code() {
+        // What the `windows` crate prints for E_ACCESSDENIED, in any language.
+        assert!(is_access_denied("A backend-specific error has occurred: Access is denied. (0x80070005)"));
+        assert!(is_access_denied("Zugriff verweigert (0x80070005)"));
+        assert!(!is_access_denied("The requested device is no longer available (0x88890004)"));
+        assert!(!is_access_denied("default_input_config failed"));
+        let mapped = classify_open_error(anyhow!("stream play: Access is denied. (0x80070005)"));
+        assert_eq!(mapped.to_string(), MIC_PERMISSION_CODE);
+        let kept = classify_open_error(anyhow!("format audio non supporte"));
+        assert_eq!(kept.to_string(), "format audio non supporte");
+        // The code is what translateError.ts and errorFix.ts match.
+        assert_eq!(MIC_PERMISSION_CODE, "PARLA_ERR:micPermission");
     }
 
     #[test]
