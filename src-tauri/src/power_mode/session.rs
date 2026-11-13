@@ -6,9 +6,11 @@
 // actif, LLM provider/model, source transcription + sous-options, langue)
 // avant d'overrider puis on restaure au stop si auto_restore est active.
 //
-// Stockage : en memoire (Mutex). Pas de persistance cross-process : en cas
-// de crash, la baseline est perdue, mais les settings globaux precedents
-// etaient deja sauvegardes puisqu'on les lit au snapshot time.
+// Stockage : la session vit en memoire (Mutex). Parlato : la baseline est en
+// plus ecrite dans le store (`PENDING_BASELINE_KEY`) au debut d'une session
+// et effacee a sa fin ; si l'application s'arrete au milieu d'une dictee
+// (plantage, fermeture forcee, relance de mise a jour), `restore_pending_baseline`
+// la remet au lancement suivant au lieu de laisser les reglages du mode.
 
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
@@ -29,8 +31,12 @@ use super::matcher::resolve;
 
 const SETTINGS_FILE: &str = "parla.settings.json";
 
+/// Cle du store : baseline de la session en cours, tant qu'elle dure.
+const PENDING_BASELINE_KEY: &str = "power_mode_pending_baseline";
+
 /// Snapshot des reglages globaux affectes par Power Mode.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Baseline {
     pub enhancement_enabled: bool,
     pub use_screen_capture: bool,
@@ -126,6 +132,91 @@ fn url_host(url: &str) -> &str {
     let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
     let host_port = authority.rsplit('@').next().unwrap_or("");
     host_port.split(':').next().unwrap_or("")
+}
+
+// -- Baseline persistee -----------------------------------------------------
+
+/// Ce que le lancement doit faire d'une baseline laissee par une session
+/// interrompue.
+#[derive(Debug, PartialEq)]
+enum PendingAction {
+    /// Rien n'etait en attente.
+    Nothing,
+    /// Remettre ces reglages, puis effacer.
+    Restore(Box<Baseline>),
+    /// Effacer sans rien remettre (restauration automatique desactivee : la
+    /// personne veut garder les reglages du mode).
+    ClearOnly,
+}
+
+fn baseline_from_value(value: Option<&serde_json::Value>) -> Option<Baseline> {
+    serde_json::from_value(value?.clone()).ok()
+}
+
+fn pending_action(value: Option<&serde_json::Value>, auto_restore: bool) -> PendingAction {
+    match (value, baseline_from_value(value)) {
+        (None, _) => PendingAction::Nothing,
+        // Une valeur illisible est effacee : elle ne servirait a rien.
+        (Some(_), None) => PendingAction::ClearOnly,
+        (Some(_), Some(b)) if auto_restore => PendingAction::Restore(Box::new(b)),
+        (Some(_), Some(_)) => PendingAction::ClearOnly,
+    }
+}
+
+/// Ecrit la baseline avant d'appliquer un mode : si l'application s'arrete
+/// entre-temps, le lancement suivant sait quoi remettre.
+fn persist_baseline(app: &AppHandle, baseline: &Baseline) {
+    let Ok(store) = app.store(SETTINGS_FILE) else {
+        return;
+    };
+    match serde_json::to_value(baseline) {
+        Ok(v) => store.set(PENDING_BASELINE_KEY, v),
+        Err(e) => {
+            warn!("power_mode baseline: {e}");
+            return;
+        }
+    }
+    if let Err(e) = store.save() {
+        warn!("power_mode baseline save: {e}");
+    }
+}
+
+fn clear_persisted_baseline(app: &AppHandle) {
+    let Ok(store) = app.store(SETTINGS_FILE) else {
+        return;
+    };
+    if store.delete(PENDING_BASELINE_KEY) {
+        let _ = store.save();
+    }
+}
+
+/// Au lancement : si une session a ete interrompue (baseline restee dans le
+/// store), remet les reglages d'avant puis l'efface. A appeler avant toute
+/// dictee.
+pub fn restore_pending_baseline(app: &AppHandle) {
+    let Ok(store) = app.store(SETTINGS_FILE) else {
+        return;
+    };
+    let action = pending_action(store.get(PENDING_BASELINE_KEY).as_ref(), config::is_auto_restore(app));
+    match action {
+        PendingAction::Nothing => {}
+        PendingAction::ClearOnly => {
+            info!("Power Mode : baseline en attente effacee sans restauration");
+            clear_persisted_baseline(app);
+        }
+        PendingAction::Restore(b) => {
+            match restore(app, &b) {
+                Ok(()) => {
+                    let _ = config::set_active_id(app, None);
+                    info!("Power Mode : reglages d'avant la session interrompue restaures");
+                }
+                Err(e) => warn!("power_mode restore au lancement: {e}"),
+            }
+            // Effacee meme si la restauration a echoue : sinon l'echec se
+            // repeterait a chaque lancement.
+            clear_persisted_baseline(app);
+        }
+    }
 }
 
 // -- Snapshot ---------------------------------------------------------------
@@ -349,6 +440,9 @@ pub fn begin_session(app: &AppHandle) -> Option<PowerSession> {
     // traitement) garde sa baseline d'origine, voir `baseline_for_new_session`.
     let existing = state.0.lock().clone();
     let baseline = baseline_for_new_session(existing.as_ref(), || snapshot(app));
+    if existing.is_none() {
+        persist_baseline(app, &baseline);
+    }
     if let Err(e) = apply(app, matched) {
         warn!("power_mode apply: {e}");
         return None;
@@ -386,6 +480,8 @@ pub fn end_session(app: &AppHandle, id: u64) -> bool {
     let Some(session) = session else {
         return false;
     };
+    // La session est finie : plus rien a remettre au prochain lancement.
+    clear_persisted_baseline(app);
     if config::is_auto_restore(app) {
         if let Err(e) = restore(app, &session.baseline) {
             warn!("power_mode restore: {e}");
@@ -509,6 +605,9 @@ fn select_config(app: &AppHandle, cfg: &PowerModeConfig) -> Option<PowerSession>
     // pendant snapshot/apply).
     let existing = state.0.lock().clone();
     let baseline = baseline_for_new_session(existing.as_ref(), || snapshot(app));
+    if existing.is_none() {
+        persist_baseline(app, &baseline);
+    }
     // Parlato : la session en cours garde son numero (la dictee le porte).
     let owner = RECORDING_OWNER.load(std::sync::atomic::Ordering::SeqCst);
     let id = id_for_manual_select(owner, existing.as_ref().map(|s| s.id), next_session_id);
@@ -535,6 +634,65 @@ fn select_config(app: &AppHandle, cfg: &PowerModeConfig) -> Option<PowerSession>
         "Power Mode selectionne via raccourci"
     );
     Some(session)
+}
+
+#[cfg(test)]
+mod pending_baseline_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn baseline() -> Baseline {
+        Baseline {
+            enhancement_enabled: true,
+            language: Some("es".into()),
+            whisper_model_id: Some("base".into()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_baseline_survives_the_store_round_trip() {
+        let v = serde_json::to_value(baseline()).unwrap();
+        let back = baseline_from_value(Some(&v)).unwrap();
+        assert!(back.enhancement_enabled);
+        assert_eq!(back.language.as_deref(), Some("es"));
+        assert_eq!(back.whisper_model_id.as_deref(), Some("base"));
+    }
+
+    #[test]
+    fn nothing_pending_means_nothing_to_do() {
+        assert_eq!(pending_action(None, true), PendingAction::Nothing);
+        assert_eq!(pending_action(None, false), PendingAction::Nothing);
+    }
+
+    #[test]
+    fn a_pending_baseline_is_restored_when_auto_restore_is_on() {
+        let v = serde_json::to_value(baseline()).unwrap();
+        match pending_action(Some(&v), true) {
+            PendingAction::Restore(b) => assert_eq!(b.language.as_deref(), Some("es")),
+            other => panic!("expected Restore, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_pending_baseline_is_only_cleared_when_auto_restore_is_off() {
+        let v = serde_json::to_value(baseline()).unwrap();
+        assert_eq!(pending_action(Some(&v), false), PendingAction::ClearOnly);
+    }
+
+    #[test]
+    fn an_unreadable_value_is_cleared_not_restored() {
+        let junk = json!("not a baseline");
+        assert_eq!(pending_action(Some(&junk), true), PendingAction::ClearOnly);
+    }
+
+    #[test]
+    fn a_partial_value_from_an_older_build_still_restores() {
+        // Baseline has no required fields beyond the two bools; the store
+        // may hold fewer keys than today's struct.
+        let v = json!({ "enhancement_enabled": false, "use_screen_capture": false });
+        assert!(matches!(pending_action(Some(&v), true), PendingAction::Restore(_)));
+    }
 }
 
 #[cfg(test)]
