@@ -200,6 +200,12 @@ static PROVIDERS: &[CloudProviderInfo] = &[
         requires_api_key: true,
         api_key_url: "https://www.assemblyai.com/app/api-keys",
     },
+    CloudProviderInfo {
+        id: "openrouter",
+        display_name: "OpenRouter",
+        requires_api_key: true,
+        api_key_url: "https://openrouter.ai/keys",
+    },
 ];
 
 /// Modeles cloud alignes sur VoiceInk Cloud/*Provider.swift.
@@ -373,6 +379,31 @@ pub const CLOUD_MODELS: &[CloudModelInfo] = &[
         speed: 0.99,
         accuracy: 0.94,
         language_codes: CARTESIA_LANGS,
+    },
+    // OpenRouter : endpoint /audio/transcriptions (batch seulement).
+    CloudModelInfo {
+        provider_id: "openrouter",
+        model_id: "mistralai/voxtral-mini-transcribe-3-0",
+        display_name: "Voxtral Mini Transcribe 3 (OpenRouter)",
+        supports_batch: true,
+        supports_streaming: false,
+        multilingual: true,
+        notes: "Voxtral Mini Transcribe 3 via OpenRouter, peu cher, 13 langues.",
+        speed: 0.8,
+        accuracy: 0.95,
+        language_codes: MISTRAL_LANGS,
+    },
+    CloudModelInfo {
+        provider_id: "openrouter",
+        model_id: "openai/gpt-transcribe",
+        display_name: "GPT Transcribe (OpenRouter)",
+        supports_batch: true,
+        supports_streaming: false,
+        multilingual: true,
+        notes: "GPT Transcribe d'OpenAI via OpenRouter, toutes les langues de Whisper.",
+        speed: 0.7,
+        accuracy: 0.97,
+        language_codes: WHISPER_FULL_LANGS,
     },
     // AssemblyAI
     CloudModelInfo {
