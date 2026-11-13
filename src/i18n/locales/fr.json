@@ -517,7 +517,10 @@
     "csvTooBig": "Ce fichier est trop volumineux pour une liste du dictionnaire.",
     "csvNotUtf8": "Ce fichier n'est pas du texte UTF-8. Enregistrez-le en CSV (UTF-8) et réessayez.",
     "csvEmpty": "Aucun mot trouvé dans ce fichier.",
-    "micPermission": "Parlato n'a pas l'autorisation d'utiliser le microphone. Autorisez-le dans les réglages de confidentialité de votre ordinateur."
+    "micPermission": "Parlato n'a pas l'autorisation d'utiliser le microphone. Autorisez-le dans les réglages de confidentialité de votre ordinateur.",
+    "snippetInvalid": "Un extrait a besoin d'une phrase d'au moins un mot et d'un texte (pas trop long).",
+    "snippetExists": "Vous avez déjà un extrait avec cette phrase.",
+    "snippetMissing": "Cet extrait n'existe plus."
   },
   "prompts": {
     "default": {
@@ -881,7 +884,18 @@
     "exportCsv": "Exporter en CSV",
     "importHint": "Ajoutez des mots depuis un fichier CSV. Ceux qui sont déjà dans le dictionnaire sont ignorés.",
     "importDone": "{{added}} ajoutés, {{skipped}} ignorés.",
-    "exportDone": "Enregistré dans {{path}}"
+    "exportDone": "Enregistré dans {{path}}",
+    "snippetsTitle": "Extraits",
+    "snippetsDesc": "Dites une phrase et Parlato insère un texte enregistré, même sur plusieurs lignes : une signature, une adresse, une réponse type. Il est inséré tel quel et le nettoyage par IA ne le réécrit jamais.",
+    "snippetText": "Texte enregistré",
+    "snippetTriggerPlaceholder": "ma signature",
+    "snippetTextPlaceholder": "Cordialement, Alex",
+    "addSnippet": "Ajouter un extrait",
+    "noSnippets": "Aucun extrait pour l'instant.",
+    "snippetsHint": "Dites la phrase seule pour insérer uniquement le texte enregistré. Dite dans une phrase, elle remplace seulement ces mots.",
+    "snippetEditHint": "La casse et la ponctuation n'ont pas d'importance quand vous dites la phrase. Le texte peut avoir plusieurs lignes.",
+    "snippetRequired": "Renseignez la phrase et le texte.",
+    "snippetsImportHint": "Ajoutez des extraits depuis un fichier CSV avec les colonnes trigger et text. Les phrases déjà présentes sont ignorées."
   },
   "pm": {
     "yourModes": "vos modes",

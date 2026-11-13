@@ -14,7 +14,9 @@ use tauri_plugin_store::StoreExt;
 use tokio::task;
 use tracing::{info, warn};
 
-use crate::db::{transcription as history_repo, word_replacement as word_repo, Database};
+use crate::db::{
+    snippet as snippet_repo, transcription as history_repo, word_replacement as word_repo, Database,
+};
 use crate::enhancement::prompt_detection;
 use crate::enhancement::prompts as prompt_store;
 use crate::enhancement::service as llm_service;
@@ -23,7 +25,7 @@ use crate::audio::feedback::{self, Cue};
 use crate::paste::paste_at_cursor;
 use crate::services::api_keys;
 use crate::text_processing::{
-    filler_words, filter as output_filter, formatter as text_formatter, spoken,
+    filler_words, filter as output_filter, formatter as text_formatter, snippets, spoken,
     word_replacement as word_replacer,
 };
 use crate::transcription::{
@@ -1264,6 +1266,31 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         }
     }
 
+    // Parlato : extraits (voir text_processing/snippets.rs). Apres le
+    // dictionnaire pour que rien ne retouche leur texte. Dictee entiere =
+    // declencheur : le texte de l'extrait seul, sans nettoyage IA. Sinon des
+    // marqueurs tiennent leur place pendant le nettoyage.
+    let mut whole_snippet = false;
+    let mut snippet_slots: Vec<snippets::Slot> = Vec::new();
+    if let Some(db) = app.try_state::<Database>() {
+        match snippet_repo::list_enabled(&db.0.lock()) {
+            Ok(list) if !list.is_empty() => match snippets::apply(&text, &list) {
+                snippets::Applied::Unchanged => {}
+                snippets::Applied::Whole(content) => {
+                    text = content;
+                    whole_snippet = true;
+                }
+                snippets::Applied::Marked { text: marked, slots } => {
+                    text = marked;
+                    snippet_slots = slots;
+                }
+            },
+            Ok(_) => {}
+            Err(e) => warn!("Lecture snippets: {e}"),
+        }
+    }
+    let mut snippets_pending = !snippet_slots.is_empty();
+
     if text.trim().is_empty() {
         warn!("Transcription vide, on saute le paste");
         emit_state(
@@ -1280,11 +1307,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // prompt-detect : cherche un trigger_word dans le texte qui activerait
     // un prompt specifique (VoiceInk PromptDetectionService). Si match, on
     // force l'enhancement ON avec ce prompt et on strip le trigger du texte.
-    let detection = match prompt_store::load_cached(app) {
-        Ok(all) => prompt_detection::detect_and_strip(&all, &text),
-        Err(e) => {
-            warn!("prompt-detect: load prompts echec: {e}");
-            None
+    let detection = if whole_snippet {
+        // The snippet's own text is never searched for a trigger word.
+        None
+    } else {
+        match prompt_store::load_cached(app) {
+            Ok(all) => prompt_detection::detect_and_strip(&all, &text),
+            Err(e) => {
+                warn!("prompt-detect: load prompts echec: {e}");
+                None
+            }
         }
     };
 
@@ -1306,7 +1338,10 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // Enhancement LLM optionnel (VoiceInk TranscriptionPipeline.swift L119-150).
     // Si active et configure, remplace le texte avant paste. En cas d'echec,
     // on preserve le texte brut (fallback VoiceInk).
-    let should_enhance = if prompt_override.is_some() {
+    let should_enhance = if whole_snippet {
+        // A snippet is inserted as saved: nothing to clean up.
+        false
+    } else if prompt_override.is_some() {
         // Trigger detecte : VoiceInk force l'enhancement ON meme si le
         // toggle global est off. On exige juste un provider configure.
         llm_service::has_provider_configured(app)
@@ -1317,7 +1352,8 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // Parlato : le nettoyage IA est-il voulu sans avoir tourne ? Alors le texte
     // brut est colle et la personne le saura (`Notice::AiSkipped`, apres la
     // dictee). Un texte trop court pour le seuil est un choix, pas un echec.
-    let cleanup_wanted = prompt_override.is_some() || prompt_store::is_enhancement_enabled(app);
+    let cleanup_wanted =
+        !whole_snippet && (prompt_override.is_some() || prompt_store::is_enhancement_enabled(app));
     let mut ai_skipped = false;
     if should_enhance {
         emit_state(
@@ -1330,10 +1366,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         );
         match llm_service::enhance_with_override(app.clone(), text.clone(), prompt_override).await {
             Ok(Some((enhanced, enhance_ms))) => {
-                if !enhanced.trim().is_empty() {
-                    mark_enhanced_in_history(app, run, &enhanced, enhance_ms);
-                    text = enhanced;
+                if enhanced.trim().is_empty() {
+                    ai_skipped = true;
+                } else if let Some(restored) = snippets::restore(&enhanced, &snippet_slots) {
+                    mark_enhanced_in_history(app, run, &restored, enhance_ms);
+                    text = restored;
+                    snippets_pending = false;
                 } else {
+                    // The AI lost or changed a snippet marker: its text is
+                    // dropped and the uncleaned text (snippets filled in) is used.
+                    warn!("nettoyage IA ecarte : un marqueur d'extrait a disparu");
                     ai_skipped = true;
                 }
             }
@@ -1345,6 +1387,9 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         }
     } else if cleanup_wanted && !llm_service::has_provider_configured(app) {
         ai_skipped = true;
+    }
+    if snippets_pending {
+        text = snippets::fill_all(&text, &snippet_slots);
     }
     // Parlato : repli carte graphique -> processeur de l'IA locale, a dire une
     // fois dans la bulle, une fois la dictee finie.

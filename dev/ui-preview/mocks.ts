@@ -246,6 +246,13 @@ const words: Word[] = [
   { id: "w4", original_text: "jon doe", replacement_text: "John Doe (fake)", date_added: minutesAgo(60 * 24), is_enabled: false },
 ];
 
+type Snip = { id: string; trigger_text: string; content: string; date_added: string; is_enabled: boolean };
+const snippets: Snip[] = [
+  { id: "sn1", trigger_text: "my signature", content: "Best regards,\nAlex Example\nExample Co.", date_added: minutesAgo(60 * 24 * 4), is_enabled: true },
+  { id: "sn2", trigger_text: "my address", content: "221B Baker Street\nLondon NW1 6XE", date_added: minutesAgo(60 * 24 * 2), is_enabled: true },
+  { id: "sn3", trigger_text: "out of office", content: "I'm away until Monday and will reply when I'm back.", date_added: minutesAgo(60 * 24), is_enabled: false },
+];
+
 type Power = Record<string, unknown> & { id: string; name: string };
 const powerConfigs: Power[] = [
   {
@@ -606,6 +613,39 @@ const commands: Record<string, Handler> = {
       added++;
     }
     return { added, skipped: 3 + (incoming.length - added) };
+  },
+
+  // Snippets
+  list_snippets: () => snippets,
+  add_snippet: (a) => {
+    const p = a?.payload as { trigger_text: string; content: string; is_enabled?: boolean };
+    const key = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    if (!key(p.trigger_text) || !p.content.trim()) throw "PARLA_ERR:snippetInvalid";
+    if (snippets.some((x) => key(x.trigger_text) === key(p.trigger_text))) throw "PARLA_ERR:snippetExists";
+    const s = { id: uid(), trigger_text: p.trigger_text.trim(), content: p.content.trim(), date_added: new Date().toISOString(), is_enabled: p.is_enabled ?? true };
+    snippets.push(s);
+    return s;
+  },
+  update_snippet: (a) => {
+    const p = a?.payload as { id: string; trigger_text?: string; content?: string; is_enabled?: boolean };
+    const s = pick(snippets, p.id)!;
+    if (p.trigger_text !== undefined) s.trigger_text = p.trigger_text.trim();
+    if (p.content !== undefined) s.content = p.content.trim();
+    if (p.is_enabled !== undefined) s.is_enabled = p.is_enabled;
+    return s;
+  },
+  delete_snippet: (a) => {
+    const i = snippets.findIndex((s) => s.id === a?.id);
+    if (i >= 0) snippets.splice(i, 1);
+    return null;
+  },
+  export_snippets_csv: () => "/mock/Downloads/parlato-snippets.csv",
+  import_snippets_csv: () => {
+    if (!snippets.some((s) => s.trigger_text === "meeting link")) {
+      snippets.push({ id: uid(), trigger_text: "meeting link", content: "https://meet.example.com/parlato", date_added: new Date().toISOString(), is_enabled: true });
+      return { added: 1, skipped: 2 };
+    }
+    return { added: 0, skipped: 3 };
   },
 
   // Enhancement

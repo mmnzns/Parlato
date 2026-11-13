@@ -517,7 +517,10 @@
     "csvTooBig": "That file is too big for a Dictionary list.",
     "csvNotUtf8": "That file isn't UTF-8 text. Save it as CSV (UTF-8) and try again.",
     "csvEmpty": "No words found in that file.",
-    "micPermission": "Parlato isn't allowed to use the microphone. Allow it in your computer's privacy settings."
+    "micPermission": "Parlato isn't allowed to use the microphone. Allow it in your computer's privacy settings.",
+    "snippetInvalid": "A snippet needs a phrase with at least one word and some text (not too long).",
+    "snippetExists": "You already have a snippet with that phrase.",
+    "snippetMissing": "That snippet no longer exists."
   },
   "prompts": {
     "default": {
@@ -881,7 +884,18 @@
     "exportCsv": "Export CSV",
     "importHint": "Add words from a CSV file. Words already in the Dictionary are skipped.",
     "importDone": "Added {{added}}, skipped {{skipped}}.",
-    "exportDone": "Saved to {{path}}"
+    "exportDone": "Saved to {{path}}",
+    "snippetsTitle": "Snippets",
+    "snippetsDesc": "Say a trigger phrase and Parlato inserts a saved text, even several lines: a signature, an address, a standard reply. It is inserted exactly as saved, and AI cleanup never rewrites it.",
+    "snippetText": "Saved text",
+    "snippetTriggerPlaceholder": "my signature",
+    "snippetTextPlaceholder": "Best regards, Alex",
+    "addSnippet": "Add snippet",
+    "noSnippets": "No snippets yet.",
+    "snippetsHint": "Say the phrase on its own to insert only the saved text. Said inside a sentence, it replaces just those words.",
+    "snippetEditHint": "Case and punctuation don't matter when you say the phrase. The text can have several lines.",
+    "snippetRequired": "Fill in the phrase and the text.",
+    "snippetsImportHint": "Add snippets from a CSV file with the columns trigger and text. Phrases already in the list are skipped."
   },
   "pm": {
     "yourModes": "your modes",

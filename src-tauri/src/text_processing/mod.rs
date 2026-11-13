@@ -10,5 +10,6 @@ pub mod filler_words;
 pub mod filter;
 pub mod formatter;
 pub mod phrase;
+pub mod snippets;
 pub mod spoken;
 pub mod word_replacement;

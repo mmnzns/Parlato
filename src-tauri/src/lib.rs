@@ -30,6 +30,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tracing::{info, warn};
 
+use commands::snippets::{
+    add_snippet, delete_snippet, export_snippets_csv, import_snippets_csv, list_snippets, update_snippet,
+};
 use commands::dictionary::{
     add_word_replacement, delete_word_replacement, export_dictionary_csv, import_dictionary_csv,
     list_word_replacements, update_word_replacement,
@@ -355,6 +358,12 @@ pub fn run() {
             delete_word_replacement,
             export_dictionary_csv,
             import_dictionary_csv,
+            list_snippets,
+            add_snippet,
+            update_snippet,
+            delete_snippet,
+            export_snippets_csv,
+            import_snippets_csv,
             vad_get_state,
             vad_download,
             vad_delete,

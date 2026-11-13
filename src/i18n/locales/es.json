@@ -517,7 +517,10 @@
     "csvTooBig": "Ese archivo es demasiado grande para una lista del diccionario.",
     "csvNotUtf8": "Ese archivo no es texto UTF-8. Guárdalo como CSV (UTF-8) e inténtalo de nuevo.",
     "csvEmpty": "No se encontraron palabras en ese archivo.",
-    "micPermission": "Parlato no tiene permiso para usar el micrófono. Permítelo en los ajustes de privacidad de tu ordenador."
+    "micPermission": "Parlato no tiene permiso para usar el micrófono. Permítelo en los ajustes de privacidad de tu ordenador.",
+    "snippetInvalid": "Un fragmento necesita una frase con al menos una palabra y algo de texto (no demasiado largo).",
+    "snippetExists": "Ya tienes un fragmento con esa frase.",
+    "snippetMissing": "Ese fragmento ya no existe."
   },
   "prompts": {
     "default": {
@@ -881,7 +884,18 @@
     "exportCsv": "Exportar CSV",
     "importHint": "Añade palabras desde un archivo CSV. Las que ya están en el diccionario se omiten.",
     "importDone": "Añadidas {{added}}, omitidas {{skipped}}.",
-    "exportDone": "Guardado en {{path}}"
+    "exportDone": "Guardado en {{path}}",
+    "snippetsTitle": "Fragmentos de texto",
+    "snippetsDesc": "Di una frase y Parlato inserta un texto guardado, incluso de varias líneas: una firma, una dirección, una respuesta habitual. Se inserta tal como lo guardaste y la limpieza con IA nunca lo reescribe.",
+    "snippetText": "Texto guardado",
+    "snippetTriggerPlaceholder": "mi firma",
+    "snippetTextPlaceholder": "Un saludo, Alex",
+    "addSnippet": "Añadir fragmento",
+    "noSnippets": "Aún no hay fragmentos.",
+    "snippetsHint": "Di la frase sola para insertar solo el texto guardado. Dicha dentro de una frase, reemplaza solo esas palabras.",
+    "snippetEditHint": "Las mayúsculas y la puntuación no importan al decir la frase. El texto puede tener varias líneas.",
+    "snippetRequired": "Rellena la frase y el texto.",
+    "snippetsImportHint": "Añade fragmentos desde un archivo CSV con las columnas trigger y text. Las frases que ya están en la lista se omiten."
   },
   "pm": {
     "yourModes": "tus modos",

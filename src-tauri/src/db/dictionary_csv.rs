@@ -13,7 +13,7 @@ use crate::db::word_replacement::WordReplacement;
 pub const HEADER: &str = "original,replacement";
 
 /// Columns written by `serialize` and recognised as a header by `parse`.
-const HEADER_FIRST: &[&str] = &["original", "word", "words", "say", "original_text"];
+const HEADER_FIRST: &[&str] = &["original", "word", "words", "say", "original_text", "trigger"];
 
 fn quote(field: &str) -> String {
     if field.contains([',', '"', '\n', '\r', ';']) || field != field.trim() {
@@ -35,6 +35,40 @@ pub fn serialize(entries: &[WordReplacement]) -> String {
         out.push('\n');
     }
     out
+}
+
+/// Header of the Snippets file (`trigger,text`).
+pub const SNIPPET_HEADER: &str = "trigger,text";
+
+/// CSV text for the snippets: `trigger,text`, the text quoted when it has
+/// commas, quotes or line breaks (multi-line snippets are one record).
+pub fn serialize_snippets(entries: &[crate::db::snippet::Snippet]) -> String {
+    let mut out = String::from(SNIPPET_HEADER);
+    out.push('\n');
+    for e in entries {
+        out.push_str(&quote(&e.trigger_text));
+        out.push(',');
+        out.push_str(&quote(&e.content));
+        out.push('\n');
+    }
+    out
+}
+
+/// Parse a Snippets file. Same format rules as the Dictionary; a row without
+/// a text column is not a snippet and counts as invalid.
+pub fn parse_snippets(text: &str) -> (Vec<Row>, usize) {
+    let (rows, mut invalid) = parse(text);
+    let kept: Vec<Row> = rows
+        .into_iter()
+        .filter(|(trigger, content)| {
+            let ok = trigger != content;
+            if !ok {
+                invalid += 1;
+            }
+            ok
+        })
+        .collect();
+    (kept, invalid)
 }
 
 /// One parsed row: (original, replacement). A one-column row is a word, so
@@ -280,5 +314,45 @@ mod tests {
         );
         assert_eq!(add, rows(&[("Acme", "Acme"), ("Zed", "Zed")]));
         assert_eq!(summary, ImportSummary { added: 2, skipped: 4 });
+    }
+
+    // -- snippets ---------------------------------------------------------
+
+    fn snippet(trigger: &str, content: &str) -> crate::db::snippet::Snippet {
+        crate::db::snippet::Snippet {
+            id: "x".into(),
+            trigger_text: trigger.into(),
+            content: content.into(),
+            date_added: Utc::now(),
+            is_enabled: true,
+        }
+    }
+
+    #[test]
+    fn snippets_round_trip_with_multi_line_text() {
+        let list = vec![
+            snippet("my address", "1 Main St,\nSpringfield"),
+            snippet("sig", "Best,\n\nMiguel \"M\""),
+            snippet("mi dirección", "Calle 1; piso 2"),
+        ];
+        let csv = serialize_snippets(&list);
+        assert!(csv.starts_with("trigger,text\n"));
+        let (rows_back, invalid) = parse_snippets(&csv);
+        assert_eq!(invalid, 0);
+        assert_eq!(
+            rows_back,
+            rows(&[
+                ("my address", "1 Main St,\nSpringfield"),
+                ("sig", "Best,\n\nMiguel \"M\""),
+                ("mi dirección", "Calle 1; piso 2"),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_snippet_row_without_text_is_invalid() {
+        let (r, invalid) = parse_snippets("trigger,text\nsig,Best\nlonely\nalso,\n");
+        assert_eq!(r, rows(&[("sig", "Best")]));
+        assert_eq!(invalid, 2);
     }
 }

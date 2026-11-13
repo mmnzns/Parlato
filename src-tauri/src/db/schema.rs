@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use rusqlite::Connection;
 
 /// Version courante du schema. A incrementer pour chaque migration future.
-const CURRENT_VERSION: i32 = 3;
+const CURRENT_VERSION: i32 = 4;
 
 pub fn init(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -30,6 +30,15 @@ pub fn init(conn: &Connection) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_word_replacements_enabled
             ON word_replacements(is_enabled);
+
+        -- Parlato : V3 -> V4, extraits (phrase dite -> texte enregistre).
+        CREATE TABLE IF NOT EXISTS snippets (
+            id TEXT PRIMARY KEY,
+            trigger_text TEXT NOT NULL,
+            content TEXT NOT NULL,
+            date_added TEXT NOT NULL,
+            is_enabled INTEGER NOT NULL DEFAULT 1
+        );
 
         CREATE TABLE IF NOT EXISTS transcriptions (
             id TEXT PRIMARY KEY,

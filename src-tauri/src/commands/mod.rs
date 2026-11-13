@@ -16,6 +16,7 @@ pub mod recording;
 pub mod remove_model;
 pub mod screen_context;
 pub mod settings;
+pub mod snippets;
 pub mod streaming;
 pub mod transcription;
 pub mod vad;

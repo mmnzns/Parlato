@@ -102,6 +102,24 @@ export type WordReplacement = {
   is_enabled: boolean;
 };
 
+/** Parlato: a snippet: say the trigger phrase, get the saved text (may be several lines). */
+export type Snippet = {
+  id: string;
+  trigger_text: string;
+  content: string;
+  date_added: string;
+  is_enabled: boolean;
+};
+
+export type NewSnippet = { trigger_text: string; content: string; is_enabled?: boolean };
+
+export type UpdateSnippet = {
+  id: string;
+  trigger_text?: string;
+  content?: string;
+  is_enabled?: boolean;
+};
+
 export type TranscriptionSource = {
   kind: "local" | "cloud" | "parakeet";
   whisper_model_id: string | null;
@@ -551,6 +569,15 @@ export const api = {
   exportDictionaryCsv: () => invoke<string | null>("export_dictionary_csv"),
   /** Parlato: merge a CSV file into the Dictionary; null when cancelled. */
   importDictionaryCsv: () => invoke<ImportSummary | null>("import_dictionary_csv"),
+
+  listSnippets: () => invoke<Snippet[]>("list_snippets"),
+  addSnippet: (payload: NewSnippet) => invoke<Snippet>("add_snippet", { payload }),
+  updateSnippet: (payload: UpdateSnippet) => invoke<Snippet>("update_snippet", { payload }),
+  deleteSnippet: (id: string) => invoke<void>("delete_snippet", { id }),
+  /** Parlato: save the snippets as a CSV file (trigger,text); null when cancelled. */
+  exportSnippetsCsv: () => invoke<string | null>("export_snippets_csv"),
+  /** Parlato: merge a snippets CSV file into the list; null when cancelled. */
+  importSnippetsCsv: () => invoke<ImportSummary | null>("import_snippets_csv"),
 
   getEnhancementEnabled: () => invoke<boolean>("get_enhancement_enabled"),
   setEnhancementEnabled: (enabled: boolean) =>
