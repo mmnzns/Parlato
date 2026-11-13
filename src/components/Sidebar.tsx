@@ -12,12 +12,14 @@
 import {
   AudioLines,
   BookA,
+  Download,
   FileAudio,
   History,
   House,
   Mic,
   Settings,
   Sparkles,
+  X,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -27,6 +29,8 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useHotkeyLabel } from "@/hooks/useHotkeyLabel";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { MISSING_VIEW } from "@/lib/setupStatus";
+import { cancelActiveDownload, downloadView, useActiveDownloads } from "@/lib/downloads";
+import { modelName } from "@/lib/modelText";
 import { cn } from "@/lib/utils";
 
 export type View =
@@ -110,6 +114,26 @@ export function Sidebar({
   // a Mac Accessibility); otherwise the first missing step is a link.
   const setup = useSetupStatus(current);
   const ready = !!setup && !setup.missing;
+  // Parlato: model downloads running now (they go on when the page that
+  // started them is closed).
+  const downloads = useActiveDownloads();
+  const downloadPct = (() => {
+    const known = downloads.filter((d) => d.total > 0);
+    if (known.length === 0) return null;
+    const total = known.reduce((n, d) => n + d.total, 0);
+    return Math.min(100, Math.round((known.reduce((n, d) => n + d.downloaded, 0) / total) * 100));
+  })();
+  const downloadName = (d: (typeof downloads)[number]) =>
+    d.kind === "vad" ? t("vad.modelTitle") : modelName(t, d.id, d.name);
+  const downloadLabel =
+    downloads.length === 1
+      ? downloadPct === null
+        ? t("downloads.one", { name: downloads[0] && downloadName(downloads[0]) })
+        : t("downloads.onePct", { name: downloadName(downloads[0]), pct: downloadPct })
+      : downloadPct === null
+        ? t("downloads.many", { count: downloads.length })
+        : t("downloads.manyPct", { count: downloads.length, pct: downloadPct });
+  const cancellable = downloads.filter((d) => d.kind !== "vad");
   // Parlato: installed version, shown under the status card.
   const [version, setVersion] = useState("");
   useEffect(() => {
@@ -167,6 +191,34 @@ export function Sidebar({
           </div>
         ))}
       </nav>
+
+      {downloads.length > 0 && (
+        <div className="mx-3 mt-3 flex items-center gap-1 rounded-lg border-[1.5px] border-sidebar-border bg-card py-1 pr-1 pl-1">
+          <button
+            type="button"
+            onClick={() => onSelect(downloadView(downloads[0].kind))}
+            title={downloadLabel}
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-[3px] px-1.5 py-1.5 text-left text-xs leading-4 outline-none hover:bg-nav-hover focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Download className="h-3.5 w-3.5 shrink-0 text-sidebar-muted" />
+            <span role="status" className="min-w-0 flex-1 truncate">
+              {downloadLabel}
+            </span>
+          </button>
+          {cancellable.length > 0 && (
+            <button
+              type="button"
+              onClick={() => cancellable.forEach((d) => cancelActiveDownload(d).catch(console.error))}
+              aria-label={t("downloads.cancel")}
+              title={t("downloads.cancel")}
+              className="flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-[3px] px-1.5 text-xs font-semibold outline-none hover:bg-nav-hover focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="h-3.5 w-3.5" />
+              {t("downloads.cancel")}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="mx-3 mt-3 flex flex-col gap-2 rounded-lg border-[1.5px] border-sidebar-border bg-card p-3">
         <div className="flex items-center gap-2">

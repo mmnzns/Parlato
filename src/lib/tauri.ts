@@ -334,6 +334,16 @@ export type ParakeetModelState = {
 /** What "Remove from this computer" did (see models/remove.rs). */
 export type RemoveResult = "removed" | "old_copies_left" | "in_use";
 
+/** A model download that is running right now (package 1's `list_active_downloads`).
+ *  Lets a page that was closed and opened again show the progress it missed. */
+export type ActiveDownload = {
+  id: string;
+  kind: "whisper" | "parakeet" | "llm" | "vad";
+  name: string;
+  downloaded: number;
+  total: number;
+};
+
 export const api = {
   ping: () => invoke<string>("ping"),
 
@@ -499,6 +509,7 @@ export const api = {
       other_apps?: string[];
     }>("vad_get_state"),
   vadDownload: () => invoke<string>("vad_download"),
+  listActiveDownloads: () => invoke<ActiveDownload[]>("list_active_downloads"),
   vadDelete: () => invoke<void>("vad_delete"),
   removeModelEverywhere: (id: string) =>
     invoke<RemoveResult>("remove_model_everywhere", { id }),
