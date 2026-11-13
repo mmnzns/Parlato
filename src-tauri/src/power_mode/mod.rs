@@ -6,6 +6,8 @@
 
 #[cfg_attr(target_os = "macos", path = "active_window_macos.rs")]
 pub mod active_window;
+#[cfg(target_os = "macos")]
+pub mod browser_ax_macos;
 pub mod browser_url;
 #[cfg(target_os = "macos")]
 pub mod browser_url_macos;

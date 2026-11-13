@@ -141,8 +141,8 @@ VoiceInk before it. The full source is in this repository.
 
 **Mac:** the command-line AI engine isn't on the Mac yet. Switching a power
 mode automatically for a website works in Safari, Chrome, Arc, Brave, Edge,
-Vivaldi, Opera and Chromium, not in Firefox (it can't share its address with
-other apps; pair the app instead). Letting AI cleanup read the window you're
+Vivaldi, Opera, Chromium, Firefox and Zen (Firefox and Zen are read through the
+Accessibility permission Parlato already uses). Letting AI cleanup read the window you're
 typing in needs the Screen Recording permission.
 
 **Windows, apps run as administrator:** the shortcut does nothing while an app started with **Run as administrator**

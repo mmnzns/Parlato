@@ -178,7 +178,7 @@ More fixes in the [troubleshooting guide](INSTALL.md#troubleshooting).
 ### What isn't on the Mac yet?
 
 Only the command-line AI cleanup engine. Website pairing for power modes
-(Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, Chromium; not Firefox) and
+(Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, Chromium, Firefox, Zen) and
 letting AI cleanup read the window you're typing in now work on the Mac, each
 after one permission: Automation and Screen Recording. The
 [install guide](INSTALL.md#not-on-mac-yet) has the details.

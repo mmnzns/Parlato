@@ -45,7 +45,7 @@ pub fn foreground_window() -> Result<ActiveWindow> {
 }
 
 /// Browsers are matched by bundle identifier (see `browser_url_macos.rs` for
-/// the list). Firefox is not one of them: it cannot be asked for its address.
+/// the list). Firefox and Zen are read through Accessibility.
 pub fn is_browser(active: &ActiveWindow) -> bool {
     super::browser_url_macos::is_supported(&active.exe_name)
 }

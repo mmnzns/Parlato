@@ -98,7 +98,7 @@ Use a throwaway profile or reset the Automation permission first (`tccutil reset
 - [ ] [Mac] Repeat with Chrome (and one of Arc, Brave, Edge if you have them).
 - [ ] [Mac] Open a different site: the mode does not apply.
 - [ ] [Mac] Deny the prompt, dictate again: dictation still works without delay, and the mode shows the message with **Open Automation settings**.
-- [ ] [Mac] Firefox: the note says to pair it as an app instead.
+- [ ] [Mac] Firefox: pair a mode with a site, dictate in Firefox: the mode switches (no new prompt). While typing in the address bar: no switch.
 - [ ] [Mac] Check the log: only the site host, no full address.
 - [ ] [Win] Power modes work as before (app pairing); no website option errors.
 

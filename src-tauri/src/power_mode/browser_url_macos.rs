@@ -28,8 +28,11 @@
 // Privacy: only the HOST leaves this module (for matching and logs). The path
 // and query of the address (tokens, document ids) are dropped right here.
 //
-// Firefox (and Firefox-based browsers such as Zen) have no AppleScript
-// support for tabs, so no website can be read there: pair the app instead.
+// Firefox (and Zen, which is Firefox-based) have no AppleScript support for
+// tabs. They are read through the Accessibility API instead (see
+// browser_ax_macos.rs): Parlato already holds that permission for the hotkey
+// and for pasting, so there is no extra prompt and no Automation entry. Same
+// thread, same `WAIT`, same fall-back to the app match.
 
 use std::io::Read;
 use std::process::{Command, Stdio};
@@ -59,6 +62,9 @@ enum Script {
     Safari,
     /// `URL of active tab of front window` (Chromium family, Arc).
     Chromium,
+    /// Accessibility API: the address bar of the focused window (Firefox
+    /// family). No AppleScript, no Automation permission.
+    Accessibility,
 }
 
 struct Browser {
@@ -92,6 +98,10 @@ const BROWSERS: &[Browser] = &[
     b("com.operasoftware.Opera", "Opera", Script::Chromium),
     b("com.operasoftware.OperaGX", "Opera GX", Script::Chromium),
     b("org.chromium.Chromium", "Chromium", Script::Chromium),
+    b("org.mozilla.firefox", "Firefox", Script::Accessibility),
+    b("org.mozilla.firefoxdeveloperedition", "Firefox Developer Edition", Script::Accessibility),
+    b("org.mozilla.nightly", "Firefox Nightly", Script::Accessibility),
+    b("app.zen-browser.zen", "Zen", Script::Accessibility),
 ];
 
 fn browser_for(bundle_lower: &str) -> Option<&'static Browser> {
@@ -109,6 +119,8 @@ fn script_source(browser: &Browser) -> String {
     let what = match browser.script {
         Script::Safari => "URL of front document",
         Script::Chromium => "URL of active tab of front window",
+        // Never run through osascript; see `start`.
+        Script::Accessibility => return String::new(),
     };
     // `application id` names the app by bundle identifier, so a localized or
     // renamed app still resolves, and it never launches a different app.
@@ -211,7 +223,7 @@ fn record_status(browser: &'static Browser, outcome: &Outcome) {
 // -- Lookup ------------------------------------------------------------------
 
 /// Start (or reuse) a lookup for `browser`. `None` when one is already stuck.
-fn start(browser: &'static Browser) -> Option<(Instant, Arc<Shared>)> {
+fn start(browser: &'static Browser, pid: u32) -> Option<(Instant, Arc<Shared>)> {
     let mut cur = CURRENT.lock();
     if let Some(c) = cur.as_ref() {
         if c.bundle == browser.bundle && c.started.elapsed() < REUSE_WINDOW {
@@ -235,8 +247,20 @@ fn start(browser: &'static Browser) -> Option<(Instant, Arc<Shared>)> {
     let spawned = std::thread::Builder::new()
         .name("parlato-browser-url".into())
         .spawn(move || {
-            let outcome = run_osascript(browser);
-            record_status(browser, &outcome);
+            let outcome = match browser.script {
+                Script::Accessibility => match super::browser_ax_macos::read_displayed_address(pid)
+                    .as_deref()
+                    .and_then(super::browser_ax_macos::host_of_displayed)
+                {
+                    Some(h) => Outcome::Host(h),
+                    None => Outcome::Failed,
+                },
+                _ => run_osascript(browser),
+            };
+            // The Automation hint is about AppleScript browsers only.
+            if browser.script != Script::Accessibility {
+                record_status(browser, &outcome);
+            }
             if let Outcome::Host(host) = &outcome {
                 // The host only, never the path or query.
                 info!(browser = browser.name, host = %host, "Browser address read");
@@ -304,7 +328,7 @@ pub fn prefetch(app: &AppHandle) {
     }
     if let Ok(active) = super::active_window::foreground_window() {
         if let Some(browser) = browser_for(&active.exe_name) {
-            let _ = start(browser);
+            let _ = start(browser, active.pid);
         }
     }
 }
@@ -313,7 +337,7 @@ pub fn prefetch(app: &AppHandle) {
 /// (counted from when the lookup started) for the browser to answer.
 pub fn lookup(active: &ActiveWindow) -> Option<String> {
     let browser = browser_for(&active.exe_name)?;
-    let (started, shared) = start(browser)?;
+    let (started, shared) = start(browser, active.pid)?;
     let deadline = (started + WAIT).max(Instant::now() + Duration::from_millis(100));
     let mut done = shared.done.lock();
     while done.is_none() {
@@ -364,12 +388,29 @@ mod tests {
             "com.vivaldi.vivaldi",
             "com.operasoftware.opera",
             "org.chromium.chromium",
+            "org.mozilla.firefox",
+            "org.mozilla.firefoxdeveloperedition",
+            "org.mozilla.nightly",
+            "app.zen-browser.zen",
         ] {
             assert!(is_supported(id), "{id}");
         }
-        assert!(!is_supported("org.mozilla.firefox"));
+        assert!(!is_supported("org.mozilla.fennec"));
         assert!(!is_supported("com.apple.textedit"));
         assert!(!is_supported(""));
+    }
+
+    #[test]
+    fn firefox_family_is_read_through_accessibility() {
+        for id in ["org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly", "app.zen-browser.zen"] {
+            assert_eq!(browser_for(id).unwrap().script, Script::Accessibility, "{id}");
+        }
+        assert_eq!(browser_for("com.apple.safari").unwrap().script, Script::Safari);
+        // Every table entry is unique and lower-case matchable.
+        let mut seen = std::collections::HashSet::new();
+        for b in BROWSERS {
+            assert!(seen.insert(b.bundle.to_ascii_lowercase()), "{}", b.bundle);
+        }
     }
 
     #[test]

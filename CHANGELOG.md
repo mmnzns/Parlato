@@ -39,8 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pair a power mode with a website** (Mac): the mode switches on when your
   browser is on that site. The first time, macOS asks to let Parlato read the
   address from the browser; Parlato only looks at the site name. Works with
-  Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera and Chromium (Firefox can't
-  share its address, so pair it as an app).
+  Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera and Chromium, and also
+  Firefox and Zen, which Parlato reads through the Accessibility permission it
+  already has (no extra prompt). Nothing switches while you type in the address
+  bar.
 - **AI cleanup can read the window you're typing in** (Mac): when that option is
   on, Parlato reads the text on screen on this Mac and throws the picture away.
   It needs the Screen Recording permission, shown on the Permissions page.
