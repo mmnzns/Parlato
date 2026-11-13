@@ -14,7 +14,9 @@ use tauri_plugin_store::StoreExt;
 use tokio::task;
 use tracing::{info, warn};
 
-use crate::db::{transcription as history_repo, word_replacement as word_repo, Database};
+use crate::db::{
+    snippet as snippet_repo, transcription as history_repo, word_replacement as word_repo, Database,
+};
 use crate::enhancement::prompt_detection;
 use crate::enhancement::prompts as prompt_store;
 use crate::enhancement::service as llm_service;
@@ -23,7 +25,7 @@ use crate::audio::feedback::{self, Cue};
 use crate::paste::paste_at_cursor;
 use crate::services::api_keys;
 use crate::text_processing::{
-    filler_words, filter as output_filter, formatter as text_formatter,
+    filler_words, filter as output_filter, formatter as text_formatter, snippets, spoken,
     word_replacement as word_replacer,
 };
 use crate::transcription::{
@@ -50,6 +52,9 @@ pub const DEFAULT_KEEP_ALIVE_SECS: u64 = 300;
 const RESTORE_CLIPBOARD_KEY: &str = "restore_clipboard_after_paste";
 const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
+const SPOKEN_COMMANDS_KEY: &str = "spoken_commands_enabled";
+const SPOKEN_PUNCTUATION_KEY: &str = "spoken_punctuation_enabled";
+const REVIEW_BEFORE_PASTE_KEY: &str = "review_before_paste";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -464,6 +469,41 @@ pub fn get_text_formatting_enabled(app: &AppHandle) -> bool {
         .unwrap_or(true)
 }
 
+/// Parlato : "new line", "new paragraph", "scratch that" (text_processing/
+/// spoken.rs). Actif par defaut.
+pub fn get_spoken_commands_enabled(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return true;
+    };
+    store
+        .get(SPOKEN_COMMANDS_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
+}
+
+/// Parlato : "comma", "period", "question mark"... dits a voix haute.
+/// Inactif par defaut (un mot comme "period" se dit aussi dans une phrase).
+pub fn get_spoken_punctuation_enabled(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return false;
+    };
+    store
+        .get(SPOKEN_PUNCTUATION_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+/// Parlato : "Review before pasting" (review.rs). Inactif par defaut.
+pub fn get_review_before_paste(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return false;
+    };
+    store
+        .get(REVIEW_BEFORE_PASTE_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 pub(crate) fn is_vad_enabled(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
         return false;
@@ -766,6 +806,9 @@ pub enum Outcome {
     NotPasted,
     /// Annule depuis la bulle pendant le traitement : rien n'est colle.
     Cancelled,
+    /// Parlato : le texte attend dans l'editeur "Review before pasting"
+    /// (review.rs) ; c'est lui qui colle, ou non.
+    Review,
     /// Parlato : transcription reussie (la ligne d'historique reste
     /// "transcrite") mais la copie dans le presse-papiers a echoue (Reessayer,
     /// Transcrire un fichier).
@@ -1198,6 +1241,11 @@ fn mark_enhanced_in_history(app: &AppHandle, run: &Run, enhanced: &str, enhance_
 /// Post-traitement + paste commun aux branches locale et cloud.
 /// Ordre VoiceInk TranscriptionPipeline.swift L67-100 :
 ///   filter -> trim -> formatter (si active) -> word_replacement -> paste.
+/// Parlato : la ponctuation parlee passe entre le filtre et le formateur (le
+/// formateur coupe aux fins de phrase, et le filtre retire les parentheses),
+/// les commandes vocales apres le formateur (le filtre et le formateur
+/// ecrasent les sauts de ligne), puis les mots du dictionnaire, puis le
+/// nettoyage IA et le collage.
 async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u64) -> Result<Outcome> {
     let delivery = run.delivery();
     if run.cancelled() {
@@ -1209,9 +1257,18 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         Vec::new()
     };
     let mut text = output_filter::filter(&text, &fillers);
+    let language = get_language(app);
+
+    if get_spoken_punctuation_enabled(app) {
+        text = spoken::apply(&text, language.as_deref(), spoken::Group::Punctuation);
+    }
 
     if get_text_formatting_enabled(app) {
         text = text_formatter::format(&text);
+    }
+
+    if get_spoken_commands_enabled(app) {
+        text = spoken::apply(&text, language.as_deref(), spoken::Group::Commands);
     }
 
     if let Some(db) = app.try_state::<Database>() {
@@ -1223,6 +1280,31 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             Err(e) => warn!("Lecture word_replacements: {e}"),
         }
     }
+
+    // Parlato : extraits (voir text_processing/snippets.rs). Apres le
+    // dictionnaire pour que rien ne retouche leur texte. Dictee entiere =
+    // declencheur : le texte de l'extrait seul, sans nettoyage IA. Sinon des
+    // marqueurs tiennent leur place pendant le nettoyage.
+    let mut whole_snippet = false;
+    let mut snippet_slots: Vec<snippets::Slot> = Vec::new();
+    if let Some(db) = app.try_state::<Database>() {
+        match snippet_repo::list_enabled(&db.0.lock()) {
+            Ok(list) if !list.is_empty() => match snippets::apply(&text, &list) {
+                snippets::Applied::Unchanged => {}
+                snippets::Applied::Whole(content) => {
+                    text = content;
+                    whole_snippet = true;
+                }
+                snippets::Applied::Marked { text: marked, slots } => {
+                    text = marked;
+                    snippet_slots = slots;
+                }
+            },
+            Ok(_) => {}
+            Err(e) => warn!("Lecture snippets: {e}"),
+        }
+    }
+    let mut snippets_pending = !snippet_slots.is_empty();
 
     if text.trim().is_empty() {
         warn!("Transcription vide, on saute le paste");
@@ -1240,11 +1322,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // prompt-detect : cherche un trigger_word dans le texte qui activerait
     // un prompt specifique (VoiceInk PromptDetectionService). Si match, on
     // force l'enhancement ON avec ce prompt et on strip le trigger du texte.
-    let detection = match prompt_store::load_cached(app) {
-        Ok(all) => prompt_detection::detect_and_strip(&all, &text),
-        Err(e) => {
-            warn!("prompt-detect: load prompts echec: {e}");
-            None
+    let detection = if whole_snippet {
+        // The snippet's own text is never searched for a trigger word.
+        None
+    } else {
+        match prompt_store::load_cached(app) {
+            Ok(all) => prompt_detection::detect_and_strip(&all, &text),
+            Err(e) => {
+                warn!("prompt-detect: load prompts echec: {e}");
+                None
+            }
         }
     };
 
@@ -1266,7 +1353,10 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // Enhancement LLM optionnel (VoiceInk TranscriptionPipeline.swift L119-150).
     // Si active et configure, remplace le texte avant paste. En cas d'echec,
     // on preserve le texte brut (fallback VoiceInk).
-    let should_enhance = if prompt_override.is_some() {
+    let should_enhance = if whole_snippet {
+        // A snippet is inserted as saved: nothing to clean up.
+        false
+    } else if prompt_override.is_some() {
         // Trigger detecte : VoiceInk force l'enhancement ON meme si le
         // toggle global est off. On exige juste un provider configure.
         llm_service::has_provider_configured(app)
@@ -1277,7 +1367,8 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // Parlato : le nettoyage IA est-il voulu sans avoir tourne ? Alors le texte
     // brut est colle et la personne le saura (`Notice::AiSkipped`, apres la
     // dictee). Un texte trop court pour le seuil est un choix, pas un echec.
-    let cleanup_wanted = prompt_override.is_some() || prompt_store::is_enhancement_enabled(app);
+    let cleanup_wanted =
+        !whole_snippet && (prompt_override.is_some() || prompt_store::is_enhancement_enabled(app));
     let mut ai_skipped = false;
     if should_enhance {
         emit_state(
@@ -1290,10 +1381,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         );
         match llm_service::enhance_with_override(app.clone(), text.clone(), prompt_override).await {
             Ok(Some((enhanced, enhance_ms))) => {
-                if !enhanced.trim().is_empty() {
-                    mark_enhanced_in_history(app, run, &enhanced, enhance_ms);
-                    text = enhanced;
+                if enhanced.trim().is_empty() {
+                    ai_skipped = true;
+                } else if let Some(restored) = snippets::restore(&enhanced, &snippet_slots) {
+                    mark_enhanced_in_history(app, run, &restored, enhance_ms);
+                    text = restored;
+                    snippets_pending = false;
                 } else {
+                    // The AI lost or changed a snippet marker: its text is
+                    // dropped and the uncleaned text (snippets filled in) is used.
+                    warn!("nettoyage IA ecarte : un marqueur d'extrait a disparu");
                     ai_skipped = true;
                 }
             }
@@ -1306,6 +1403,9 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     } else if cleanup_wanted && !llm_service::has_provider_configured(app) {
         ai_skipped = true;
     }
+    if snippets_pending {
+        text = snippets::fill_all(&text, &snippet_slots);
+    }
     // Parlato : repli carte graphique -> processeur de l'IA locale, a dire une
     // fois dans la bulle, une fois la dictee finie.
     if let Some(ai) = crate::enhancement::local_ai::local_ai() {
@@ -1317,6 +1417,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // Annule pendant le nettoyage IA.
     if run.cancelled() {
         return Ok(Outcome::Cancelled);
+    }
+
+    // Parlato : "Review before pasting" : une dictee au raccourci attend dans
+    // l'editeur au lieu d'etre collee. Le texte est deja dans l'historique ;
+    // la fin de la dictee (bulle, modeles, Power mode) se passe comme d'habitude.
+    if delivery == Delivery::Paste && get_review_before_paste(app) {
+        let send = crate::power_mode::session::auto_send_key(app, run.power.as_ref());
+        emit_state(app, run, PipelineState::Done, None, Some(text.clone()), Some(duration_ms));
+        crate::review::open(app, text, run.history_id.clone(), send);
+        return Ok(Outcome::Review);
     }
 
     emit_state(

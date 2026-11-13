@@ -31,6 +31,14 @@ fn mic_status() -> AVAuthorizationStatus {
     }
 }
 
+/// True when macOS has refused the microphone (the person said No, or a
+/// profile forbids it). "Not asked yet" is not a refusal: starting the capture
+/// makes macOS ask.
+pub fn microphone_denied() -> bool {
+    let status = mic_status();
+    status == AVAuthorizationStatus::Denied || status == AVAuthorizationStatus::Restricted
+}
+
 pub fn microphone_state() -> PermissionState {
     let status = mic_status();
     let (ok, label, hint) = if status == AVAuthorizationStatus::Authorized {

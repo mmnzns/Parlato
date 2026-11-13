@@ -103,9 +103,31 @@ const LEVEL_FLOATING: isize = 3;
 /// only while its editor is open, with `set_accepts_key`.
 static ACCEPTS_KEY: AtomicBool = AtomicBool::new(false);
 
-#[allow(dead_code)] // for the "edit before paste" editor (package 5)
+/// Used by the "Review before pasting" editor (review.rs): on while it is open.
 pub fn set_accepts_key(accepts: bool) {
     ACCEPTS_KEY.store(accepts, Ordering::SeqCst);
+}
+
+/// Makes `window` the key window WITHOUT activating the app (tao's own
+/// `set_focus` also calls activateIgnoringOtherApps, which would pull Parlato
+/// in front of the app being typed into and can switch Spaces). Only works on
+/// a panel made by `make_floating_panel` while `set_accepts_key(true)`.
+pub fn make_key(window: &WebviewWindow) {
+    let w = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        let Ok(ptr) = w.ns_window() else {
+            return;
+        };
+        let obj = ptr as *mut AnyObject;
+        if obj.is_null() {
+            return;
+        }
+        // SAFETY: `ptr` is this window's NSWindow, alive while `w` is held,
+        // and we are on the main thread.
+        unsafe {
+            let _: () = msg_send![obj, makeKeyAndOrderFront: std::ptr::null::<AnyObject>()];
+        }
+    });
 }
 
 extern "C" fn can_become_key(_this: &AnyObject, _cmd: Sel) -> Bool {

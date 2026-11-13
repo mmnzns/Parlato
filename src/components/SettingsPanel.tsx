@@ -140,6 +140,9 @@ export function SettingsPanel() {
     const value = !text[key];
     try {
       if (key === "text_formatting_enabled") await api.setTextFormattingEnabled(value);
+      if (key === "spoken_commands") await api.setSpokenCommands(value);
+      if (key === "spoken_punctuation") await api.setSpokenPunctuation(value);
+      if (key === "review_before_paste") await api.setReviewBeforePaste(value);
       if (key === "remove_filler_words") await api.setRemoveFillerWords(value);
       if (key === "append_trailing_space") await api.setAppendTrailingSpace(value);
       if (key === "restore_clipboard_after_paste") await api.setRestoreClipboardAfterPaste(value);
@@ -383,6 +386,27 @@ export function SettingsPanel() {
                 id="set-format"
                 checked={text.text_formatting_enabled}
                 onChange={() => toggleText("text_formatting_enabled")}
+              />
+            </Row>
+            <Row htmlFor="set-spoken" label={t("settings.spokenLabel")} description={t("settings.spokenHint")}>
+              <Switch
+                id="set-spoken"
+                checked={text.spoken_commands}
+                onChange={() => toggleText("spoken_commands")}
+              />
+            </Row>
+            <Row htmlFor="set-spoken-punct" label={t("settings.spokenPunctLabel")} description={t("settings.spokenPunctHint")}>
+              <Switch
+                id="set-spoken-punct"
+                checked={text.spoken_punctuation}
+                onChange={() => toggleText("spoken_punctuation")}
+              />
+            </Row>
+            <Row htmlFor="set-review" label={t("settings.reviewLabel")} description={t("settings.reviewHint")}>
+              <Switch
+                id="set-review"
+                checked={text.review_before_paste}
+                onChange={() => toggleText("review_before_paste")}
               />
             </Row>
             <Row htmlFor="set-fillers" label={t("settings.fillersLabel")} description={t("settings.fillersHint")}>

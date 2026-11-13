@@ -102,6 +102,24 @@ export type WordReplacement = {
   is_enabled: boolean;
 };
 
+/** Parlato: a snippet: say the trigger phrase, get the saved text (may be several lines). */
+export type Snippet = {
+  id: string;
+  trigger_text: string;
+  content: string;
+  date_added: string;
+  is_enabled: boolean;
+};
+
+export type NewSnippet = { trigger_text: string; content: string; is_enabled?: boolean };
+
+export type UpdateSnippet = {
+  id: string;
+  trigger_text?: string;
+  content?: string;
+  is_enabled?: boolean;
+};
+
 export type TranscriptionSource = {
   kind: "local" | "cloud" | "parakeet";
   whisper_model_id: string | null;
@@ -125,6 +143,12 @@ export type UpdateWordReplacement = {
 
 export type TextProcessingSettings = {
   text_formatting_enabled: boolean;
+  /** "new line", "new paragraph", "scratch that" (on by default). */
+  spoken_commands: boolean;
+  /** "comma", "period", "question mark"... (off by default). */
+  spoken_punctuation: boolean;
+  /** Show the text in an editor instead of pasting it (off by default). */
+  review_before_paste: boolean;
   remove_filler_words: boolean;
   filler_words: string[];
   append_trailing_space: boolean;
@@ -417,6 +441,15 @@ export const api = {
     invoke<TextProcessingSettings>("get_text_processing_settings"),
   setTextFormattingEnabled: (enabled: boolean) =>
     invoke<void>("set_text_formatting_enabled", { enabled }),
+  setSpokenCommands: (enabled: boolean) => invoke<void>("set_spoken_commands", { enabled }),
+  setSpokenPunctuation: (enabled: boolean) => invoke<void>("set_spoken_punctuation", { enabled }),
+  setReviewBeforePaste: (enabled: boolean) => invoke<void>("set_review_before_paste", { enabled }),
+  /** Review editor window: the text waiting to be reviewed. */
+  reviewText: () => invoke<string | null>("review_text"),
+  /** Review editor window: paste this text into the app the person was in. */
+  reviewPaste: (text: string) => invoke<void>("review_paste", { text }),
+  /** Review editor window: keep the dictation in History only. */
+  reviewCancel: () => invoke<void>("review_cancel"),
   setRemoveFillerWords: (enabled: boolean) =>
     invoke<void>("set_remove_filler_words", { enabled }),
   setFillerWords: (words: string[]) => invoke<void>("set_filler_words", { words }),
@@ -545,6 +578,15 @@ export const api = {
   exportDictionaryCsv: () => invoke<string | null>("export_dictionary_csv"),
   /** Parlato: merge a CSV file into the Dictionary; null when cancelled. */
   importDictionaryCsv: () => invoke<ImportSummary | null>("import_dictionary_csv"),
+
+  listSnippets: () => invoke<Snippet[]>("list_snippets"),
+  addSnippet: (payload: NewSnippet) => invoke<Snippet>("add_snippet", { payload }),
+  updateSnippet: (payload: UpdateSnippet) => invoke<Snippet>("update_snippet", { payload }),
+  deleteSnippet: (id: string) => invoke<void>("delete_snippet", { id }),
+  /** Parlato: save the snippets as a CSV file (trigger,text); null when cancelled. */
+  exportSnippetsCsv: () => invoke<string | null>("export_snippets_csv"),
+  /** Parlato: merge a snippets CSV file into the list; null when cancelled. */
+  importSnippetsCsv: () => invoke<ImportSummary | null>("import_snippets_csv"),
 
   getEnhancementEnabled: () => invoke<boolean>("get_enhancement_enabled"),
   setEnhancementEnabled: (enabled: boolean) =>

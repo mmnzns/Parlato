@@ -249,6 +249,10 @@ pub fn start_recording_core_with_chunk(
     device_name: Option<String>,
     on_chunk: Option<ChunkCallback>,
 ) -> anyhow::Result<RecordingStarted> {
+    // Parlato : pas de dictee tant que l'editeur "Review before pasting" est ouvert.
+    if crate::review::is_open() {
+        anyhow::bail!(crate::review::OPEN_CODE);
+    }
     // Parlato : le verrou n'est tenu que le temps de passer en `Starting` puis
     // d'enregistrer le resultat, jamais pendant l'ouverture du peripherique.
     if !state.0.lock().begin_start() {
@@ -291,6 +295,14 @@ fn open_recorder(
     on_chunk: Option<ChunkCallback>,
     dictation: u64,
 ) -> anyhow::Result<(RecorderHandle, String, PathBuf)> {
+    // Parlato (macOS) : cpal lists the devices and records silence when the
+    // microphone is refused, so ask TCC first and say so with a stable code.
+    // (Windows reports the refusal when the capture opens: audio/recorder.rs.)
+    #[cfg(target_os = "macos")]
+    if crate::commands::permissions_macos::microphone_denied() {
+        warn!("acces au micro refuse (macOS)");
+        anyhow::bail!(crate::audio::recorder::MIC_PERMISSION_CODE);
+    }
     // L'IA locale se charge en arriere-plan pendant l'enregistrement : le
     // nettoyage ne l'attendra pas (no-op si deja chargee ou non choisie).
     crate::enhancement::local_ai::preload_if_wanted(app);

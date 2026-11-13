@@ -16,6 +16,7 @@ mod models;
 mod notice;
 mod paste;
 mod power_mode;
+mod review;
 mod screen_context;
 mod services;
 mod text_processing;
@@ -30,6 +31,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tracing::{info, warn};
 
+use commands::snippets::{
+    add_snippet, delete_snippet, export_snippets_csv, import_snippets_csv, list_snippets, update_snippet,
+};
 use commands::dictionary::{
     add_word_replacement, delete_word_replacement, export_dictionary_csv, import_dictionary_csv,
     list_word_replacements, update_word_replacement,
@@ -53,7 +57,7 @@ use commands::settings::{
     set_dictation_language, set_filler_words, set_model_keep_alive, set_remove_filler_words,
     set_restore_clipboard_after_paste, set_selected_input_device, set_selected_whisper_model,
     set_sound_feedback_enabled, set_system_mute_enabled,
-    set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
+    set_review_before_paste, set_spoken_commands, set_spoken_punctuation, set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
     set_speech_threads, set_use_gpu,
 };
 use commands::transcription::{transcribe_file, transcribe_wav, WhisperEngineState};
@@ -329,6 +333,9 @@ pub fn run() {
             set_speech_threads,
             get_text_processing_settings,
             set_text_formatting_enabled,
+            set_spoken_commands,
+            set_spoken_punctuation,
+            set_review_before_paste,
             set_remove_filler_words,
             set_filler_words,
             set_append_trailing_space,
@@ -347,12 +354,21 @@ pub fn run() {
             mini_recorder::close_recorder_popover,
             mini_recorder::show_main_window,
             notice::take_recorder_notice,
+            review::review_text,
+            review::review_paste,
+            review::review_cancel,
             list_word_replacements,
             add_word_replacement,
             update_word_replacement,
             delete_word_replacement,
             export_dictionary_csv,
             import_dictionary_csv,
+            list_snippets,
+            add_snippet,
+            update_snippet,
+            delete_snippet,
+            export_snippets_csv,
+            import_snippets_csv,
             vad_get_state,
             vad_download,
             vad_delete,

@@ -5,6 +5,7 @@
 
 pub mod dictionary_csv;
 pub mod schema;
+pub mod snippet;
 pub mod transcription;
 pub mod word_replacement;
 

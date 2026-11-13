@@ -16,6 +16,7 @@ import { Block, Section, Switch } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { api, type WordReplacement } from "@/lib/tauri";
 import { translateError } from "@/lib/translateError";
+import { SnippetsSection } from "./SnippetsSection";
 
 const inputClass = "h-[34px] min-w-0 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
 
@@ -105,6 +106,7 @@ export function DictionaryPanel() {
         onToggle={(e) => run(() => api.updateWordReplacement({ id: e.id, is_enabled: !e.is_enabled }))}
         onRemove={(id) => run(() => api.deleteWordReplacement(id))}
       />
+      <SnippetsSection />
       {status && (
         <p role="status" className="text-sm text-muted-foreground">
           {status}

@@ -222,7 +222,13 @@
     "deleteAllAfterWindows": "Para quitar también la app, desinstala luego Parlato desde Configuración > Aplicaciones.",
     "supportLabel": "Apoyar Parlato",
     "supportHint": "Un café ayuda a firmar Parlato para Windows y Mac, para que nadie tenga que saltarse un aviso de nuevo.",
-    "supportAlt": "Invítame a un café"
+    "supportAlt": "Invítame a un café",
+    "spokenLabel": "Comandos de voz",
+    "spokenHint": "Di «nueva línea», «nuevo párrafo» o «borra eso» (quita la última frase) mientras dictas. Las frases en inglés siempre funcionan, además de las del idioma en que dictas.",
+    "spokenPunctLabel": "Puntuación hablada",
+    "spokenPunctHint": "Di «coma», «punto», «signo de interrogación», etc. para escribir el símbolo. Usa el idioma en que dictas. Desactivado por defecto, porque palabras como «punto» también aparecen en frases normales.",
+    "reviewLabel": "Revisar antes de pegar",
+    "reviewHint": "Tras cada dictado, un pequeño editor muestra el texto. Intro lo pega, Mayús+Intro añade una línea y Esc lo deja solo en el Historial."
   },
   "history": {
     "confirmDeleteCount": "¿Eliminar {{count}} transcripción(es) ?",
@@ -512,7 +518,12 @@
     "historyItemMissing": "Ese dictado ya no está en el historial.",
     "csvTooBig": "Ese archivo es demasiado grande para una lista del diccionario.",
     "csvNotUtf8": "Ese archivo no es texto UTF-8. Guárdalo como CSV (UTF-8) e inténtalo de nuevo.",
-    "csvEmpty": "No se encontraron palabras en ese archivo."
+    "csvEmpty": "No se encontraron palabras en ese archivo.",
+    "micPermission": "Parlato no tiene permiso para usar el micrófono. Permítelo en los ajustes de privacidad de tu ordenador.",
+    "snippetInvalid": "Un fragmento necesita una frase con al menos una palabra y algo de texto (no demasiado largo).",
+    "snippetExists": "Ya tienes un fragmento con esa frase.",
+    "snippetMissing": "Ese fragmento ya no existe.",
+    "reviewOpen": "Pega o cierra el editor de texto antes de volver a dictar."
   },
   "prompts": {
     "default": {
@@ -876,7 +887,18 @@
     "exportCsv": "Exportar CSV",
     "importHint": "Añade palabras desde un archivo CSV. Las que ya están en el diccionario se omiten.",
     "importDone": "Añadidas {{added}}, omitidas {{skipped}}.",
-    "exportDone": "Guardado en {{path}}"
+    "exportDone": "Guardado en {{path}}",
+    "snippetsTitle": "Fragmentos de texto",
+    "snippetsDesc": "Di una frase y Parlato inserta un texto guardado, incluso de varias líneas: una firma, una dirección, una respuesta habitual. Se inserta tal como lo guardaste y la limpieza con IA nunca lo reescribe.",
+    "snippetText": "Texto guardado",
+    "snippetTriggerPlaceholder": "mi firma",
+    "snippetTextPlaceholder": "Un saludo, Alex",
+    "addSnippet": "Añadir fragmento",
+    "noSnippets": "Aún no hay fragmentos.",
+    "snippetsHint": "Di la frase sola para insertar solo el texto guardado. Dicha dentro de una frase, reemplaza solo esas palabras.",
+    "snippetEditHint": "Las mayúsculas y la puntuación no importan al decir la frase. El texto puede tener varias líneas.",
+    "snippetRequired": "Rellena la frase y el texto.",
+    "snippetsImportHint": "Añade fragmentos desde un archivo CSV con las columnas trigger y text. Las frases que ya están en la lista se omiten."
   },
   "pm": {
     "yourModes": "tus modos",
@@ -1290,5 +1312,11 @@
     "many": "{{count}} descargas…",
     "manyPct": "{{count}} descargas… {{pct}} %",
     "cancel": "Cancelar"
+  },
+  "review": {
+    "textLabel": "Texto para pegar",
+    "hint": "Intro pega · Mayús+Intro nueva línea · Esc cancela",
+    "cancel": "Cancelar",
+    "paste": "Pegar"
   }
 }

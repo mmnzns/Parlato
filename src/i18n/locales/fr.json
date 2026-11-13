@@ -222,7 +222,13 @@
     "deleteAllAfterWindows": "Pour supprimer aussi l'app, désinstallez ensuite Parlato depuis Paramètres > Applications.",
     "supportLabel": "Soutenir Parlato",
     "supportHint": "Un café aide à faire signer Parlato pour Windows et Mac, pour que plus personne n'ait à passer outre un avertissement.",
-    "supportAlt": "Offrez-moi un café"
+    "supportAlt": "Offrez-moi un café",
+    "spokenLabel": "Commandes vocales",
+    "spokenHint": "Dites « nouvelle ligne », « nouveau paragraphe » ou « efface ça » (supprime la dernière phrase) pendant que vous dictez. Les phrases en anglais fonctionnent toujours, ainsi que celles de la langue de dictée.",
+    "spokenPunctLabel": "Ponctuation dictée",
+    "spokenPunctHint": "Dites « virgule », « point », « point d'interrogation », etc. pour écrire le symbole. Utilise la langue de dictée. Désactivé par défaut, car des mots comme « point » se disent aussi dans les phrases normales.",
+    "reviewLabel": "Relire avant de coller",
+    "reviewHint": "Après chaque dictée, un petit éditeur affiche le texte. Entrée le colle, Maj+Entrée ajoute une ligne, Échap le garde dans l'historique seulement."
   },
   "history": {
     "confirmDeleteCount": "Supprimer {{count}} transcription(s) ?",
@@ -512,7 +518,12 @@
     "historyItemMissing": "Cette dictée n'est plus dans l'historique.",
     "csvTooBig": "Ce fichier est trop volumineux pour une liste du dictionnaire.",
     "csvNotUtf8": "Ce fichier n'est pas du texte UTF-8. Enregistrez-le en CSV (UTF-8) et réessayez.",
-    "csvEmpty": "Aucun mot trouvé dans ce fichier."
+    "csvEmpty": "Aucun mot trouvé dans ce fichier.",
+    "micPermission": "Parlato n'a pas l'autorisation d'utiliser le microphone. Autorisez-le dans les réglages de confidentialité de votre ordinateur.",
+    "snippetInvalid": "Un extrait a besoin d'une phrase d'au moins un mot et d'un texte (pas trop long).",
+    "snippetExists": "Vous avez déjà un extrait avec cette phrase.",
+    "snippetMissing": "Cet extrait n'existe plus.",
+    "reviewOpen": "Collez ou fermez l'éditeur de texte avant de dicter à nouveau."
   },
   "prompts": {
     "default": {
@@ -876,7 +887,18 @@
     "exportCsv": "Exporter en CSV",
     "importHint": "Ajoutez des mots depuis un fichier CSV. Ceux qui sont déjà dans le dictionnaire sont ignorés.",
     "importDone": "{{added}} ajoutés, {{skipped}} ignorés.",
-    "exportDone": "Enregistré dans {{path}}"
+    "exportDone": "Enregistré dans {{path}}",
+    "snippetsTitle": "Extraits",
+    "snippetsDesc": "Dites une phrase et Parlato insère un texte enregistré, même sur plusieurs lignes : une signature, une adresse, une réponse type. Il est inséré tel quel et le nettoyage par IA ne le réécrit jamais.",
+    "snippetText": "Texte enregistré",
+    "snippetTriggerPlaceholder": "ma signature",
+    "snippetTextPlaceholder": "Cordialement, Alex",
+    "addSnippet": "Ajouter un extrait",
+    "noSnippets": "Aucun extrait pour l'instant.",
+    "snippetsHint": "Dites la phrase seule pour insérer uniquement le texte enregistré. Dite dans une phrase, elle remplace seulement ces mots.",
+    "snippetEditHint": "La casse et la ponctuation n'ont pas d'importance quand vous dites la phrase. Le texte peut avoir plusieurs lignes.",
+    "snippetRequired": "Renseignez la phrase et le texte.",
+    "snippetsImportHint": "Ajoutez des extraits depuis un fichier CSV avec les colonnes trigger et text. Les phrases déjà présentes sont ignorées."
   },
   "pm": {
     "yourModes": "vos modes",
@@ -1290,5 +1312,11 @@
     "many": "{{count}} téléchargements…",
     "manyPct": "{{count}} téléchargements… {{pct}} %",
     "cancel": "Annuler"
+  },
+  "review": {
+    "textLabel": "Texte à coller",
+    "hint": "Entrée colle · Maj+Entrée nouvelle ligne · Échap annule",
+    "cancel": "Annuler",
+    "paste": "Coller"
   }
 }

@@ -202,6 +202,17 @@ Windows ARM64 has no Vulkan helper. Because llama.cpp lives in the helper, the
 Vulkan runtime (`vulkan-1.dll`) is only needed by that helper, never by the app
 itself. CUDA stays out of releases.
 
+**Text features (0.16).** Order in `finalize_text` (`transcription/pipeline.rs`): filter -> spoken punctuation ->
+paragraph formatter -> spoken commands -> Dictionary words -> snippets -> AI cleanup -> paste. The filter and the
+formatter flatten newlines and the filter strips brackets, hence the order. `text_processing/spoken.rs` and
+`snippets.rs` are pure and share `phrase.rs` (whole words, case/accent/punctuation-insensitive). Commands: language
+of the dictation plus always English; punctuation: the dictation language only (all three on automatic, minus bare
+"punto"/"coma"/"point"). Snippets: a dictation that is exactly a trigger skips AI cleanup; inside a sentence the
+text is held by `[[snippet-N]]` markers through cleanup, and if the AI drops one its result is discarded. "Review
+before pasting" (`review.rs`, window `recorder-review`) is a separate window from the pill: on the Mac a non-activating
+panel with `set_accepts_key(true)` while open (never call tao's `set_focus` on it, it activates the app); on Windows an
+ordinary window (the pill's `WS_EX_NOACTIVATE` is never set on it). New dictations are refused while it is open.
+
 **Model names and descriptions shown in the UI come from the locale files.**
 The Rust catalogs keep upstream's French `display_name` / `notes`; the UI
 shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with

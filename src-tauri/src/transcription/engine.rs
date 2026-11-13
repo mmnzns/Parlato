@@ -156,6 +156,13 @@ fn select_power_mode(app: &AppHandle, index: usize) {
 /// Demarre un cycle d'enregistrement. Retourne `true` si la capture (ou la
 /// session streaming) a effectivement demarre.
 fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<RecorderState>) -> bool {
+    // Parlato : the "Review before pasting" editor is open. A new dictation would
+    // overwrite the paste target remembered below with the editor itself, so it
+    // is refused with a message (finish or close the editor first).
+    if crate::review::is_open() {
+        crate::notice::send(app, crate::notice::Notice::Failed(crate::review::OPEN_CODE.to_string()));
+        return false;
+    }
     let _ = app.emit("hotkey:action", "start");
     // Sauvegarde le HWND de l'app actuellement focus AVANT d'ouvrir
     // la mini-recorder (qui peut voler le focus). On le restaure
@@ -229,6 +236,14 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
         keyboard_hook::set_power_shortcut_count(0);
         manager.mark_recording_state(false);
         mini_recorder::close(app);
+        // Parlato : a refused microphone is the one start failure the person
+        // can fix, so say it (the pill closed above shows the message).
+        if e.to_string() == crate::audio::recorder::MIC_PERMISSION_CODE {
+            crate::notice::send(
+                app,
+                crate::notice::Notice::Failed(crate::audio::recorder::MIC_PERMISSION_CODE.to_string()),
+            );
+        }
         false
     } else {
         manager.mark_recording_state(true);
