@@ -179,3 +179,38 @@ pub fn power_mode_preview(app: AppHandle) -> Result<DetectionPreview, String> {
         url,
     })
 }
+
+/// Parlato : state of the macOS Automation permission for website pairing.
+/// `denied_browser` is the browser macOS refused (error -1743) the last time
+/// Parlato asked for its address; always `None` on Windows, which needs no
+/// permission.
+#[derive(Debug, Serialize)]
+pub struct BrowserAutomationStatus {
+    pub denied_browser: Option<String>,
+}
+
+#[command]
+pub fn get_browser_automation_status() -> BrowserAutomationStatus {
+    #[cfg(target_os = "macos")]
+    let denied_browser = crate::power_mode::browser_url_macos::denied_browser().map(String::from);
+    #[cfg(not(target_os = "macos"))]
+    let denied_browser = None;
+    BrowserAutomationStatus { denied_browser }
+}
+
+/// Opens System Settings > Privacy & Security > Automation (macOS only).
+#[command]
+pub fn open_automation_settings(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        app.opener()
+            .open_url(super::permissions_macos::PANE_AUTOMATION, None::<&str>)
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        Ok(())
+    }
+}

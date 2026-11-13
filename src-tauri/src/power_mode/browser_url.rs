@@ -32,9 +32,15 @@ pub fn extract_url(active: &ActiveWindow) -> Option<String> {
     try_extract(active).unwrap_or_default()
 }
 
-#[cfg(not(windows))]
+// Parlato : macOS reads the address with AppleScript, see browser_url_macos.rs.
+// It returns the host only.
+#[cfg(target_os = "macos")]
+fn try_extract(active: &ActiveWindow) -> Result<Option<String>> {
+    Ok(super::browser_url_macos::lookup(active))
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn try_extract(_active: &ActiveWindow) -> Result<Option<String>> {
-    // Parlato : macOS uses AppleScript (VoiceInk BrowserURLService.swift). Phase 4.
     Ok(None)
 }
 
