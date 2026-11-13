@@ -87,7 +87,11 @@ pub fn check_permissions(app: AppHandle) -> PermissionStatus {
     };
 
     // OCR : tente de creer un OcrEngine. None si aucun pack langue installe.
-    #[cfg(not(windows))]
+    // Parlato : on macOS this row is Screen Recording (needed to read the
+    // window), not a language pack.
+    #[cfg(target_os = "macos")]
+    let ocr = super::permissions_macos::screen_recording_state();
+    #[cfg(not(any(windows, target_os = "macos")))]
     let ocr = PermissionState {
         ok: false,
         label_key: "permissions.ocr.unavailable".into(),
@@ -236,6 +240,31 @@ pub fn request_accessibility_access(app: AppHandle) -> bool {
         if !granted {
             let _ = app.opener().open_url(
                 super::permissions_macos::PANE_ACCESSIBILITY,
+                None::<&str>,
+            );
+        }
+        granted
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        true
+    }
+}
+
+/// Parlato : macOS Screen Recording (AI cleanup reads the window you type
+/// in). Shows the system prompt the first time, otherwise opens the Screen
+/// Recording pane. Returns whether access is granted. Always true on Windows,
+/// where reading the screen needs no permission.
+#[command]
+pub fn request_screen_recording_access(app: AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        let granted = super::permissions_macos::request_screen_recording();
+        if !granted {
+            let _ = app.opener().open_url(
+                super::permissions_macos::PANE_SCREEN_RECORDING,
                 None::<&str>,
             );
         }

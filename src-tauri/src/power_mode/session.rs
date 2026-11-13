@@ -433,6 +433,15 @@ pub fn begin_session(app: &AppHandle) -> Option<PowerSession> {
             return None;
         }
     };
+    // Parlato : sur macOS la lecture de l'adresse passe par AppleScript (invite
+    // d'autorisation, process externe) : seulement si un mode a un site.
+    #[cfg(target_os = "macos")]
+    let url = if super::browser_url_macos::any_site_triggers(&configs) {
+        extract_url(&active)
+    } else {
+        None
+    };
+    #[cfg(not(target_os = "macos"))]
     let url = extract_url(&active);
     let matched = resolve(&configs, &active, url.as_deref())?;
 

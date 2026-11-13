@@ -388,6 +388,9 @@
       "accessibilityAllowed": "Allowed",
       "accessibilityMissing": "Not allowed yet",
       "accessibilityHint": "Click Allow, then turn on Parlato in System Settings > Privacy & Security > Accessibility. It starts working within a few seconds.",
+      "screenAllowed": "Allowed",
+      "screenMissing": "Not allowed yet",
+      "screenHint": "Click Allow, then turn on Parlato in System Settings > Privacy & Security > Screen Recording. macOS asks you to quit and reopen Parlato.",
       "hotkeyNeedsAccess": "Needs Accessibility"
     }
   },
@@ -865,6 +868,10 @@
     "addSite": "Add website",
     "appPlaceholder": "e.g. outlook.exe",
     "sitePlaceholder": "e.g. mail.google.com",
+    "macSiteNote": "The first time, macOS asks to let Parlato read the address from your browser. Allow it in the prompt. Works with Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera and Chromium. Only the site name is compared.",
+    "macFirefox": "Firefox can't share its address with other apps, so pair it as an app instead.",
+    "macDenied": "macOS is blocking Parlato from reading the address in {{browser}}. Turn on Parlato under {{browser}} in System Settings > Privacy & Security > Automation, then dictate once in the browser.",
+    "macOpenAutomation": "Open Automation settings",
     "remove": "Remove {{name}}",
     "fallback": "Use everywhere else",
     "fallbackDesc": "Used in every app that isn't paired with another power mode.",
@@ -1093,9 +1100,6 @@
       "notes": "Larger and a little more thorough. Needs 16 GB of memory and takes about twice as long."
     }
   },
-  "mac": {
-    "screenNotYet": "Letting the AI read the window you're typing in is not available on Mac yet."
-  },
   "macOverrides": {
     "permissions": {
       "hotkeyTip": "Parlato needs the Accessibility permission to hear the shortcut and paste the text: System Settings > Privacy & Security > Accessibility, then turn on Parlato. The default shortcut is Right Option.",
@@ -1104,6 +1108,9 @@
       },
       "microphoneAction": "System Settings",
       "microphoneTip": "If recordings come out silent, open System Settings > Privacy & Security > Microphone and turn on Parlato. Also check the right microphone is picked in Microphone & shortcut.",
+      "ocrTitle": "Screen Recording",
+      "ocrDescription": "Lets AI cleanup read the text in the window you're typing in. Only used when this option is on.",
+      "ocrTip": "Parlato looks at the window you're typing in only when \"Let the AI see the window you're typing in\" is on. It reads the text on this Mac and throws the picture away. The text is sent to your AI provider as context, so with an online provider it leaves your Mac.",
       "audio": {
         "hint": "Plug a microphone in, or check System Settings > Sound > Input."
       }

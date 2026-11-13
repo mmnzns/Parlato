@@ -5,7 +5,7 @@
 //
 // Sur Windows les permissions concernees sont : microphone, OCR
 // (Windows.Media.Ocr), auto-demarrage, et le hook clavier global (toujours
-// ok sous Win32).
+// ok sous Win32). Sur Mac la ligne OCR est la permission Screen Recording.
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -105,22 +105,25 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
           action={<AccessibilityAction state={status.accessibility} onChange={refresh} onError={onError} />}
         />
       )}
-      {/* Parlato: screen text (OCR) is not available on Mac yet. */}
-      {!isMac && (
+      {/* Parlato: reading the screen. Windows: the OCR language pack. Mac:
+          the Screen Recording permission (strings from macOverrides). */}
       <PermissionRow
         icon={Languages}
         title={t("permissions.ocrTitle")}
         description={t("permissions.ocrDescription")}
         state={status?.ocr}
         action={
-          <Button size="sm" variant="outline" onClick={() => api.openLanguageSettings().catch(onError)}>
-            {t("permissions.ocrAction")}
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
+          isMac ? (
+            <ScreenRecordingAction state={status?.ocr} onChange={refresh} onError={onError} />
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => api.openLanguageSettings().catch(onError)}>
+              {t("permissions.ocrAction")}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          )
         }
         tip={<InfoTip>{t("permissions.ocrTip")}</InfoTip>}
       />
-      )}
       {!hideAutostart && (
       <PermissionRow
         icon={Power}
@@ -229,6 +232,47 @@ export function AccessibilityAction({
         onClick={async () => {
           setWaiting(true);
           await api.requestAccessibilityAccess().catch(onError);
+        }}
+      >
+        {t("permissions.mac.allow")}
+      </Button>
+    </div>
+  );
+}
+
+/// Parlato: macOS Screen Recording. "Allow" shows the system prompt the first
+/// time and opens the pane; the status refreshes every 2 s until it is on.
+export function ScreenRecordingAction({
+  state,
+  onChange,
+  onError = console.error,
+}: {
+  state?: PermissionState;
+  onChange: () => void;
+  onError?: (e: unknown) => void;
+}) {
+  const { t } = useTranslation();
+  const [waiting, setWaiting] = useState(false);
+  useEffect(() => {
+    if (!waiting || state?.ok) return;
+    const id = window.setInterval(onChange, 2000);
+    return () => window.clearInterval(id);
+  }, [waiting, state?.ok, onChange]);
+  if (state?.ok) return null;
+  return (
+    <div className="flex items-center gap-3">
+      {waiting && (
+        <span role="status" className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {t("permissions.mac.waiting")}
+        </span>
+      )}
+      <Button
+        size="sm"
+        variant={waiting ? "outline" : "default"}
+        onClick={async () => {
+          setWaiting(true);
+          await api.requestScreenRecordingAccess().catch(onError);
         }}
       >
         {t("permissions.mac.allow")}

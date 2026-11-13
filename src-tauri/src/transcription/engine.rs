@@ -161,6 +161,11 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
     // la mini-recorder (qui peut voler le focus). On le restaure
     // juste avant Ctrl+V au moment du paste.
     paste::remember_foreground();
+    // Parlato (macOS) : starts reading the browser's address now, so it is
+    // ready by the time the Power mode is chosen below. No-op unless a mode
+    // is paired with a website.
+    #[cfg(target_os = "macos")]
+    power_mode::browser_url_macos::prefetch(app);
     // Ouvre la fenetre mini-recorder EN PREMIER pour que le webview
     // ait le temps de charger pendant l'init du recorder audio. Sans
     // ca, la pill n'apparait qu'au stop (le HTML/JS prend ~500ms a

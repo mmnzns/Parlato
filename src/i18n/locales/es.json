@@ -388,6 +388,9 @@
       "accessibilityAllowed": "Permitido",
       "accessibilityMissing": "Aún no permitido",
       "accessibilityHint": "Haz clic en Permitir y activa Parlato en Ajustes del Sistema > Privacidad y seguridad > Accesibilidad. Funciona en unos segundos.",
+      "screenAllowed": "Permitido",
+      "screenMissing": "Aún no permitido",
+      "screenHint": "Haz clic en Permitir y activa Parlato en Ajustes del Sistema > Privacidad y seguridad > Grabación de pantalla. macOS te pedirá cerrar y volver a abrir Parlato.",
       "hotkeyNeedsAccess": "Necesita Accesibilidad"
     }
   },
@@ -865,6 +868,10 @@
     "addSite": "Añadir sitio web",
     "appPlaceholder": "p. ej. outlook.exe",
     "sitePlaceholder": "p. ej. mail.google.com",
+    "macSiteNote": "La primera vez, macOS te pide permiso para que Parlato lea la dirección de tu navegador. Permítelo en el aviso. Funciona con Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera y Chromium. Solo se compara el nombre del sitio.",
+    "macFirefox": "Firefox no comparte su dirección con otras apps, así que vincúlalo como app.",
+    "macDenied": "macOS impide que Parlato lea la dirección en {{browser}}. Activa Parlato bajo {{browser}} en Ajustes del Sistema > Privacidad y seguridad > Automatización y luego dicta una vez en el navegador.",
+    "macOpenAutomation": "Abrir ajustes de Automatización",
     "remove": "Quitar {{name}}",
     "fallback": "Usar en todo lo demás",
     "fallbackDesc": "Se usa en todas las apps que no están asociadas a otro modo.",
@@ -1093,9 +1100,6 @@
       "notes": "Más grande y un poco más minucioso. Necesita 16 GB de memoria y tarda aproximadamente el doble."
     }
   },
-  "mac": {
-    "screenNotYet": "Dejar que la IA lea la ventana donde escribes aún no está disponible en Mac."
-  },
   "macOverrides": {
     "permissions": {
       "hotkeyTip": "Parlato necesita el permiso de Accesibilidad para oír el atajo y pegar el texto: Ajustes del Sistema > Privacidad y seguridad > Accesibilidad, y activa Parlato. El atajo por defecto es Opción derecha.",
@@ -1104,6 +1108,9 @@
       },
       "microphoneAction": "Ajustes del Sistema",
       "microphoneTip": "Si las grabaciones salen en silencio, abre Ajustes del Sistema > Privacidad y seguridad > Micrófono y activa Parlato. Comprueba también el micrófono elegido en Micrófono y atajo.",
+      "ocrTitle": "Grabación de pantalla",
+      "ocrDescription": "Permite que la limpieza con IA lea el texto de la ventana donde escribes. Solo se usa cuando esta opción está activada.",
+      "ocrTip": "Parlato solo mira la ventana donde escribes cuando «Dejar que la IA vea la ventana donde escribes» está activado. Lee el texto en este Mac y descarta la imagen. El texto se envía a tu proveedor de IA como contexto, así que con un proveedor en línea sale de tu Mac.",
       "audio": {
         "hint": "Conecta un micrófono o revisa Ajustes del Sistema > Sonido > Entrada."
       }

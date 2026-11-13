@@ -139,9 +139,11 @@ VoiceInk before it. The full source is in this repository.
 
 ## Known limitations
 
-**Mac:** a few features aren't on the Mac yet: switching a power mode
-automatically for a website (apps work), letting AI cleanup read the window
-you're typing in, and the command-line AI engine.
+**Mac:** the command-line AI engine isn't on the Mac yet. Switching a power
+mode automatically for a website works in Safari, Chrome, Arc, Brave, Edge,
+Vivaldi, Opera and Chromium, not in Firefox (it can't share its address with
+other apps; pair the app instead). Letting AI cleanup read the window you're
+typing in needs the Screen Recording permission.
 
 **Windows, apps run as administrator:** the shortcut does nothing while an app started with **Run as administrator**
 has focus. Windows blocks a normal app from seeing key presses aimed at an
