@@ -28,6 +28,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { api, type PermissionState, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import { translateError } from "@/lib/translateError";
 
 /** `hideAutostart` (Parlato): Settings shows its own autostart switch right
  *  above, so the card is left out there. */
@@ -35,6 +36,11 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
   const { t } = useTranslation();
   const [status, setStatus] = useState<PermissionStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const onError = (e: unknown) => {
+    console.error(e);
+    setActionError(translateError(t, String(e)));
+  };
 
   async function refresh() {
     setLoading(true);
@@ -57,10 +63,11 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
 
   async function toggleAutostart(enabled: boolean) {
     try {
+      setActionError(null);
       await api.setAutostartEnabled(enabled);
       await refresh();
     } catch (e) {
-      console.error(e);
+      onError(e);
     }
   }
 
@@ -85,7 +92,7 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
         description={t("permissions.microphoneDescription")}
         state={status?.microphone}
         action={
-          <MicrophoneAction state={status?.microphone} onChange={refresh} />
+          <MicrophoneAction state={status?.microphone} onChange={refresh} onError={onError} />
         }
         tip={<InfoTip>{t("permissions.microphoneTip")}</InfoTip>}
       />
@@ -95,7 +102,7 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
           title={t("permissions.mac.accessibilityTitle")}
           description={t("permissions.mac.accessibilityDescription")}
           state={status.accessibility}
-          action={<AccessibilityAction state={status.accessibility} onChange={refresh} />}
+          action={<AccessibilityAction state={status.accessibility} onChange={refresh} onError={onError} />}
         />
       )}
       {/* Parlato: screen text (OCR) is not available on Mac yet. */}
@@ -106,7 +113,7 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
         description={t("permissions.ocrDescription")}
         state={status?.ocr}
         action={
-          <Button size="sm" variant="outline" onClick={() => api.openLanguageSettings()}>
+          <Button size="sm" variant="outline" onClick={() => api.openLanguageSettings().catch(onError)}>
             {t("permissions.ocrAction")}
             <ExternalLink className="h-3.5 w-3.5" />
           </Button>
@@ -142,6 +149,11 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
         state={status?.hotkey}
         tip={<InfoTip>{t("permissions.hotkeyTip")}</InfoTip>}
       />
+      {actionError && (
+        <p role="alert" className="px-5 py-3 text-[13px] text-destructive">
+          {actionError}
+        </p>
+      )}
     </Section>
   );
 }
@@ -151,9 +163,11 @@ export function PermissionsPanel({ hideAutostart = false }: { hideAutostart?: bo
 export function MicrophoneAction({
   state,
   onChange,
+  onError = console.error,
 }: {
   state?: PermissionState;
   onChange: () => void;
+  onError?: (e: unknown) => void;
 }) {
   const { t } = useTranslation();
   if (state?.label_key === "permissions.mac.micNotAsked") {
@@ -161,7 +175,7 @@ export function MicrophoneAction({
       <Button
         size="sm"
         onClick={async () => {
-          await api.requestMicrophoneAccess().catch(console.error);
+          await api.requestMicrophoneAccess().catch(onError);
           window.setTimeout(onChange, 1500);
         }}
       >
@@ -170,7 +184,7 @@ export function MicrophoneAction({
     );
   }
   return (
-    <Button size="sm" variant="outline" onClick={() => api.openPrivacyMicrophone().catch(console.error)}>
+    <Button size="sm" variant="outline" onClick={() => api.openPrivacyMicrophone().catch(onError)}>
       {t("permissions.microphoneAction")}
       <ExternalLink className="h-3.5 w-3.5" />
     </Button>
@@ -182,9 +196,11 @@ export function MicrophoneAction({
 export function AccessibilityAction({
   state,
   onChange,
+  onError = console.error,
 }: {
   state?: PermissionState;
   onChange: () => void;
+  onError?: (e: unknown) => void;
 }) {
   const { t } = useTranslation();
   const [waiting, setWaiting] = useState(false);
@@ -195,15 +211,24 @@ export function AccessibilityAction({
   }, [waiting, state?.ok, onChange]);
   if (state?.ok) return null;
   return (
-    <Button
-      size="sm"
-      onClick={async () => {
-        setWaiting(true);
-        await api.requestAccessibilityAccess().catch(console.error);
-      }}
-    >
-      {t("permissions.mac.allow")}
-    </Button>
+    <div className="flex items-center gap-3">
+      {waiting && (
+        <span role="status" className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {t("permissions.mac.waiting")}
+        </span>
+      )}
+      <Button
+        size="sm"
+        variant={waiting ? "outline" : "default"}
+        onClick={async () => {
+          setWaiting(true);
+          await api.requestAccessibilityAccess().catch(onError);
+        }}
+      >
+        {t("permissions.mac.allow")}
+      </Button>
+    </div>
   );
 }
 

@@ -3,6 +3,9 @@
 
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import i18n from "@/i18n";
+import { api } from "@/lib/tauri";
+import { translateError } from "@/lib/translateError";
 
 /**
  * Telecharge et installe la mise a jour puis redemarre Parlato.
@@ -94,6 +97,15 @@ export async function checkForUpdate(silent = false): Promise<void> {
 export async function installPendingUpdate(): Promise<void> {
   const u = state.update;
   if (!u || state.status === "downloading") return;
+  // Restarting would cut a dictation in half: ask the person to finish first.
+  try {
+    if (await api.isRecording()) {
+      setState({ status: "installFailed", error: i18n.t("updater.finishFirst") });
+      return;
+    }
+  } catch (e) {
+    console.error(e);
+  }
   setState({ status: "downloading", percent: null, error: null });
   try {
     await installUpdate(
@@ -103,6 +115,6 @@ export async function installPendingUpdate(): Promise<void> {
     );
   } catch (e) {
     console.error("updater install:", e);
-    setState({ status: "installFailed", error: String(e) });
+    setState({ status: "installFailed", error: translateError(i18n.t, String(e)) });
   }
 }

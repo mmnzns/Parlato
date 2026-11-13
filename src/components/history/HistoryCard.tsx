@@ -67,7 +67,7 @@ export function HistoryCard({
             type="checkbox"
             checked={checked}
             onChange={onCheck}
-            aria-label={t("hist.select")}
+            aria-label={t("hist.selectOne")}
             className="mt-px flex-none"
           />
         )}
@@ -195,7 +195,7 @@ function CopyButton({ text }: { text: string | null | undefined }) {
       )}
     >
       <Icon className="h-3.5 w-3.5" />
-      {t("history.copy")}
+      {copied ? t("dashboard.copied") : t("history.copy")}
     </button>
   );
 }

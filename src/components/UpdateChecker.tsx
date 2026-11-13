@@ -89,6 +89,7 @@ export function UpdateChecker() {
         variant="ghost"
         onClick={() => setDismissed(true)}
         title={t("updater.hide")}
+        aria-label={t("updater.hide")}
       >
         <X className="h-3.5 w-3.5" />
       </Button>

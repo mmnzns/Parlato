@@ -30,12 +30,14 @@ export function PowerModePanel() {
     save,
     removeSelected,
     toggleAutoRestore,
+    saveFailure,
   } = usePowerModes();
 
   const selected = configs.find((c) => c.id === selectedId) ?? null;
 
   return (
     <>
+      {saveFailure.notice}
       <div className="grid items-start gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
         <ModeList
           configs={configs}

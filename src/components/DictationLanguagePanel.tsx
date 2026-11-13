@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
+import { useSaveFailure } from "@/hooks/useSaveFailure";
 import { selectClass } from "@/components/ui/section";
 import { languageLabel } from "@/lib/languages";
 import { api, type TranscriptionSource } from "@/lib/tauri";
@@ -23,6 +24,7 @@ export function DictationLanguagePanel({
   const [supportedCodes, setSupportedCodes] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("auto");
   const [activeLabel, setActiveLabel] = useState<string>("");
+  const saveFailure = useSaveFailure();
 
   useEffect(() => {
     onLanguage?.(selected);
@@ -52,7 +54,7 @@ export function DictationLanguagePanel({
       if (codes.length > 0 && !codes.includes(currentLang)) {
         const fallback = codes.includes("auto") ? "auto" : codes[0];
         setSelected(fallback);
-        await api.setDictationLanguage(fallback);
+        await api.setDictationLanguage(fallback).catch(saveFailure.fail);
       } else {
         setSelected(currentLang);
       }
@@ -62,11 +64,14 @@ export function DictationLanguagePanel({
   }
 
   async function change(code: string) {
+    const prev = selected;
+    saveFailure.clear();
     setSelected(code);
     try {
       await api.setDictationLanguage(code);
     } catch (e) {
-      console.error(e);
+      setSelected(prev);
+      saveFailure.fail(e);
     }
   }
 
@@ -97,13 +102,25 @@ export function DictationLanguagePanel({
       ))}
     </select>
   );
-  if (bare) return select;
+  const failNote = saveFailure.failed ? (
+    <span role="alert" className="text-xs text-destructive">
+      {t("common.saveFailed")}
+    </span>
+  ) : null;
+  if (bare)
+    return (
+      <>
+        {select}
+        {failNote}
+      </>
+    );
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground" title={t("dictationLanguage.description", { model: activeLabel })}>
         {t("speech.language")}
       </span>
       {select}
+      {failNote}
     </label>
   );
 }

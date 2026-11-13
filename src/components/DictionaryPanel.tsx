@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Block, Section, Switch } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { api, type WordReplacement } from "@/lib/tauri";
+import { translateError } from "@/lib/translateError";
 
 const inputClass = "h-[34px] min-w-0 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
 
@@ -35,7 +36,7 @@ export function DictionaryPanel() {
     try {
       setEntries(await api.listWordReplacements());
     } catch (e) {
-      setError(String(e));
+      setError(translateError(t, String(e)));
     }
   }
 
@@ -45,7 +46,7 @@ export function DictionaryPanel() {
       setError(null);
       await refresh();
     } catch (e) {
-      setError(String(e));
+      setError(translateError(t, String(e)));
     }
   }
 
