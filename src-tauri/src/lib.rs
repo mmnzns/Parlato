@@ -81,10 +81,12 @@ use commands::parakeet::{
 use commands::permissions::{
     check_permissions, get_onboarding_completed, get_recorder_style, open_language_settings,
     open_privacy_microphone, request_accessibility_access, request_microphone_access,
+    request_screen_recording_access,
     set_autostart_enabled, set_onboarding_completed, set_recorder_style,
 };
 use commands::power_mode::{
-    add_power_config, delete_power_config, get_active_power_session, get_power_auto_restore,
+    add_power_config, delete_power_config, get_active_power_session, get_browser_automation_status,
+    get_power_auto_restore, open_automation_settings,
     list_installed_apps, list_power_configs, power_mode_preview, reorder_power_configs,
     select_power_config, set_power_auto_restore, update_power_config,
 };
@@ -409,6 +411,8 @@ pub fn run() {
             get_active_power_session,
             select_power_config,
             power_mode_preview,
+            get_browser_automation_status,
+            open_automation_settings,
             get_screen_context_enabled,
             set_screen_context_enabled,
             get_screen_context_cached,
@@ -431,6 +435,7 @@ pub fn run() {
             open_privacy_microphone,
             request_microphone_access,
             request_accessibility_access,
+            request_screen_recording_access,
             open_language_settings,
             get_recorder_style,
             set_recorder_style,

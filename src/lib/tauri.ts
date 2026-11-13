@@ -253,6 +253,11 @@ export type PermissionState = {
   diagnostic?: string | null;
 };
 
+/** Parlato: `denied_browser` is the browser macOS refused (error -1743). */
+export type BrowserAutomationStatus = {
+  denied_browser: string | null;
+};
+
 export type PermissionStatus = {
   microphone: PermissionState;
   ocr: PermissionState;
@@ -653,6 +658,11 @@ export const api = {
   requestMicrophoneAccess: () => invoke<void>("request_microphone_access"),
   requestAccessibilityAccess: () => invoke<boolean>("request_accessibility_access"),
   openLanguageSettings: () => invoke<void>("open_language_settings"),
+  /** Parlato: macOS Screen Recording; prompts the first time, else opens the pane. */
+  requestScreenRecordingAccess: () => invoke<boolean>("request_screen_recording_access"),
+  /** Parlato: macOS Automation state for reading the browser's address. */
+  getBrowserAutomationStatus: () => invoke<BrowserAutomationStatus>("get_browser_automation_status"),
+  openAutomationSettings: () => invoke<void>("open_automation_settings"),
 
   getRecorderStyle: () => invoke<string>("get_recorder_style"),
   setRecorderStyle: (style: "mini" | "notch") =>

@@ -351,7 +351,9 @@ function permissionStatus() {
     microphone: bad
       ? { ok: false, label_key: "permissions.mac.micDenied", label_args: null, hint_key: "permissions.mac.micDeniedHint", diagnostic: null }
       : { ok: true, label_key: "permissions.mac.micAllowed", label_args: null, hint_key: null, diagnostic: null },
-    ocr: { ok: true, label_key: "permissions.ocr.available", label_args: null, hint_key: null, diagnostic: null },
+    ocr: bad
+      ? { ok: false, label_key: "permissions.mac.screenMissing", label_args: null, hint_key: "permissions.mac.screenHint", diagnostic: null }
+      : { ok: true, label_key: "permissions.mac.screenAllowed", label_args: null, hint_key: null, diagnostic: null },
     autostart: { ok: false, label_key: "permissions.autostart.disabled", label_args: null, hint_key: "permissions.autostart.disabledHint", diagnostic: null },
     hotkey: { ok: true, label_key: "permissions.hotkey.active", label_args: null, hint_key: null, diagnostic: null },
     accessibility: bad
@@ -754,6 +756,9 @@ const commands: Record<string, Handler> = {
   request_microphone_access: () => ret(console.info("[ui-preview] request_microphone_access")),
   request_accessibility_access: () => !FLAGS.permMissing,
   open_language_settings: () => ret(console.info("[ui-preview] open_language_settings")),
+  request_screen_recording_access: () => !FLAGS.permMissing,
+  get_browser_automation_status: () => ({ denied_browser: FLAGS.permMissing ? "Safari" : null }),
+  open_automation_settings: () => ret(console.info("[ui-preview] open_automation_settings")),
 
   get_recorder_style: get("recorder_style"),
   set_recorder_style: set("recorder_style", "style"),

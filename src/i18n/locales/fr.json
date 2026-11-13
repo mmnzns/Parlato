@@ -391,6 +391,9 @@
       "accessibilityAllowed": "Autorisé",
       "accessibilityMissing": "Pas encore autorisé",
       "accessibilityHint": "Cliquez sur Autoriser, puis activez Parlato dans Réglages Système > Confidentialité et sécurité > Accessibilité. Ça marche en quelques secondes.",
+      "screenAllowed": "Autorisé",
+      "screenMissing": "Pas encore autorisé",
+      "screenHint": "Cliquez sur Autoriser, puis activez Parlato dans Réglages Système > Confidentialité et sécurité > Enregistrement de l'écran. macOS vous demandera de quitter et de rouvrir Parlato.",
       "hotkeyNeedsAccess": "Accessibilité requise"
     }
   },
@@ -810,6 +813,10 @@
     "addSite": "Ajouter un site",
     "appPlaceholder": "ex. outlook.exe",
     "sitePlaceholder": "ex. mail.google.com",
+    "macSiteNote": "La première fois, macOS vous demande d'autoriser Parlato à lire l'adresse de votre navigateur. Autorisez-le dans la fenêtre. Fonctionne avec Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera et Chromium. Seul le nom du site est comparé.",
+    "macFirefox": "Firefox ne partage pas son adresse avec les autres apps : associez-le plutôt comme une app.",
+    "macDenied": "macOS empêche Parlato de lire l'adresse dans {{browser}}. Activez Parlato sous {{browser}} dans Réglages Système > Confidentialité et sécurité > Automatisation, puis dictez une fois dans le navigateur.",
+    "macOpenAutomation": "Ouvrir les réglages Automatisation",
     "remove": "Retirer {{name}}",
     "fallback": "Utiliser partout ailleurs",
     "fallbackDesc": "S'applique dans toutes les apps qui ne sont pas associées à un autre mode.",
@@ -1042,9 +1049,6 @@
       "notes": "Plus grand et un peu plus minutieux. Demande 16 Go de mémoire et prend environ deux fois plus de temps."
     }
   },
-  "mac": {
-    "screenNotYet": "Laisser l'IA lire la fenêtre où vous tapez n'est pas encore disponible sur Mac."
-  },
   "macOverrides": {
     "permissions": {
       "hotkeyTip": "Parlato a besoin de l'autorisation Accessibilité pour entendre le raccourci et coller le texte : Réglages Système > Confidentialité et sécurité > Accessibilité, puis activez Parlato. Le raccourci par défaut est Option droite.",
@@ -1053,6 +1057,9 @@
       },
       "microphoneAction": "Réglages Système",
       "microphoneTip": "Si les enregistrements sont muets, ouvrez Réglages Système > Confidentialité et sécurité > Micro et activez Parlato. Vérifiez aussi le micro choisi dans Micro et raccourci.",
+      "ocrTitle": "Enregistrement de l'écran",
+      "ocrDescription": "Permet au nettoyage par IA de lire le texte de la fenêtre où vous écrivez. Utilisé uniquement lorsque cette option est activée.",
+      "ocrTip": "Parlato ne regarde la fenêtre où vous écrivez que lorsque « Laisser l'IA voir la fenêtre où vous écrivez » est activé. Il lit le texte sur ce Mac et jette l'image. Le texte est envoyé à votre fournisseur d'IA comme contexte : avec un fournisseur en ligne, il quitte donc votre Mac.",
       "audio": {
         "hint": "Branchez un micro, ou vérifiez Réglages Système > Son > Entrée."
       }
