@@ -28,9 +28,11 @@ import type { TFunction } from "i18next";
 import type { View } from "@/components/Sidebar";
 import { useCopyButton } from "@/hooks/useCopyButton";
 import { useHotkeyLabel, wordingMode } from "@/hooks/useHotkeyLabel";
-import { modelName } from "@/lib/modelText";
+import { speechModelInUse } from "@/lib/setupStatus";
 import { api, type HotkeyMode, type TranscriptionRecord } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
+import { UsageChart } from "@/components/UsageChart";
 
 type Metrics = {
   sessions: number;
@@ -86,6 +88,8 @@ function formatTime(iso: string): string {
 
 type SetupState = {
   mic: string | null;
+  /** False when macOS blocks the microphone (always true elsewhere). */
+  micAllowed: boolean;
   model: string | null;
   aiEnabled: boolean;
   aiLocal: boolean;
@@ -93,13 +97,14 @@ type SetupState = {
 };
 
 async function loadSetup(t: TFunction): Promise<SetupState> {
-  const [devices, selectedDevice, source, aiEnabled, llm] = await Promise.all([
+  const [devices, selectedDevice, aiEnabled, llm, perms] = await Promise.all([
     api.listAudioDevices().catch(() => []),
     api.getSelectedInputDevice().catch(() => null),
-    api.getTranscriptionSource().catch(() => null),
     api.getEnhancementEnabled().catch(() => false),
     api.getLlmSelection().catch(() => null),
+    isMac ? api.checkPermissions().catch(() => null) : Promise.resolve(null),
   ]);
+  const micAllowed = !isMac || !perms?.microphone || perms.microphone.ok;
 
   let mic: string | null = null;
   if (devices.length > 0) {
@@ -109,23 +114,12 @@ async function loadSetup(t: TFunction): Promise<SetupState> {
         : t("dashboard.micDefault");
   }
 
-  let model: string | null = null;
-  if (source?.kind === "local" && source.whisper_model_id) {
-    const models = await api.listWhisperModels().catch(() => []);
-    const found = models.find((m) => m.id === source.whisper_model_id);
-    model = found ? modelName(t, found.id, found.display_name) : source.whisper_model_id;
-  } else if (source?.kind === "parakeet" && source.parakeet_model_id) {
-    const models = await api.listParakeetModels().catch(() => []);
-    const found = models.find((m) => m.id === source.parakeet_model_id);
-    model = found ? modelName(t, found.id, found.display_name) : source.parakeet_model_id;
-  } else if (source?.kind === "cloud" && source.cloud_provider) {
-    const providers = await api.listCloudProviders().catch(() => []);
-    const name = providers.find((p) => p.id === source.cloud_provider)?.display_name ?? source.cloud_provider;
-    model = source.cloud_model ? `${name} · ${source.cloud_model}` : name;
-  }
+  // Same rule as the sidebar: a model counts only when it can really run.
+  const model = await speechModelInUse(t);
 
   return {
     mic,
+    micAllowed,
     model,
     aiEnabled,
     aiLocal: !!llm && LOCAL_LLM_PROVIDERS.has(llm.provider_id),
@@ -183,7 +177,7 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
         api.listHistory({ limit: 20 }),
       ]);
       setMetrics(computeMetrics(stats));
-      setRecent(items.filter((it) => it.status === "completed" && (it.enhanced_text ?? it.text)).slice(0, 3));
+      setRecent(items.filter((it) => it.status === "completed" && (it.edited_text ?? it.enhanced_text ?? it.text)).slice(0, 3));
     } catch (e) {
       console.error(e);
     }
@@ -200,9 +194,9 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
     {
       icon: Mic,
       label: t("dashboard.setupMic"),
-      value: setup?.mic ?? t("dashboard.micNone"),
-      ok: !!setup?.mic,
-      go: "audio",
+      value: setup && !setup.micAllowed ? t("dashboard.micBlocked") : (setup?.mic ?? t("dashboard.micNone")),
+      ok: !!setup?.mic && !!setup?.micAllowed,
+      go: setup && !setup.micAllowed ? "permissions" : "audio",
     },
     {
       icon: AudioLines,
@@ -352,6 +346,7 @@ export function DashboardPanel({ onNavigate }: { onNavigate: (v: View) => void }
             caption={times >= 1.5 ? t("dashboard.wpmVsTyping", { times }) : t("dashboard.wpm")}
           />
         </div>
+        <UsageChart />
       </section>
 
       {/* [04] recent */}
@@ -392,7 +387,7 @@ function Stat({ value, caption }: { value: number; caption: string }) {
 function RecentRow({ record, divider }: { record: TranscriptionRecord; divider: boolean }) {
   const { t } = useTranslation();
   const { copied, copy } = useCopyButton();
-  const text = record.enhanced_text ?? record.text;
+  const text = record.edited_text ?? record.enhanced_text ?? record.text;
   const context = record.power_mode_name
     ? `${record.power_mode_emoji && record.power_mode_emoji !== "*" ? record.power_mode_emoji + " " : ""}${record.power_mode_name}`
     : null;

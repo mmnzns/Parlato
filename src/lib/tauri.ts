@@ -33,6 +33,15 @@ export type RecordingStopped = {
   wav_path: string;
 };
 
+/** A model download in progress (list_active_downloads). */
+export type ActiveDownload = {
+  id: string;
+  kind: "whisper" | "parakeet" | "llm" | "vad";
+  name: string;
+  downloaded: number;
+  total: number;
+};
+
 export type WhisperModelState = {
   id: string;
   display_name: string;
@@ -93,6 +102,24 @@ export type WordReplacement = {
   is_enabled: boolean;
 };
 
+/** Parlato: a snippet: say the trigger phrase, get the saved text (may be several lines). */
+export type Snippet = {
+  id: string;
+  trigger_text: string;
+  content: string;
+  date_added: string;
+  is_enabled: boolean;
+};
+
+export type NewSnippet = { trigger_text: string; content: string; is_enabled?: boolean };
+
+export type UpdateSnippet = {
+  id: string;
+  trigger_text?: string;
+  content?: string;
+  is_enabled?: boolean;
+};
+
 export type TranscriptionSource = {
   kind: "local" | "cloud" | "parakeet";
   whisper_model_id: string | null;
@@ -116,6 +143,12 @@ export type UpdateWordReplacement = {
 
 export type TextProcessingSettings = {
   text_formatting_enabled: boolean;
+  /** "new line", "new paragraph", "scratch that" (on by default). */
+  spoken_commands: boolean;
+  /** "comma", "period", "question mark"... (off by default). */
+  spoken_punctuation: boolean;
+  /** Show the text in an editor instead of pasting it (off by default). */
+  review_before_paste: boolean;
   remove_filler_words: boolean;
   filler_words: string[];
   append_trailing_space: boolean;
@@ -140,6 +173,7 @@ export type RecorderNotice =
   | { kind: "retryStarted" }
   | { kind: "retryDone" }
   | { kind: "gpuFallback" }
+  | { kind: "aiSkipped" }
   | { kind: "failed"; detail: string };
 
 export type LLMProviderInfo = {
@@ -252,6 +286,11 @@ export type PermissionState = {
   diagnostic?: string | null;
 };
 
+/** Parlato: `denied_browser` is the browser macOS refused (error -1743). */
+export type BrowserAutomationStatus = {
+  denied_browser: string | null;
+};
+
 export type PermissionStatus = {
   microphone: PermissionState;
   ocr: PermissionState;
@@ -267,6 +306,8 @@ export type TranscriptionRecord = {
   status: "pending" | "completed" | "failed";
   text: string;
   enhanced_text: string | null;
+  /** Parlato: text the person corrected by hand; text and enhanced_text keep the original. */
+  edited_text: string | null;
   duration_sec: number | null;
   transcription_duration_sec: number | null;
   enhancement_duration_sec: number | null;
@@ -280,6 +321,13 @@ export type TranscriptionRecord = {
   power_mode_emoji: string | null;
   language: string | null;
 };
+
+/** Parlato: one bar of the Home chart; date is the day, or the Monday of the week. */
+export type UsagePoint = { date: string; words: number; sessions: number };
+
+export type EditResult = { record: TranscriptionRecord; suggestions: string[] };
+
+export type ImportSummary = { added: number; skipped: number };
 
 export type RetentionSettings = {
   transcription_cleanup: boolean;
@@ -346,6 +394,14 @@ export const api = {
   cancelProcessing: () => invoke<void>("cancel_processing"),
   getAudioMeter: () => invoke<AudioMeter>("get_audio_meter"),
   isRecording: () => invoke<boolean>("is_recording"),
+  /** Recording or still transcribing (a dictation, a file, a retry). */
+  isBusy: () => invoke<boolean>("is_busy"),
+
+  /** Model downloads running right now (Whisper, Parakeet, local AI, voice
+   *  detection), with their progress. */
+  listActiveDownloads: () => invoke<ActiveDownload[]>("list_active_downloads"),
+  /** False when the history database could not be opened at launch. */
+  historyAvailable: () => invoke<boolean>("history_available"),
 
   listWhisperModels: () => invoke<WhisperModelState[]>("list_whisper_models"),
   downloadWhisperModel: (id: string) => invoke<string>("download_whisper_model", { id }),
@@ -385,6 +441,15 @@ export const api = {
     invoke<TextProcessingSettings>("get_text_processing_settings"),
   setTextFormattingEnabled: (enabled: boolean) =>
     invoke<void>("set_text_formatting_enabled", { enabled }),
+  setSpokenCommands: (enabled: boolean) => invoke<void>("set_spoken_commands", { enabled }),
+  setSpokenPunctuation: (enabled: boolean) => invoke<void>("set_spoken_punctuation", { enabled }),
+  setReviewBeforePaste: (enabled: boolean) => invoke<void>("set_review_before_paste", { enabled }),
+  /** Review editor window: the text waiting to be reviewed. */
+  reviewText: () => invoke<string | null>("review_text"),
+  /** Review editor window: paste this text into the app the person was in. */
+  reviewPaste: (text: string) => invoke<void>("review_paste", { text }),
+  /** Review editor window: keep the dictation in History only. */
+  reviewCancel: () => invoke<void>("review_cancel"),
   setRemoveFillerWords: (enabled: boolean) =>
     invoke<void>("set_remove_filler_words", { enabled }),
   setFillerWords: (words: string[]) => invoke<void>("set_filler_words", { words }),
@@ -509,6 +574,19 @@ export const api = {
     invoke<WordReplacement>("update_word_replacement", { payload }),
   deleteWordReplacement: (id: string) =>
     invoke<void>("delete_word_replacement", { id }),
+  /** Parlato: save the Dictionary as a CSV file; null when cancelled. */
+  exportDictionaryCsv: () => invoke<string | null>("export_dictionary_csv"),
+  /** Parlato: merge a CSV file into the Dictionary; null when cancelled. */
+  importDictionaryCsv: () => invoke<ImportSummary | null>("import_dictionary_csv"),
+
+  listSnippets: () => invoke<Snippet[]>("list_snippets"),
+  addSnippet: (payload: NewSnippet) => invoke<Snippet>("add_snippet", { payload }),
+  updateSnippet: (payload: UpdateSnippet) => invoke<Snippet>("update_snippet", { payload }),
+  deleteSnippet: (id: string) => invoke<void>("delete_snippet", { id }),
+  /** Parlato: save the snippets as a CSV file (trigger,text); null when cancelled. */
+  exportSnippetsCsv: () => invoke<string | null>("export_snippets_csv"),
+  /** Parlato: merge a snippets CSV file into the list; null when cancelled. */
+  importSnippetsCsv: () => invoke<ImportSummary | null>("import_snippets_csv"),
 
   getEnhancementEnabled: () => invoke<boolean>("get_enhancement_enabled"),
   setEnhancementEnabled: (enabled: boolean) =>
@@ -631,6 +709,13 @@ export const api = {
     invoke<{ sessions: number; words: number; chars: number; duration_sec: number }>(
       "get_usage_stats",
     ),
+  /** Parlato: words per day (last `days` days, local time) for the Home chart. */
+  getUsageByDay: (days = 14) => invoke<UsagePoint[]>("get_usage_by_day", { days }),
+  /** Parlato: words per week (Monday to Sunday), `weeks` weeks ending this week. */
+  getUsageByWeek: (weeks = 12) => invoke<UsagePoint[]>("get_usage_by_week", { weeks }),
+  /** Parlato: save a corrected text (the original is kept) and get Dictionary suggestions. */
+  updateHistoryText: (id: string, text: string) =>
+    invoke<EditResult>("update_history_text", { id, text }),
   exportHistoryCsv: (ids: string[]) =>
     invoke<string | null>("export_history_csv", { ids }),
   getModelPerformanceMetrics: (period: MetricsPeriod) =>
@@ -650,6 +735,11 @@ export const api = {
   requestMicrophoneAccess: () => invoke<void>("request_microphone_access"),
   requestAccessibilityAccess: () => invoke<boolean>("request_accessibility_access"),
   openLanguageSettings: () => invoke<void>("open_language_settings"),
+  /** Parlato: macOS Screen Recording; prompts the first time, else opens the pane. */
+  requestScreenRecordingAccess: () => invoke<boolean>("request_screen_recording_access"),
+  /** Parlato: macOS Automation state for reading the browser's address. */
+  getBrowserAutomationStatus: () => invoke<BrowserAutomationStatus>("get_browser_automation_status"),
+  openAutomationSettings: () => invoke<void>("open_automation_settings"),
 
   getRecorderStyle: () => invoke<string>("get_recorder_style"),
   setRecorderStyle: (style: "mini" | "notch") =>
@@ -698,7 +788,16 @@ export type HotkeyOptionId =
   | "rightCtrl"
   | "rightWin"
   | "rightShift"
-  | "leftShift";
+  | "leftShift"
+  // 0.16: LeftWin and Menu are Windows only, Fn (Globe) is Mac only.
+  | "leftWin"
+  | "capsLock"
+  | "menu"
+  | "fn";
+
+/** Which physical key of a modifier pair a trigger needs ("any" = either). */
+export type KeySide = "any" | "left" | "right";
+export type KeySides = { ctrl: KeySide; alt: KeySide; shift: KeySide; win: KeySide };
 
 export type HotkeyTrigger =
   | { kind: "none" }
@@ -710,6 +809,17 @@ export type HotkeyTrigger =
       alt: boolean;
       shift: boolean;
       win: boolean;
+      /** 0.16: absent = either side (every config saved before 0.16). */
+      sides?: KeySides;
+    }
+  // 0.16: two or more modifiers alone (Ctrl + Win), dictation shortcuts only.
+  | {
+      kind: "modifiers";
+      ctrl: boolean;
+      alt: boolean;
+      shift: boolean;
+      win: boolean;
+      sides?: KeySides;
     };
 
 export type HotkeyMode = "toggle" | "pushToTalk" | "hybrid";
@@ -737,6 +847,8 @@ export type HotkeyConfig = {
   primary: HotkeySlotConfig;
   secondary: HotkeySlotConfig;
   actions: UtilityShortcuts;
+  /** 0.16: "Double-tap to keep recording" (on by default). */
+  double_tap: boolean;
 };
 
 export type HotkeyOptionInfo = {

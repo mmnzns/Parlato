@@ -21,14 +21,17 @@ import { useTranslation } from "react-i18next";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Row, Switch } from "@/components/ui/section";
+import { DictationLanguagePanel } from "@/components/DictationLanguagePanel";
 import { HotkeyCard } from "@/components/HotkeyCard";
 import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { ModelsPage } from "@/components/ModelsPage";
 import { useHotkeyLabel, wordingMode } from "@/hooks/useHotkeyLabel";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { AccessibilityAction, MicrophoneAction, PermissionRow } from "@/components/PermissionsPanel";
 import { api, type PermissionStatus } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
+import { translateError } from "@/lib/translateError";
 import { Mic, ShieldCheck } from "lucide-react";
 
 type Step = "access" | "mic" | "model" | "key" | "try";
@@ -43,7 +46,7 @@ export function Onboarding({
 }: {
   onDone: () => void;
   selectedModelId: string | null;
-  onSelectModel: (id: string | null) => void;
+  onSelectModel: (id: string | null) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [index, setIndex] = useState(0);
@@ -51,6 +54,16 @@ export function Onboarding({
   const { label: keyLabel, mode } = useHotkeyLabel(step);
   const wording = `shortcutWording.${wordingMode(mode)}`;
   const key = keyLabel ?? t("hotkey.options.rightAlt");
+  // Which speech model is in use right now (null = none): shown on the model
+  // step and checked on the last one.
+  const setup = useSetupStatus(step);
+  const modelInUse = setup?.model ?? null;
+  const [micError, setMicError] = useState<string | null>(null);
+  // The language the person speaks: asked first on the model step, it decides
+  // which model carries the Recommended tag.
+  const [language, setLanguage] = useState("auto");
+  // Continue waits for a speech model that is really in use (Skip does not).
+  const needsModel = step === "model" && !!setup && !modelInUse;
 
   const copy: Record<Step, { label: string; title: string; desc: string }> = {
     access: { label: t("ob.accessLabel"), title: t("ob.accessTitle"), desc: t("ob.accessDesc") },
@@ -74,7 +87,6 @@ export function Onboarding({
   return (
     <div
       className="fixed inset-0 z-[100] grid grid-cols-[260px_minmax(0,1fr)] bg-background text-foreground"
-      style={{ backgroundImage: "var(--dot-grid)", backgroundSize: "18px 18px" }}
     >
       <aside className="flex flex-col gap-6 border-r-[1.5px] border-sidebar-border bg-sidebar px-6 py-8 text-sidebar-foreground">
         <div className="flex flex-col gap-1.5">
@@ -123,7 +135,7 @@ export function Onboarding({
           <div className="mx-auto flex max-w-[760px] flex-col gap-[22px] px-10 pt-10 pb-8">
             <header className="flex flex-col gap-1.5">
               <span className="font-mono text-[11px] text-muted-foreground">
-                {t("ob.stepOf", { n: index + 1 })}
+                {t("ob.stepOf", { n: index + 1, total: STEPS.length })}
               </span>
               <h1 className="font-display text-[28px] leading-8 font-extrabold tracking-[-0.035em]">
                 {copy[step].title}
@@ -137,15 +149,49 @@ export function Onboarding({
                 <MicrophonePanel />
                 <button
                   type="button"
-                  onClick={() => api.openPrivacyMicrophone()}
+                  onClick={() => {
+                    setMicError(null);
+                    api.openPrivacyMicrophone().catch((e) => setMicError(translateError(t, String(e))));
+                  }}
                   className="self-start text-xs font-semibold underline underline-offset-[3px]"
                 >
                   {t("ob.micSettings")}
                 </button>
+                {micError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {micError}
+                  </p>
+                )}
               </>
             )}
-            {step === "model" && <ModelsPage selectedModelId={selectedModelId} onSelectModel={onSelectModel} />}
+            {step === "model" && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border-[1.5px] border-edge bg-card px-5 py-4">
+                  <label htmlFor="ob-language" className="font-display text-[15px] leading-5 font-bold">
+                    {t("ob.languageQuestion")}
+                  </label>
+                  <DictationLanguagePanel bare id="ob-language" onLanguage={setLanguage} />
+                </div>
+                <ModelsPage
+                  selectedModelId={selectedModelId}
+                  onSelectModel={onSelectModel}
+                  language={language}
+                  hideLanguagePicker
+                />
+              </>
+            )}
             {step === "key" && <HotkeyCard />}
+            {step === "try" && setup && !modelInUse && (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center gap-3 rounded-lg border-[1.5px] border-edge bg-muted px-4 py-3 text-sm"
+              >
+                <span className="min-w-0 flex-1">{t("ob.tryNoModel")}</span>
+                <Button size="sm" onClick={() => setIndex(STEPS.indexOf("model"))}>
+                  {t("ob.tryNoModelButton")}
+                </Button>
+              </div>
+            )}
             {step === "try" && <TryStep keyLabel={key} wording={wording} />}
           </div>
         </div>
@@ -159,13 +205,20 @@ export function Onboarding({
               />
             ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={finish}>
-            {t("ob.skip")}
-          </Button>
+          {needsModel && (
+            <span role="status" className="max-w-[260px] text-right text-xs text-muted-foreground">
+              {t("ob.modelNone")}
+            </span>
+          )}
+          {!last && (
+            <Button variant="ghost" size="sm" onClick={finish}>
+              {t("ob.skip")}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setIndex((i) => i - 1)} disabled={index === 0}>
             {t("ob.back")}
           </Button>
-          <Button size="sm" onClick={() => (last ? finish() : setIndex((i) => i + 1))}>
+          <Button size="sm" disabled={needsModel} onClick={() => (last ? finish() : setIndex((i) => i + 1))}>
             {last ? t("ob.start") : t("ob.continue")}
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>

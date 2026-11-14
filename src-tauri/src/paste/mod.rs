@@ -51,9 +51,9 @@ pub fn remember_foreground() {
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
     let hwnd = unsafe { GetForegroundWindow() };
     let raw = hwnd.0 as isize;
-    if raw == 0 {
-        return;
-    }
+    // Parlato : pas de fenetre au premier plan (0) : on efface l'ancienne
+    // cible au lieu de la garder, sinon le collage suivant irait dans une
+    // fenetre qui n'est plus celle de la dictee.
     let cell = SAVED_FOREGROUND.get_or_init(|| StdMutex::new(0));
     if let Ok(mut g) = cell.lock() {
         *g = raw;
@@ -67,6 +67,16 @@ pub fn remember_foreground() {
 
 #[cfg(not(any(windows, target_os = "macos")))]
 pub fn remember_foreground() {}
+
+/// Parlato : waits for the user to let go of the shortcut's modifier keys
+/// before a paste is posted (macOS only, no-op elsewhere).
+#[cfg(target_os = "macos")]
+pub fn wait_for_modifiers_released(timeout: Duration) {
+    macos::wait_for_modifiers_released(timeout);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn wait_for_modifiers_released(_timeout: Duration) {}
 
 /// Parlato : nombre d'essais quand une autre application tient le
 /// presse-papiers (gestionnaire d'historique, bureau a distance...).

@@ -26,17 +26,29 @@ pub fn cancel_download_parakeet_model(state: State<'_, ModelStoreState>, id: Str
     state.0.cancel_download(&id);
 }
 
+/// Parlato : asynchrone. Le dechargement attend une transcription en cours et
+/// la suppression efface de gros fichiers : sur un fil de travail, jamais sur
+/// le fil de l'interface (meme signature cote frontend, `invoke` renvoie deja
+/// une promesse).
 #[command]
-pub fn delete_parakeet_model(
+pub async fn delete_parakeet_model(
     app: AppHandle,
     state: State<'_, ModelStoreState>,
     id: String,
 ) -> Result<(), String> {
-    // Decharge le modele si c'est celui qui est actif.
-    if let Some(engine) = app.try_state::<crate::transcription::parakeet::ParakeetEngineState>() {
-        engine.0.unload_if_under(&state.0.shared().model_dir(&id));
-    }
-    state.0.release(&id).map(|_| ()).map_err(|e| e.to_string())
+    let store = state.0.clone();
+    let engine = app
+        .try_state::<crate::transcription::parakeet::ParakeetEngineState>()
+        .map(|e| e.0.clone());
+    tokio::task::spawn_blocking(move || {
+        // Decharge le modele si c'est celui qui est actif.
+        if let Some(engine) = engine {
+            engine.unload_if_under(&store.shared().model_dir(&id));
+        }
+        store.release(&id).map(|_| ()).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))?
 }
 
 /// Parlato : ce qui a vraiment servi au dernier chargement du modele

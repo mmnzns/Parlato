@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/tauri";
 import { fail, isFailure, statusText, type Status } from "@/lib/status";
+import { translateError } from "@/lib/translateError";
 
 export function EnhancementScreenContext() {
   const { t } = useTranslation();
@@ -41,7 +42,7 @@ export function EnhancementScreenContext() {
     try {
       await api.setScreenContextEnabled(v);
     } catch (e) {
-      setStatus(fail(t("screenContext.errorPrefix", { message: String(e) })));
+      setStatus(fail(t("screenContext.errorPrefix", { message: translateError(t, String(e)) })));
     }
   }
 
@@ -52,7 +53,7 @@ export function EnhancementScreenContext() {
       setPreview(text);
       setStatus(t("screenContext.okStatus"));
     } catch (e) {
-      setStatus(fail(t("screenContext.errorPrefix", { message: String(e) })));
+      setStatus(fail(t("screenContext.errorPrefix", { message: translateError(t, String(e)) })));
     }
   }
 

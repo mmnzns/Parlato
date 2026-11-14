@@ -16,7 +16,6 @@ import { CloudSection } from "@/components/enhancement/CloudSection";
 import { LocalSection } from "@/components/enhancement/LocalSection";
 import { WhereSection } from "@/components/enhancement/WhereSection";
 import { useEnhancementSettings } from "@/components/enhancement/useEnhancementSettings";
-import { isMac } from "@/lib/platform";
 
 export function EnhancementPanel({ crumb }: { crumb?: string }) {
   const { t } = useTranslation();
@@ -39,6 +38,12 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
 
       {/* Parlato: the page stays usable while cleanup is off, so a model and
           a key can be set up first. */}
+      {s.saveFailure.notice}
+      {s.notSetUp && (
+        <p role="alert" className="mb-[22px] rounded-sm border-[1.5px] border-edge bg-muted px-4 py-3 text-[13px] text-warn-foreground">
+          {t("ai.notSetUp")}
+        </p>
+      )}
       {!enabled && (
         <p role="status" className="mb-[22px] rounded-sm border-[1.5px] border-edge bg-muted px-4 py-3 text-[13px] text-muted-foreground">
           {t("ai.offNotice")}
@@ -60,14 +65,7 @@ export function EnhancementPanel({ crumb }: { crumb?: string }) {
 
         <EnhancementTryBox />
 
-        {/* Parlato: reading the screen (OCR) is not available on Mac yet. */}
-        {isMac ? (
-          <p className="rounded-lg border-[1.5px] border-dashed bg-card px-5 py-4 text-[13px] text-muted-foreground">
-            {t("mac.screenNotYet")}
-          </p>
-        ) : (
-          <EnhancementScreenContext />
-        )}
+        <EnhancementScreenContext />
       </div>
     </>
   );

@@ -57,6 +57,11 @@ mod tests {
     }
 
     #[test]
+    fn keeps_copy_failed_code() {
+        assert_eq!(storable_error_code("PARLA_ERR:copyFailed"), "PARLA_ERR:copyFailed");
+    }
+
+    #[test]
     fn cuts_anything_after_the_code() {
         assert_eq!(
             storable_error_code("PARLA_ERR:noWhisper: the dictated words were here"),

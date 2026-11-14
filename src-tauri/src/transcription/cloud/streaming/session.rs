@@ -22,6 +22,11 @@ use tokio_tungstenite::tungstenite::handshake::client::Request as WsRequest;
 /// Une fois connecte, le flux peut durer indefiniment (pas de timeout global).
 pub const WS_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Parlato : delai maximum de la finalisation d'une session streaming (le
+/// provider ne repond plus a la fermeture). Passe ce delai, la dictee se
+/// rabat sur la transcription du fichier WAV.
+pub const FINALIZE_TIMEOUT: Duration = Duration::from_secs(20);
+
 /// Parlato : URL sans query string, pour les messages d'erreur et les logs.
 /// Le query string peut contenir des mots du dictionnaire (Deepgram
 /// `keyterm`), jamais a ecrire dans une erreur ou un log.
@@ -93,6 +98,8 @@ pub struct StreamingHandle {
     audio_tx: mpsc::UnboundedSender<Vec<i16>>,
     finalize_tx: Option<oneshot::Sender<()>>,
     done_rx: oneshot::Receiver<anyhow::Result<String>>,
+    /// Parlato : tache du provider, arretee si la finalisation expire.
+    task: Option<tokio::task::AbortHandle>,
 }
 
 impl StreamingHandle {
@@ -105,7 +112,15 @@ impl StreamingHandle {
             audio_tx,
             finalize_tx: Some(finalize_tx),
             done_rx,
+            task: None,
         }
+    }
+
+    /// Parlato : relie la tache du provider au handle pour pouvoir l'arreter
+    /// quand la finalisation expire.
+    pub fn with_task(mut self, task: tokio::task::AbortHandle) -> Self {
+        self.task = Some(task);
+        self
     }
 
     /// Retourne un sender clone pour que le recorder puisse pousser l'audio
@@ -122,6 +137,26 @@ impl StreamingHandle {
         match self.done_rx.await {
             Ok(r) => r,
             Err(_) => Err(anyhow::anyhow!("streaming task a panic")),
+        }
+    }
+
+    /// Parlato : comme `finalize`, mais abandonne apres `limit` (un provider
+    /// qui ne ferme jamais la session ne doit pas bloquer la dictee). Sur
+    /// expiration la tache du provider est arretee et l'erreur commence par
+    /// `timeout` (code `providerTimeout`).
+    pub async fn finalize_within(self, limit: Duration) -> anyhow::Result<String> {
+        let task = self.task.clone();
+        match tokio::time::timeout(limit, self.finalize()).await {
+            Ok(r) => r,
+            Err(_) => {
+                if let Some(t) = task {
+                    t.abort();
+                }
+                Err(anyhow::anyhow!(
+                    "timeout: streaming finalize (>{}s)",
+                    limit.as_secs()
+                ))
+            }
         }
     }
 }
@@ -182,6 +217,37 @@ pub fn i16_to_le_bytes(chunk: &[i16]) -> Vec<u8> {
 pub fn i16_to_base64(chunk: &[i16]) -> String {
     use base64::{engine::general_purpose::STANDARD as B64, Engine};
     B64.encode(i16_to_le_bytes(chunk))
+}
+
+#[cfg(test)]
+mod finalize_tests {
+    use super::*;
+
+    fn handle() -> (StreamingHandle, oneshot::Sender<anyhow::Result<String>>) {
+        let (audio_tx, _audio_rx) = mpsc::unbounded_channel::<Vec<i16>>();
+        let (finalize_tx, _finalize_rx) = oneshot::channel::<()>();
+        let (done_tx, done_rx) = oneshot::channel();
+        (StreamingHandle::new(audio_tx, finalize_tx, done_rx), done_tx)
+    }
+
+    #[tokio::test]
+    async fn finalize_within_gives_up_on_a_silent_provider() {
+        let (h, _keep_open) = handle();
+        let err = h
+            .finalize_within(Duration::from_millis(30))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(err.starts_with("timeout"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn finalize_within_returns_the_text_in_time() {
+        let (h, done_tx) = handle();
+        done_tx.send(Ok("hello".to_string())).unwrap();
+        let text = h.finalize_within(Duration::from_secs(5)).await.unwrap();
+        assert_eq!(text, "hello");
+    }
 }
 
 #[cfg(test)]

@@ -16,6 +16,7 @@ mod models;
 mod notice;
 mod paste;
 mod power_mode;
+mod review;
 mod screen_context;
 mod services;
 mod text_processing;
@@ -30,12 +31,16 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tracing::{info, warn};
 
+use commands::snippets::{
+    add_snippet, delete_snippet, export_snippets_csv, import_snippets_csv, list_snippets, update_snippet,
+};
 use commands::dictionary::{
-    add_word_replacement, delete_word_replacement, list_word_replacements, update_word_replacement,
+    add_word_replacement, delete_word_replacement, export_dictionary_csv, import_dictionary_csv,
+    list_word_replacements, update_word_replacement,
 };
 use commands::models::{
     cancel_download_whisper_model, delete_whisper_model, download_whisper_model,
-    import_whisper_model, list_whisper_models,
+    import_whisper_model, list_active_downloads, list_whisper_models,
 };
 use commands::recording::{
     cancel_processing, cancel_recording, get_audio_meter, is_recording, list_audio_devices, start_recording,
@@ -52,7 +57,7 @@ use commands::settings::{
     set_dictation_language, set_filler_words, set_model_keep_alive, set_remove_filler_words,
     set_restore_clipboard_after_paste, set_selected_input_device, set_selected_whisper_model,
     set_sound_feedback_enabled, set_system_mute_enabled,
-    set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
+    set_review_before_paste, set_spoken_commands, set_spoken_punctuation, set_text_formatting_enabled, set_transcription_kind, set_transcription_source, set_ui_language,
     set_speech_threads, set_use_gpu,
 };
 use commands::transcription::{transcribe_file, transcribe_wav, WhisperEngineState};
@@ -81,17 +86,20 @@ use commands::parakeet::{
 use commands::permissions::{
     check_permissions, get_onboarding_completed, get_recorder_style, open_language_settings,
     open_privacy_microphone, request_accessibility_access, request_microphone_access,
+    request_screen_recording_access,
     set_autostart_enabled, set_onboarding_completed, set_recorder_style,
 };
 use commands::power_mode::{
-    add_power_config, delete_power_config, get_active_power_session, get_power_auto_restore,
+    add_power_config, delete_power_config, get_active_power_session, get_browser_automation_status,
+    get_power_auto_restore, open_automation_settings,
     list_installed_apps, list_power_configs, power_mode_preview, reorder_power_configs,
     select_power_config, set_power_auto_restore, update_power_config,
 };
 use commands::history::{
-    count_history, delete_history_item, export_history_csv, get_history_item, get_usage_stats,
+    count_history, delete_history_item, history_available, export_history_csv, get_history_item, get_usage_stats,
     get_retention_settings, list_history, read_history_audio, retranscribe_history_item,
     run_history_cleanup, set_retention_settings,
+    get_usage_by_day, get_usage_by_week, update_history_text,
 };
 use commands::metrics::get_model_performance_metrics;
 use commands::screen_context::{
@@ -256,6 +264,9 @@ pub fn run() {
             // Identifiants de modeles cloud retires (Grok STT, AssemblyAI
             // Universal-3 Pro, Soniox v4, Cartesia Ink Whisper).
             commands::settings::migrate_legacy_cloud_model_ids(&handle);
+            // Une dictee interrompue (plantage, fermeture forcee) pendant un mode
+            // Power Mode a laisse ses reglages : on remet ceux d'avant.
+            power_mode::session::restore_pending_baseline(&handle);
             setup_hotkeys(handle.clone());
             // Timeout batch cloud persiste (VoiceInk CloudTranscriptionSettings).
             transcription::cloud::http::set_batch_timeout_secs(
@@ -299,9 +310,11 @@ pub fn run() {
             cancel_recording,
             get_audio_meter,
             is_recording,
+            commands::recording::is_busy,
             cancel_processing,
             toggle_recording_from_ui,
             list_whisper_models,
+            list_active_downloads,
             download_whisper_model,
             cancel_download_whisper_model,
             delete_whisper_model,
@@ -320,6 +333,9 @@ pub fn run() {
             set_speech_threads,
             get_text_processing_settings,
             set_text_formatting_enabled,
+            set_spoken_commands,
+            set_spoken_punctuation,
+            set_review_before_paste,
             set_remove_filler_words,
             set_filler_words,
             set_append_trailing_space,
@@ -338,10 +354,21 @@ pub fn run() {
             mini_recorder::close_recorder_popover,
             mini_recorder::show_main_window,
             notice::take_recorder_notice,
+            review::review_text,
+            review::review_paste,
+            review::review_cancel,
             list_word_replacements,
             add_word_replacement,
             update_word_replacement,
             delete_word_replacement,
+            export_dictionary_csv,
+            import_dictionary_csv,
+            list_snippets,
+            add_snippet,
+            update_snippet,
+            delete_snippet,
+            export_snippets_csv,
+            import_snippets_csv,
             vad_get_state,
             vad_download,
             vad_delete,
@@ -408,6 +435,8 @@ pub fn run() {
             get_active_power_session,
             select_power_config,
             power_mode_preview,
+            get_browser_automation_status,
+            open_automation_settings,
             get_screen_context_enabled,
             set_screen_context_enabled,
             get_screen_context_cached,
@@ -419,7 +448,11 @@ pub fn run() {
             read_history_audio,
             retranscribe_history_item,
             count_history,
+            history_available,
             get_usage_stats,
+            get_usage_by_day,
+            get_usage_by_week,
+            update_history_text,
             export_history_csv,
             get_retention_settings,
             set_retention_settings,
@@ -430,6 +463,7 @@ pub fn run() {
             open_privacy_microphone,
             request_microphone_access,
             request_accessibility_access,
+            request_screen_recording_access,
             open_language_settings,
             get_recorder_style,
             set_recorder_style,
@@ -493,6 +527,7 @@ fn setup_hotkeys(app: AppHandle) {
         cfg.actions.cancel_recording,
         hotkeys::keyboard_hook::HotkeyTrigger::None
     ));
+    manager.set_double_tap(cfg.double_tap);
 
     info!(
         primary = ?cfg.primary.trigger,

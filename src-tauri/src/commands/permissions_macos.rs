@@ -15,6 +15,10 @@ use crate::hotkeys::keyboard_hook::{accessibility_trusted, request_accessibility
 
 pub const PANE_MICROPHONE: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+pub const PANE_SCREEN_RECORDING: &str =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
+pub const PANE_AUTOMATION: &str =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation";
 pub const PANE_ACCESSIBILITY: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
 
@@ -25,6 +29,14 @@ fn mic_status() -> AVAuthorizationStatus {
             None => AVAuthorizationStatus::NotDetermined,
         }
     }
+}
+
+/// True when macOS has refused the microphone (the person said No, or a
+/// profile forbids it). "Not asked yet" is not a refusal: starting the capture
+/// makes macOS ask.
+pub fn microphone_denied() -> bool {
+    let status = mic_status();
+    status == AVAuthorizationStatus::Denied || status == AVAuthorizationStatus::Restricted
 }
 
 pub fn microphone_state() -> PermissionState {
@@ -84,4 +96,35 @@ pub fn accessibility_state() -> PermissionState {
 pub fn request_accessibility_access() -> bool {
     crate::hotkeys::keyboard_hook::allow_accessibility_prompt();
     request_accessibility()
+}
+
+/// Screen Recording status without any prompt (CGPreflightScreenCaptureAccess).
+pub fn screen_recording_allowed() -> bool {
+    core_graphics::access::ScreenCaptureAccess.preflight()
+}
+
+/// Shows macOS's Screen Recording prompt the first time (once per app
+/// identity); afterwards macOS shows nothing and the UI opens System Settings.
+/// Returns whether access is already granted. A newly granted permission only
+/// takes effect for the running app after a restart, as macOS says itself.
+pub fn request_screen_recording() -> bool {
+    core_graphics::access::ScreenCaptureAccess.request()
+}
+
+/// Reference VoiceInk : PermissionsView.swift "Screen Recording" card
+/// (CGPreflightScreenCaptureAccess, CGRequestScreenCaptureAccess).
+pub fn screen_recording_state() -> PermissionState {
+    let ok = screen_recording_allowed();
+    PermissionState {
+        ok,
+        label_key: if ok {
+            "permissions.mac.screenAllowed"
+        } else {
+            "permissions.mac.screenMissing"
+        }
+        .into(),
+        label_args: None,
+        hint_key: (!ok).then(|| "permissions.mac.screenHint".into()),
+        diagnostic: None,
+    }
 }

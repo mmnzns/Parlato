@@ -1,10 +1,11 @@
 // Commandes Tauri pour l'historique des transcriptions.
 
 use chrono::{DateTime, Utc};
-use tauri::{command, AppHandle, Manager};
+use tauri::{command, AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::db::{transcription as repo, Database};
+use crate::db::{transcription as repo, word_replacement, Database};
+use crate::history::learning;
 use crate::history::cleanup::{self, RetentionSettings};
 use crate::history::export;
 
@@ -59,6 +60,8 @@ pub fn delete_history_item(app: AppHandle, id: String) -> Result<(), String> {
             }
         }
     }
+    // Parlato : le menu de la barre (dictees recentes) se remet a jour.
+    let _ = app.emit("history:updated", &id);
     Ok(())
 }
 
@@ -100,20 +103,36 @@ pub fn read_history_audio(app: AppHandle, id: String) -> Result<tauri::ipc::Resp
 /// quelle entree). Le WAV est copie sous un nouveau nom : la nouvelle
 /// entree possede son propre fichier, supprimer l'une ne casse pas l'autre
 /// (retry_last fait de meme).
+///
+/// Parlato : asynchrone, la copie du WAV (disque) se fait sur un fil de
+/// travail et non sur le fil de l'interface.
 #[command]
-pub fn retranscribe_history_item(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn retranscribe_history_item(app: AppHandle, id: String) -> Result<(), String> {
     let recording = app
         .try_state::<crate::commands::recording::RecorderState>()
-        .map(|s| s.0.lock().is_some())
+        .map(|s| s.is_active())
         .unwrap_or(false);
     if recording {
         return Err("PARLA_ERR:recordingInProgress".into());
     }
-    let src = audio_path(&app, &id)?;
-    let copy = src.with_file_name(format!("{}.wav", uuid::Uuid::new_v4()));
-    std::fs::copy(&src, &copy).map_err(|e| e.to_string())?;
+    let copy_app = app.clone();
+    let copy = tokio::task::spawn_blocking(move || -> Result<std::path::PathBuf, String> {
+        let src = audio_path(&copy_app, &id)?;
+        let copy = src.with_file_name(format!("{}.wav", uuid::Uuid::new_v4()));
+        std::fs::copy(&src, &copy).map_err(|e| e.to_string())?;
+        Ok(copy)
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))??;
     crate::transcription::pipeline::run_file(app, copy);
     Ok(())
+}
+
+/// Parlato : l'historique est-il disponible ? Faux quand la base n'a pas pu
+/// s'ouvrir au lancement (les dictees marchent, mais rien n'est enregistre).
+#[command]
+pub fn history_available(app: AppHandle) -> bool {
+    app.try_state::<Database>().is_some()
 }
 
 #[command]
@@ -135,6 +154,70 @@ pub fn get_usage_stats(app: AppHandle) -> Result<repo::UsageStats, String> {
     repo::usage_stats(&conn).map_err(|e| e.to_string())
 }
 
+/// Parlato : mots par jour sur les `days` derniers jours (fuseau local),
+/// pour le graphique de l'accueil.
+#[command]
+pub fn get_usage_by_day(app: AppHandle, days: Option<u32>) -> Result<Vec<repo::UsagePoint>, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let today = chrono::Local::now().date_naive();
+    let conn = db.0.lock();
+    repo::usage_by_day(&conn, days.unwrap_or(14), today, "localtime").map_err(|e| e.to_string())
+}
+
+/// Parlato : mots par semaine (lundi a dimanche) sur les `weeks` dernieres
+/// semaines.
+#[command]
+pub fn get_usage_by_week(app: AppHandle, weeks: Option<u32>) -> Result<Vec<repo::UsagePoint>, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let today = chrono::Local::now().date_naive();
+    let conn = db.0.lock();
+    repo::usage_by_week(&conn, weeks.unwrap_or(12), today, "localtime").map_err(|e| e.to_string())
+}
+
+/// Parlato : resultat d'une correction manuelle d'une dictee.
+#[derive(serde::Serialize)]
+pub struct EditResult {
+    pub record: repo::TranscriptionRecord,
+    /// Mots changes que la personne peut ajouter au dictionnaire (rien
+    /// n'est ajoute sans son clic).
+    pub suggestions: Vec<String>,
+}
+
+/// Parlato : enregistre le texte corrige a la main (l'original reste
+/// intact) et propose les mots changes pour le dictionnaire. Le texte n'est
+/// jamais journalise.
+#[command]
+pub fn update_history_text(app: AppHandle, id: String, text: String) -> Result<EditResult, String> {
+    let db = app
+        .try_state::<Database>()
+        .ok_or_else(|| "DB absente".to_string())?;
+    let (record, suggestions) = {
+        let conn = db.0.lock();
+        let outcome = repo::set_edited_text(&conn, &id, &text).map_err(|e| e.to_string())?;
+        let record = repo::get(&conn, &id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "PARLA_ERR:historyItemMissing".to_string())?;
+        // Words already in the Dictionary (spoken variants and written form).
+        let known: Vec<String> = word_replacement::list_all(&conn)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .flat_map(|w| {
+                let mut v: Vec<String> = w.original_text.split(',').map(|s| s.trim().to_string()).collect();
+                v.push(w.replacement_text);
+                v
+            })
+            .collect();
+        let suggestions = learning::suggest_words(&outcome.previous, &outcome.current, &known);
+        (record, suggestions)
+    };
+    let _ = app.emit("history:updated", &id);
+    Ok(EditResult { record, suggestions })
+}
+
 #[command]
 pub async fn export_history_csv(app: AppHandle, ids: Vec<String>) -> Result<Option<String>, String> {
     // Collect les records a exporter.
@@ -152,21 +235,29 @@ pub async fn export_history_csv(app: AppHandle, ids: Vec<String>) -> Result<Opti
     }
     let csv = export::to_csv(&records);
 
-    // Pick un fichier via dialog.
-    let Some(path) = app
-        .dialog()
+    // Pick un fichier via dialog. Parlato : version a rappel (le resultat
+    // arrive par un canal) plutot que `blocking_save_file`, qui bloquerait ce
+    // fil de travail tant que la boite de dialogue est ouverte.
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
         .file()
         .set_file_name("parla-history.csv")
         .add_filter("CSV", &["csv"])
-        .blocking_save_file()
-    else {
+        .save_file(move |path| {
+            let _ = tx.send(path);
+        });
+    let Some(path) = rx.await.map_err(|e| e.to_string())? else {
         return Ok(None);
     };
     let p = path
         .as_path()
         .ok_or_else(|| "chemin invalide".to_string())?
         .to_path_buf();
-    std::fs::write(&p, csv).map_err(|e| e.to_string())?;
+    let written = p.clone();
+    tokio::task::spawn_blocking(move || std::fs::write(&written, csv))
+        .await
+        .map_err(|e| format!("task join: {e}"))?
+        .map_err(|e| e.to_string())?;
     Ok(Some(p.to_string_lossy().into_owned()))
 }
 
@@ -176,17 +267,20 @@ pub fn get_retention_settings(app: AppHandle) -> RetentionSettings {
 }
 
 #[command]
-pub fn set_retention_settings(
+pub async fn set_retention_settings(
     app: AppHandle,
     settings: RetentionSettings,
 ) -> Result<(), String> {
     cleanup::save(&app, &settings).map_err(|e| e.to_string())?;
     // Declenche un passage immediat pour appliquer les nouveaux criteres.
-    cleanup::run_once(&app);
-    Ok(())
+    // Parlato : sur un fil de travail (il lit le disque et efface des
+    // fichiers), pas sur le fil de l'interface.
+    tokio::task::spawn_blocking(move || cleanup::run_once(&app))
+        .await
+        .map_err(|e| format!("task join: {e}"))
 }
 
 #[command]
-pub fn run_history_cleanup(app: AppHandle) {
-    cleanup::run_once(&app);
+pub async fn run_history_cleanup(app: AppHandle) {
+    let _ = tokio::task::spawn_blocking(move || cleanup::run_once(&app)).await;
 }

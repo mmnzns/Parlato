@@ -3,8 +3,11 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { notifySetupChanged } from "@/lib/setupStatus";
 import { translateError } from "@/lib/translateError";
 import { persist } from "@/lib/persist";
+import { confirmDelete } from "@/lib/confirmDelete";
+import { useSaveFailure } from "@/hooks/useSaveFailure";
 import { fail, type Status } from "@/lib/status";
 import {
   api,
@@ -34,6 +37,9 @@ export function useEnhancementSettings() {
   const [localcliCustomCmd, setLocalcliCustomCmd] = useState("");
   const [localcliTimeout, setLocalcliTimeout] = useState(45);
   const [localcliStatus, setLocalcliStatus] = useState("");
+  // Built-in AI model chosen in the list (null = none yet).
+  const [ggufSelected, setGgufSelected] = useState<string | null>(null);
+  const saveFailure = useSaveFailure();
 
   useEffect(() => {
     refresh();
@@ -41,7 +47,7 @@ export function useEnhancementSettings() {
 
   async function refresh() {
     try {
-      const [en, provs, sel, ps, act, oBase, cBase, liCmd, liTo] =
+      const [en, provs, sel, ps, act, oBase, cBase, liCmd, liTo, gguf] =
         await Promise.all([
           api.getEnhancementEnabled(),
           api.listLlmProviders(),
@@ -52,7 +58,9 @@ export function useEnhancementSettings() {
           api.getCustomBaseUrl(),
           api.getLocalcliCustomCmd(),
           api.getLocalcliTimeoutSecs(),
+          api.getSelectedGguf(),
         ]);
+      setGgufSelected(gguf);
       setEnabled(en);
       setProviders(provs);
       setSelection(sel);
@@ -81,7 +89,7 @@ export function useEnhancementSettings() {
       setOllamaStatus(t("enhancement.modelsCount", { count: models.length }));
     } catch (e) {
       setOllamaModels([]);
-      setOllamaStatus(t("enhancement.errorPrefix", { message: String(e) }));
+      setOllamaStatus(t("enhancement.errorPrefix", { message: translateError(t, String(e)) }));
     }
   }
 
@@ -91,7 +99,7 @@ export function useEnhancementSettings() {
       setOllamaStatus(t("enhancement.urlSaved"));
       await refreshOllamaModels();
     } catch (e) {
-      setOllamaStatus(t("enhancement.errorPrefix", { message: String(e) }));
+      setOllamaStatus(t("enhancement.errorPrefix", { message: translateError(t, String(e)) }));
     }
   }
 
@@ -100,7 +108,7 @@ export function useEnhancementSettings() {
       await api.setCustomBaseUrl(customBaseUrl.trim());
       setStatus((s) => ({ ...s, custom: t("enhancement.urlSaved") }));
     } catch (e) {
-      setStatus((s) => ({ ...s, custom: fail(t("enhancement.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, custom: fail(t("enhancement.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -112,7 +120,8 @@ export function useEnhancementSettings() {
   }
 
   async function toggleEnabled(v: boolean) {
-    await persist(v, enabled, setEnabled, api.setEnhancementEnabled);
+    saveFailure.clear();
+    await persist(v, enabled, setEnabled, api.setEnhancementEnabled, saveFailure.fail);
   }
 
   async function selectProvider(providerId: string) {
@@ -161,6 +170,8 @@ export function useEnhancementSettings() {
       await api.setApiKey(providerId, k);
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keySavedOk") }));
       setApiKeyInputs((i) => ({ ...i, [providerId]: "" }));
+      // A provider's key is shared with its speech models: refresh readiness.
+      notifySetupChanged();
       await refresh();
     } catch (e) {
       setStatus((s) => ({
@@ -173,12 +184,15 @@ export function useEnhancementSettings() {
   }
 
   async function deleteKey(providerId: string) {
+    const name = providers.find((p) => p.id === providerId)?.label ?? providerId;
+    if (!(await confirmDelete(t("ai.confirmRemoveKey", { provider: name }), t("ai.keyRemove")))) return;
     try {
       await api.deleteApiKey(providerId);
       setStatus((s) => ({ ...s, [providerId]: t("enhancement.keyDeleted") }));
+      notifySetupChanged();
       await refresh();
     } catch (e) {
-      setStatus((s) => ({ ...s, [providerId]: fail(t("enhancement.errorPrefix", { message: String(e) })) }));
+      setStatus((s) => ({ ...s, [providerId]: fail(t("enhancement.errorPrefix", { message: translateError(t, String(e)) })) }));
     }
   }
 
@@ -202,7 +216,7 @@ export function useEnhancementSettings() {
       await api.setLocalcliCustomCmd(localcliCustomCmd.trim());
       setLocalcliStatus(t("enhancement.commandSaved"));
     } catch (e) {
-      setLocalcliStatus(t("enhancement.errorPrefix", { message: String(e) }));
+      setLocalcliStatus(t("enhancement.errorPrefix", { message: translateError(t, String(e)) }));
     }
   }
 
@@ -211,7 +225,7 @@ export function useEnhancementSettings() {
       await api.setLocalcliTimeoutSecs(Math.max(5, Math.floor(localcliTimeout)));
       setLocalcliStatus(t("enhancement.timeoutSaved"));
     } catch (e) {
-      setLocalcliStatus(t("enhancement.errorPrefix", { message: String(e) }));
+      setLocalcliStatus(t("enhancement.errorPrefix", { message: translateError(t, String(e)) }));
     }
   }
 
@@ -239,6 +253,19 @@ export function useEnhancementSettings() {
   }
 
   const keyStatus = currentProvider ? status[currentProvider.id] : undefined;
+
+  // Cleanup can be switched on with nothing behind it: no built-in model
+  // chosen, or an online service without a saved key.
+  const isSetUp = !selection?.provider_id
+    ? false
+    : selection.provider_id === "llamacpp"
+      ? !!ggufSelected
+      : isCustom
+        ? !!customBaseUrl.trim() && !!(customModel || selection.model)
+        : currentProvider?.requires_api_key
+          ? currentProvider.has_api_key
+          : !!selection.model;
+  const notSetUp = enabled && !isSetUp;
 
   return {
     enabled,
@@ -278,6 +305,10 @@ export function useEnhancementSettings() {
     cloudProviders,
     isBuiltin,
     keyStatus,
+    ggufSelected,
+    setGgufSelected,
+    notSetUp,
+    saveFailure,
     refresh,
     refreshOllamaModels,
     saveOllamaBaseUrl,

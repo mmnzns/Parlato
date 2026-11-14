@@ -64,3 +64,31 @@ export function companyOfSource(
   if (source.kind === "cloud") return source.cloud_provider ?? null;
   return null;
 }
+
+/// Parlato: the model Parlato tags "Recommended" for the language the person
+/// speaks. English: Parakeet Unified (accurate, with punctuation). Another
+/// language Parakeet Ultra covers (the European ones, and "detect it for me"):
+/// Parakeet Ultra. Any other language: Whisper Turbo, the best Whisper
+/// balance. `ultraCodes` is Parakeet Ultra's language list from the catalog.
+export const RECOMMENDED_ENGLISH = "parakeet-unified-en";
+export const RECOMMENDED_EUROPEAN = "parakeet-ultra";
+export const RECOMMENDED_OTHER = "whisper-turbo";
+
+export function recommendedSpeechModel(language: string, ultraCodes?: string[]): string {
+  const code = language.split("_")[0];
+  if (code === "en") return RECOMMENDED_ENGLISH;
+  if (code === "auto") return RECOMMENDED_EUROPEAN;
+  return (ultraCodes ?? []).includes(code) ? RECOMMENDED_EUROPEAN : RECOMMENDED_OTHER;
+}
+
+/// Local company whose list holds a model id, or null.
+export function companyOfModel(id: string): LocalCompanyId | null {
+  for (const c of LOCAL_COMPANIES) {
+    if (c.picks.some((p) => p.id === id || p.en === id)) return c.id;
+  }
+  return null;
+}
+
+/// Local AI model Parlato tags "Recommended" in AI cleanup (IBM Granite 4.2 3B;
+/// the engine's `RECOMMENDED_LOCAL_AI`).
+export const RECOMMENDED_LOCAL_AI = "granite-4.2-3b";

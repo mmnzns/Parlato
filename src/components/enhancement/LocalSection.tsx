@@ -50,7 +50,7 @@ export function LocalSection({ s }: { s: EnhancementSettings }) {
         </select>
       </Row>
 
-      {isBuiltin && <LlmLocalPanel />}
+      {isBuiltin && <LlmLocalPanel onSelectedChange={s.setGgufSelected} />}
 
       {isOllama && (
         <>

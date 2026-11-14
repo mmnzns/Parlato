@@ -1,7 +1,7 @@
 // Parlato: title card of a mode (name, duplicate, delete, enabled) and its
 // delete confirmation.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Copy, Trash2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ export function ModeHeader({
   onCancelDelete,
   onDelete,
   onDuplicate,
+  focusName,
+  onNameFocused,
 }: {
   config: PowerModeConfig;
   set: <K extends keyof PowerModeConfig>(key: K, value: PowerModeConfig[K]) => void;
@@ -24,9 +26,21 @@ export function ModeHeader({
   onCancelDelete: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  /** Rename from the list menu: put the cursor in the name field. */
+  focusName?: boolean;
+  onNameFocused?: () => void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(c.name);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!focusName) return;
+    nameRef.current?.focus();
+    nameRef.current?.select();
+    onNameFocused?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusName]);
 
   return (
     <>
@@ -35,6 +49,7 @@ export function ModeHeader({
           <Zap className="h-5 w-5" />
         </span>
         <input
+          ref={nameRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name !== c.name && set("name", name.trim())}
@@ -75,7 +90,7 @@ export function ModeHeader({
           <span className="min-w-0 flex-1 text-[13px]">
             <b>{t("pm.confirmTitle", { name: c.name })}</b> {t("pm.confirmBody")}
           </span>
-          <Button size="sm" variant="ghost" onClick={onCancelDelete}>
+          <Button size="sm" variant="ghost" onClick={onCancelDelete} autoFocus>
             {t("pm.cancel")}
           </Button>
           <Button size="sm" variant="destructive" onClick={onDelete}>

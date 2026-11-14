@@ -177,15 +177,16 @@ More fixes in the [troubleshooting guide](INSTALL.md#troubleshooting).
 
 ### What isn't on the Mac yet?
 
-Switching a power mode automatically for a specific website (apps work), and
-letting AI cleanup read the window you're typing in. These work on Windows and
-are coming to the Mac. The
-[install guide](INSTALL.md#not-on-mac-yet) has the full list.
+Only the command-line AI cleanup engine. Website pairing for power modes
+(Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, Chromium, Firefox, Zen) and
+letting AI cleanup read the window you're typing in now work on the Mac, each
+after one permission: Automation and Screen Recording. The
+[install guide](INSTALL.md#not-on-mac-yet) has the details.
 
 ### How do updates work?
 
 Parlato checks for new versions on its own. When one is out, it shows a
-banner and **Update now** in Settings: click it, and Parlato downloads the
+banner and **Update and restart** in Settings: click it, and Parlato downloads the
 update, installs it and restarts. Your settings, models and history stay.
 
 ### How do I remove Parlato completely?

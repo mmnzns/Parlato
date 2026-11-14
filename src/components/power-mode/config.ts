@@ -14,14 +14,17 @@ export const inputClass = "h-[34px] min-w-0 rounded-sm border-[1.5px] border-inp
 // Alt+1 .. Alt+9, then Alt+0 (the hook's digit order).
 export const SHORTCUT_SLOTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-export function emptyConfig(name: string): PowerModeConfig {
+/** `aiCleanup`: the global AI cleanup setting. A power mode always applies its
+ *  own on/off value while it is active (power_mode/session.rs apply), so a new
+ *  mode starts from the current setting instead of silently turning it off. */
+export function emptyConfig(name: string, aiCleanup = false): PowerModeConfig {
   return {
     id: "",
     name,
     emoji: "*",
     app_triggers: [],
     url_triggers: [],
-    is_enhancement_enabled: false,
+    is_enhancement_enabled: aiCleanup,
     use_screen_capture: null,
     selected_prompt_id: null,
     selected_llm_provider: null,

@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Row, Section } from "@/components/ui/section";
-import { formatCombo, HotkeyRecorder } from "@/components/HotkeyRecorder";
+import { formatTrigger, HotkeyRecorder } from "@/components/HotkeyRecorder";
 import {
   api,
   type HotkeyConfig,
@@ -55,17 +55,10 @@ const ROWS: Array<{ key: ActionKey; labelKey: string; hintKey?: string }> = [
 ];
 
 export function triggerLabel(
-  t: (k: string) => string,
+  _t: (k: string) => string,
   trigger: HotkeyTrigger,
 ): string | null {
-  switch (trigger.kind) {
-    case "none":
-      return null;
-    case "modifier":
-      return t(`hotkey.options.${trigger.option}`);
-    case "combo":
-      return formatCombo(trigger);
-  }
+  return formatTrigger(trigger);
 }
 
 export function AdditionalShortcutsCard() {

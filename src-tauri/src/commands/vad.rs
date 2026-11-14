@@ -32,12 +32,20 @@ pub async fn vad_download(app: AppHandle, store: State<'_, ModelStoreState>) -> 
     download::run(&app, store.0.clone(), VAD_ID, Flavor::Vad).await
 }
 
+/// Parlato : asynchrone, voir `delete_parakeet_model` (le dechargement attend
+/// une transcription en cours, la suppression efface un fichier).
 #[tauri::command]
-pub fn vad_delete(app: AppHandle, store: State<'_, ModelStoreState>) -> Result<(), String> {
-    if let Some(engine) = app.try_state::<VadEngineState>() {
-        engine.0.unload_if_under(&store.0.shared().model_dir(VAD_ID));
-    }
-    store.0.release(VAD_ID).map(|_| ()).map_err(|e| e.to_string())
+pub async fn vad_delete(app: AppHandle, store: State<'_, ModelStoreState>) -> Result<(), String> {
+    let models = store.0.clone();
+    let engine = app.try_state::<VadEngineState>().map(|e| e.0.clone());
+    tokio::task::spawn_blocking(move || {
+        if let Some(engine) = engine {
+            engine.unload_if_under(&models.shared().model_dir(VAD_ID));
+        }
+        models.release(VAD_ID).map(|_| ()).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))?
 }
 
 #[tauri::command]

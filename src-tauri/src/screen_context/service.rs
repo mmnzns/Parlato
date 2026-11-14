@@ -82,19 +82,29 @@ pub fn capture_and_ocr(app: &AppHandle) -> Result<Option<String>> {
     }
 
     let result = (|| -> Result<String> {
-        // Parlato : no OCR on macOS yet (Phase 4); stop before the capture so
-        // macOS does not ask for Screen Recording for nothing.
+        // Parlato : on macOS, stop before the capture when Screen Recording
+        // is not allowed, so a capture never raises the system prompt by
+        // surprise (the Permissions page asks for it explicitly).
         #[cfg(target_os = "macos")]
-        return Err(anyhow!("screen context is not available on macOS yet"));
-        #[allow(unreachable_code)]
+        if !crate::commands::permissions_macos::screen_recording_allowed() {
+            return Err(anyhow!("screen recording is not allowed"));
+        }
         let active = foreground_window()?;
         let start = Instant::now();
         let cap = capture::capture_foreground(&active)?;
+        // Parlato : on macOS the OCR languages follow the dictation language.
+        #[cfg(target_os = "macos")]
+        let text = ocr::recognize_png_for(
+            &cap.png,
+            crate::transcription::pipeline::get_language(app).as_deref(),
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let text = ocr::recognize_png(&cap.png)?;
         let elapsed = start.elapsed();
         info!(
+            // Parlato : jamais le titre de la fenetre dans les logs (il peut
+            // porter un nom de document, un objet de mail, une URL).
             w_app = %cap.app_name,
-            title = %cap.window_title,
             chars = text.len(),
             ms = elapsed.as_millis() as u64,
             "Screen context OCR"

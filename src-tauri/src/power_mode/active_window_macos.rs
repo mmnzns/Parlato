@@ -1,9 +1,9 @@
 // Active window detection on macOS: the frontmost app via NSWorkspace, in
-// the same shape as active_window.rs. Browsers are not recognised yet, so no
-// URL matching on Mac (Phase 4).
+// the same shape as active_window.rs. Browsers are recognised by bundle
+// identifier so their website can be read (browser_url_macos.rs).
 //
 // Reference VoiceInk : PowerMode/ActiveWindowService.swift
-// (NSWorkspace.frontmostApplication + bundleIdentifier). Phase 4 implements it.
+// (NSWorkspace.frontmostApplication + bundleIdentifier).
 
 use std::path::PathBuf;
 
@@ -44,9 +44,8 @@ pub fn foreground_window() -> Result<ActiveWindow> {
     })
 }
 
-/// Browsers are matched by bundle identifier on macOS. Empty until Phase 4.
-pub const BROWSER_EXES: &[&str] = &[];
-
+/// Browsers are matched by bundle identifier (see `browser_url_macos.rs` for
+/// the list). Firefox and Zen are read through Accessibility.
 pub fn is_browser(active: &ActiveWindow) -> bool {
-    BROWSER_EXES.iter().any(|e| *e == active.exe_name)
+    super::browser_url_macos::is_supported(&active.exe_name)
 }

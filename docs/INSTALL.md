@@ -65,7 +65,7 @@ including **Quit Parlato**.
 ### Updates
 
 Parlato checks for new versions and offers to install them: click
-**Update now**. Updates are signed, and Parlato refuses any update that isn't.
+**Update and restart**. Updates are signed, and Parlato refuses any update that isn't.
 Each version's changes are listed on its
 [release page](https://github.com/mmnzns/Parlato/releases), under
 **What's new**.
@@ -156,18 +156,33 @@ Clicking Parlato in the Dock also brings the window back.
 ### Updates
 
 Parlato checks for new versions and offers to install them: click
-**Update now**. Each version's changes are listed on its
+**Update and restart**. Each version's changes are listed on its
 [release page](https://github.com/mmnzns/Parlato/releases), under
 **What's new**.
 
 ### Not on Mac yet
 
-These work on Windows and are coming to the Mac later:
+This works on Windows and is coming to the Mac later:
 
-- Switching a power mode automatically for a specific website (pairing a
-  mode with an app, the number shortcuts and "Use everywhere else" do work)
-- Letting AI cleanup read the window you're typing in
 - The command-line AI cleanup engine
+
+Two features need an extra permission on the Mac. Parlato only asks when you
+use them:
+
+- **Pairing a power mode with a website.** The first time, macOS asks to let
+  Parlato control your browser ("Parlato wants to control Safari"): click
+  **Allow**. Parlato only reads the address of the open tab, and only the site
+  name is used. It works with Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera
+  and Chromium. Firefox and Zen need no prompt: Parlato reads their address
+  with the Accessibility permission it already has (nothing switches while you
+  type in the address bar). If you clicked **Don't Allow**, switch Parlato on
+  in System Settings > Privacy & Security > Automation (the power mode editor
+  has a button for it).
+- **Letting AI cleanup read the window you're typing in** (Settings > AI
+  cleanup). Needs **Screen Recording**: click **Allow** in Settings >
+  Permissions, switch Parlato on in System Settings > Privacy & Security >
+  Screen Recording, and reopen Parlato when macOS asks. Parlato reads the text
+  on your Mac, only while this option is on, and doesn't keep the picture.
 
 
 ---

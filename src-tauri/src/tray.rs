@@ -34,18 +34,22 @@
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, Wry,
+    AppHandle, Emitter, Listener, Manager, Wry,
 };
 use tracing::{info, warn};
 
 use crate::audio;
 use crate::commands::{hotkey as hotkey_cfg, permissions, settings};
 use crate::history::last_transcription;
-use crate::hotkeys::keyboard_hook::{trigger_label, vk_name, HotkeyOption, HotkeyTrigger};
+use crate::hotkeys::keyboard_hook::{
+    trigger_label, vk_name, HotkeyOption, HotkeyTrigger, Side, Sides,
+};
 use crate::power_mode;
 use crate::transcription::engine;
 
 const TRAY_ID: &str = "main";
+/// Dictations listed in the tray "Recent" submenu.
+const RECENT_COUNT: usize = 3;
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_menu(app)?;
@@ -85,7 +89,30 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
+    // Parlato : the "Recent" submenu follows History. The pipeline, the
+    // History screen and the cleanup already emit these events.
+    for event in ["history:created", "history:updated", "history:cleaned"] {
+        let handle = app.clone();
+        app.listen(event, move |_| refresh_soon(&handle));
+    }
+
     Ok(())
+}
+
+/// Parlato : a dictation emits several history events within a second;
+/// rebuild the menu once, a moment after the first.
+fn refresh_soon(app: &AppHandle) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static PENDING: AtomicBool = AtomicBool::new(false);
+    if PENDING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        PENDING.store(false, Ordering::SeqCst);
+        refresh(&app);
+    });
 }
 
 /// Rebuilds the tray menu from the current state. Safe to call from any
@@ -262,6 +289,27 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         true,
         None::<&str>,
     )?;
+    // -- Recent dictations (Parlato) : the last three, click to copy -----------
+    let recent_menu = Submenu::with_id(app, "recent_menu", t("recent"), true)?;
+    let recent = last_transcription::recent_for_menu(app, RECENT_COUNT);
+    if recent.is_empty() {
+        recent_menu.append(&MenuItem::with_id(
+            app,
+            "recent_none",
+            t("recentNone"),
+            false,
+            None::<&str>,
+        )?)?;
+    }
+    for (id, label) in &recent {
+        recent_menu.append(&MenuItem::with_id(
+            app,
+            format!("recent:{id}"),
+            label,
+            true,
+            None::<&str>,
+        )?)?;
+    }
     let launch_at_login = CheckMenuItem::with_id(
         app,
         "launch_at_login",
@@ -294,6 +342,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &mode_menu,
             &audio_menu,
             &sep2,
+            &recent_menu,
             &retry,
             &copy_last,
             &history,
@@ -323,7 +372,9 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         }
         "quit" => app.exit(0),
         other => {
-            if let Some(mode_id) = other.strip_prefix("mode:") {
+            if let Some(record_id) = other.strip_prefix("recent:") {
+                report(app, "copy", last_transcription::copy_record(app, record_id));
+            } else if let Some(mode_id) = other.strip_prefix("mode:") {
                 select_mode(app, mode_id);
             } else if let Some(device) = other.strip_prefix("device:") {
                 select_device(app, device);
@@ -411,6 +462,36 @@ fn shortcut_label(lang: &str, trigger: HotkeyTrigger) -> Option<String> {
         return trigger_label(trigger);
     }
     let t = |key: &str| tr(lang, key);
+    // Parlato 0.16: name of one modifier of a chord, with its side when the
+    // trigger asks for one ("Ctrl gauche").
+    let modifier = |kind: usize, side: Side| -> String {
+        t(match (kind, side) {
+            (0, Side::Left) => "key.leftCtrl",
+            (0, Side::Right) => "key.rightCtrl",
+            (0, _) => "key.ctrl",
+            (1, Side::Left) => "key.leftAlt",
+            (1, Side::Right) => "key.rightAlt",
+            (1, _) => "key.alt",
+            (2, Side::Left) => "key.leftShift",
+            (2, Side::Right) => "key.rightShift",
+            (2, _) => "key.shift",
+            (_, Side::Left) => "key.leftWin",
+            (_, Side::Right) => "key.rightWin",
+            (_, _) => "key.win",
+        })
+    };
+    let chord = |required: [bool; 4], sides: Sides| -> Vec<String> {
+        let side_of = |k: usize| match k {
+            0 => sides.ctrl,
+            1 => sides.alt,
+            2 => sides.shift,
+            _ => sides.win,
+        };
+        (0..4)
+            .filter(|k| required[*k])
+            .map(|k| modifier(k, side_of(k)))
+            .collect()
+    };
     match trigger {
         HotkeyTrigger::None => None,
         HotkeyTrigger::Modifier { option } => Some(t(match option {
@@ -422,6 +503,10 @@ fn shortcut_label(lang: &str, trigger: HotkeyTrigger) -> Option<String> {
             HotkeyOption::RightWin => "key.rightWin",
             HotkeyOption::RightShift => "key.rightShift",
             HotkeyOption::LeftShift => "key.leftShift",
+            HotkeyOption::LeftWin => "key.leftWin",
+            HotkeyOption::CapsLock => "key.capsLock",
+            HotkeyOption::Menu => "key.menu",
+            HotkeyOption::Fn => "key.fn",
         })),
         HotkeyTrigger::Combo {
             vk,
@@ -429,38 +514,63 @@ fn shortcut_label(lang: &str, trigger: HotkeyTrigger) -> Option<String> {
             alt,
             shift,
             win,
+            sides,
         } => {
-            let mut parts: Vec<String> = Vec::new();
-            for (on, key) in [
-                (ctrl, "key.ctrl"),
-                (alt, "key.alt"),
-                (shift, "key.shift"),
-                (win, "key.win"),
-            ] {
-                if on {
-                    parts.push(t(key));
-                }
-            }
-            parts.push(match vk {
-                0x08 => t("key.backspace"),
-                0x0d => t("key.enter"),
-                0x1b => t("key.esc"),
-                0x20 => t("key.space"),
-                0x25 => t("key.left"),
-                0x26 => t("key.up"),
-                0x27 => t("key.right"),
-                0x28 => t("key.down"),
-                0x2e => t("key.delete"),
-                // Parlato : touches propres au clavier Mac.
-                #[cfg(target_os = "macos")]
-                0x2d => t("key.help"),
-                #[cfg(target_os = "macos")]
-                0x0c => t("key.clear"),
-                _ => vk_name(vk),
-            });
+            let mut parts = chord([ctrl, alt, shift, win], sides);
+            parts.push(key_name(lang, vk));
             Some(parts.join("+"))
         }
+        HotkeyTrigger::Modifiers {
+            ctrl,
+            alt,
+            shift,
+            win,
+            sides,
+        } => Some(chord([ctrl, alt, shift, win], sides).join("+")),
     }
+}
+
+/// Parlato 0.16: the name of a non-modifier key in the UI language, the same
+/// words as `vkLabel` in HotkeyRecorder.tsx. Letters, digits, F-keys,
+/// symbols and numpad keys are the same in every language (`vk_name`).
+fn key_name(lang: &str, vk: u32) -> String {
+    let key = match vk {
+        0x08 => "key.backspace",
+        0x09 => "key.tab",
+        0x0d => "key.enter",
+        0x13 => "key.pause",
+        0x14 => "key.capsLock",
+        0x1b => "key.esc",
+        0x20 => "key.space",
+        0x21 => "key.pageUp",
+        0x22 => "key.pageDown",
+        0x23 => "key.end",
+        0x24 => "key.home",
+        0x25 => "key.left",
+        0x26 => "key.up",
+        0x27 => "key.right",
+        0x28 => "key.down",
+        0x2c => "key.printScreen",
+        0x2e => "key.delete",
+        0x5d => "key.menu",
+        0x90 => "key.numLock",
+        0x91 => "key.scrollLock",
+        0xad => "key.volumeMute",
+        0xae => "key.volumeDown",
+        0xaf => "key.volumeUp",
+        0xb0 => "key.nextTrack",
+        0xb1 => "key.prevTrack",
+        0xb3 => "key.playPause",
+        // Parlato : touches propres au clavier Mac.
+        #[cfg(target_os = "macos")]
+        0x2d => "key.help",
+        #[cfg(not(target_os = "macos"))]
+        0x2d => "key.insert",
+        #[cfg(target_os = "macos")]
+        0x0c => "key.clear",
+        _ => return vk_name(vk),
+    };
+    tr(lang, key)
 }
 
 /// Native menu labels. Mirrors the `tray.*` keys of the frontend locales
@@ -513,6 +623,16 @@ fn tr(lang: &str, key: &str) -> String {
             "Copiar la \u{fa}ltima transcripci\u{f3}n",
         ],
         "history" => ["History", "Historique", "Historial"],
+        "recent" => [
+            "Recent dictations",
+            "Derni\u{e8}res dict\u{e9}es",
+            "Dictados recientes",
+        ],
+        "recentNone" => [
+            "No dictations yet",
+            "Aucune dict\u{e9}e pour l'instant",
+            "A\u{fa}n no hay dictados",
+        ],
         "launchAtLogin" => [
             "Start with computer",
             "Lancer avec l'ordinateur",
@@ -556,6 +676,10 @@ fn tr(lang: &str, key: &str) -> String {
         #[cfg(not(target_os = "macos"))]
         "key.rightWin" => ["Right Win", "Windows droit", "Windows derecho"],
         #[cfg(not(target_os = "macos"))]
+        "key.leftWin" => ["Left Win", "Windows gauche", "Windows izquierdo"],
+        #[cfg(not(target_os = "macos"))]
+        "key.insert" => ["Insert", "Inser", "Insert"],
+        #[cfg(not(target_os = "macos"))]
         "key.ctrl" => ["Ctrl", "Ctrl", "Ctrl"],
         #[cfg(not(target_os = "macos"))]
         "key.alt" => ["Alt", "Alt", "Alt"],
@@ -578,6 +702,8 @@ fn tr(lang: &str, key: &str) -> String {
         #[cfg(target_os = "macos")]
         "key.rightWin" => ["Right Command", "Commande droite", "Comando derecho"],
         #[cfg(target_os = "macos")]
+        "key.leftWin" => ["Left Command", "Commande gauche", "Comando izquierdo"],
+        #[cfg(target_os = "macos")]
         "key.ctrl" => ["Control", "Contr\u{f4}le", "Control"],
         #[cfg(target_os = "macos")]
         "key.alt" => ["Option", "Option", "Opci\u{f3}n"],
@@ -593,6 +719,24 @@ fn tr(lang: &str, key: &str) -> String {
         "key.help" => ["Help", "Aide", "Ayuda"],
         #[cfg(target_os = "macos")]
         "key.clear" => ["Clear", "Effacer", "Limpiar"],
+        "key.tab" => ["Tab", "Tab", "Tab"],
+        "key.pause" => ["Pause", "Pause", "Pausa"],
+        "key.capsLock" => ["Caps Lock", "Verr Maj", "Bloq May\u{fa}s"],
+        "key.pageUp" => ["Page Up", "Page pr\u{e9}c", "Re P\u{e1}g"],
+        "key.pageDown" => ["Page Down", "Page suiv", "Av P\u{e1}g"],
+        "key.home" => ["Home", "D\u{e9}but", "Inicio"],
+        "key.end" => ["End", "Fin", "Fin"],
+        "key.printScreen" => ["Print Screen", "Impr \u{e9}cran", "Impr Pant"],
+        "key.menu" => ["Menu", "Menu", "Men\u{fa}"],
+        "key.numLock" => ["Num Lock", "Verr Num", "Bloq Num"],
+        "key.scrollLock" => ["Scroll Lock", "Arr\u{ea}t d\u{e9}fil", "Bloq Despl"],
+        "key.volumeMute" => ["Volume Mute", "Muet", "Silenciar"],
+        "key.volumeDown" => ["Volume Down", "Volume -", "Bajar volumen"],
+        "key.volumeUp" => ["Volume Up", "Volume +", "Subir volumen"],
+        "key.nextTrack" => ["Next Track", "Piste suivante", "Pista siguiente"],
+        "key.prevTrack" => ["Previous Track", "Piste pr\u{e9}c\u{e9}dente", "Pista anterior"],
+        "key.playPause" => ["Play/Pause", "Lecture/Pause", "Reproducir/Pausa"],
+        "key.fn" => ["Fn", "Fn", "Fn"],
         "key.rightShift" => ["Right Shift", "Maj droite", "May\u{fa}s derecha"],
         "key.leftShift" => ["Left Shift", "Maj gauche", "May\u{fa}s izquierda"],
         "key.shift" => ["Shift", "Maj", "May\u{fa}s"],
@@ -619,6 +763,7 @@ mod shortcut_label_tests {
             alt: false,
             shift: true,
             win: false,
+            sides: Sides::default(),
         };
         let right_alt = HotkeyTrigger::Modifier {
             option: HotkeyOption::RightAlt,
@@ -654,5 +799,85 @@ mod shortcut_label_tests {
             );
         }
         assert_eq!(shortcut_label("en", HotkeyTrigger::None), None);
+    }
+
+    fn key(vk: u32) -> HotkeyTrigger {
+        HotkeyTrigger::Combo {
+            vk,
+            ctrl: false,
+            alt: false,
+            shift: false,
+            win: false,
+            sides: Sides::default(),
+        }
+    }
+
+    #[test]
+    fn oem_and_special_keys_have_readable_names_in_every_language() {
+        // No "VK_BF" any more: symbols, numpad, Menu, media keys.
+        for lang in ["en", "fr", "es"] {
+            for vk in [0xBAu32, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF, 0xC0, 0xDB, 0xDC, 0xDD, 0xDE, 0xE2, 0x6A, 0x6B, 0x6D, 0x6E, 0x6F, 0x14, 0x5D, 0x13, 0x90, 0x91, 0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB3, 0x09, 0x21, 0x22, 0x23, 0x24, 0x2C] {
+                let label = shortcut_label(lang, key(vk)).unwrap();
+                assert!(!label.contains("VK_"), "{lang} {vk:#x}: {label}");
+            }
+        }
+        assert_eq!(shortcut_label("en", key(0xBF)).as_deref(), Some("/"));
+        assert_eq!(shortcut_label("fr", key(0xBF)).as_deref(), Some("/"));
+        assert_eq!(shortcut_label("en", key(0xE2)).as_deref(), Some("<>"));
+        assert_eq!(shortcut_label("en", key(0x6A)).as_deref(), Some("Num *"));
+        assert_eq!(shortcut_label("en", key(0x14)).as_deref(), Some("Caps Lock"));
+        assert_eq!(shortcut_label("fr", key(0x14)).as_deref(), Some("Verr Maj"));
+        assert_eq!(shortcut_label("es", key(0x14)).as_deref(), Some("Bloq May\u{fa}s"));
+        assert_eq!(shortcut_label("fr", key(0x21)).as_deref(), Some("Page pr\u{e9}c"));
+        assert_eq!(shortcut_label("es", key(0x24)).as_deref(), Some("Inicio"));
+        assert_eq!(shortcut_label("es", key(0x5D)).as_deref(), Some("Men\u{fa}"));
+        // Letters, digits, F-keys are the same everywhere.
+        assert_eq!(shortcut_label("fr", key(0x4B)).as_deref(), Some("K"));
+        assert_eq!(shortcut_label("es", key(0x7C)).as_deref(), Some("F13"));
+    }
+
+    #[test]
+    fn new_single_keys_and_chords_are_named_in_the_ui_language() {
+        let single = |option| HotkeyTrigger::Modifier { option };
+        assert_eq!(shortcut_label("en", single(HotkeyOption::CapsLock)).as_deref(), Some("Caps Lock"));
+        assert_eq!(shortcut_label("fr", single(HotkeyOption::CapsLock)).as_deref(), Some("Verr Maj"));
+        assert_eq!(shortcut_label("es", single(HotkeyOption::Menu)).as_deref(), Some("Men\u{fa}"));
+        assert_eq!(shortcut_label("en", single(HotkeyOption::Fn)).as_deref(), Some("Fn"));
+        let chord = HotkeyTrigger::Modifiers {
+            ctrl: true,
+            alt: false,
+            shift: false,
+            win: true,
+            sides: Sides::default(),
+        };
+        let left_ctrl_k = HotkeyTrigger::Combo {
+            vk: 0x4B,
+            ctrl: true,
+            alt: false,
+            shift: false,
+            win: false,
+            sides: Sides {
+                ctrl: Side::Left,
+                ..Sides::default()
+            },
+        };
+        #[cfg(not(target_os = "macos"))]
+        {
+            assert_eq!(shortcut_label("en", single(HotkeyOption::LeftWin)).as_deref(), Some("Left Win"));
+            assert_eq!(shortcut_label("fr", single(HotkeyOption::LeftWin)).as_deref(), Some("Windows gauche"));
+            assert_eq!(shortcut_label("en", chord).as_deref(), Some("Ctrl+Win"));
+            assert_eq!(shortcut_label("fr", chord).as_deref(), Some("Ctrl+Win"));
+            assert_eq!(shortcut_label("fr", left_ctrl_k).as_deref(), Some("Ctrl gauche+K"));
+            assert_eq!(shortcut_label("es", left_ctrl_k).as_deref(), Some("Ctrl izquierdo+K"));
+            assert_eq!(shortcut_label("en", left_ctrl_k).as_deref(), Some("Left Ctrl+K"));
+        }
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(shortcut_label("en", single(HotkeyOption::LeftWin)).as_deref(), Some("Left Command"));
+            assert_eq!(shortcut_label("en", chord).as_deref(), Some("Control+Command"));
+            assert_eq!(shortcut_label("fr", chord).as_deref(), Some("Contr\u{f4}le+Commande"));
+            assert_eq!(shortcut_label("fr", left_ctrl_k).as_deref(), Some("Contr\u{f4}le gauche+K"));
+            assert_eq!(shortcut_label("en", left_ctrl_k).as_deref(), Some("Left Control+K"));
+        }
     }
 }

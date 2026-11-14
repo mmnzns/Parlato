@@ -8,6 +8,7 @@
 // unchanged from upstream; "Keep my usual" maps to the null values that
 // mean "leave the global setting alone".
 
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
 import { Row, Switch } from "@/components/ui/section";
@@ -30,12 +31,17 @@ export function PowerModePanel() {
     save,
     removeSelected,
     toggleAutoRestore,
+    saveFailure,
   } = usePowerModes();
+
+  // Parlato: the mode whose name field should get the cursor (list menu > Rename).
+  const [renameId, setRenameId] = useState<string | null>(null);
 
   const selected = configs.find((c) => c.id === selectedId) ?? null;
 
   return (
     <>
+      {saveFailure.notice}
       <div className="grid items-start gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
         <ModeList
           configs={configs}
@@ -45,6 +51,16 @@ export function PowerModePanel() {
             setConfirming(false);
           }}
           onCreate={createMode}
+          onDuplicate={(id) => duplicateSelected(id)}
+          onRename={(id) => {
+            setSelectedId(id);
+            setConfirming(false);
+            setRenameId(id);
+          }}
+          onDelete={(id) => {
+            setSelectedId(id);
+            setConfirming(true);
+          }}
         />
 
         <div className="flex min-w-0 flex-col gap-[22px]">
@@ -59,7 +75,9 @@ export function PowerModePanel() {
               onAskDelete={() => setConfirming(true)}
               onCancelDelete={() => setConfirming(false)}
               onDelete={removeSelected}
-              onDuplicate={duplicateSelected}
+              onDuplicate={() => duplicateSelected()}
+              focusName={renameId === selected.id}
+              onNameFocused={() => setRenameId(null)}
             />
           ) : (
             <div className="rounded-lg border-[1.5px] border-dashed border-input bg-card p-8 text-center text-sm text-muted-foreground">

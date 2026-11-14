@@ -14,7 +14,9 @@ use tauri_plugin_store::StoreExt;
 use tokio::task;
 use tracing::{info, warn};
 
-use crate::db::{transcription as history_repo, word_replacement as word_repo, Database};
+use crate::db::{
+    snippet as snippet_repo, transcription as history_repo, word_replacement as word_repo, Database,
+};
 use crate::enhancement::prompt_detection;
 use crate::enhancement::prompts as prompt_store;
 use crate::enhancement::service as llm_service;
@@ -23,14 +25,16 @@ use crate::audio::feedback::{self, Cue};
 use crate::paste::paste_at_cursor;
 use crate::services::api_keys;
 use crate::text_processing::{
-    filler_words, filter as output_filter, formatter as text_formatter,
+    filler_words, filter as output_filter, formatter as text_formatter, snippets, spoken,
     word_replacement as word_replacer,
 };
 use crate::transcription::{
     cloud::{
         catalog::CLOUD_MODELS,
         provider::TranscribeRequest,
-        streaming::{StreamingConfig, StreamingHandle, StreamingRegistry},
+        streaming::{
+            session::FINALIZE_TIMEOUT, StreamingConfig, StreamingHandle, StreamingRegistry,
+        },
         CloudRegistry,
     },
     speech, vad,
@@ -48,6 +52,9 @@ pub const DEFAULT_KEEP_ALIVE_SECS: u64 = 300;
 const RESTORE_CLIPBOARD_KEY: &str = "restore_clipboard_after_paste";
 const APPEND_TRAILING_SPACE_KEY: &str = "append_trailing_space";
 const TEXT_FORMATTING_KEY: &str = "text_formatting_enabled";
+const SPOKEN_COMMANDS_KEY: &str = "spoken_commands_enabled";
+const SPOKEN_PUNCTUATION_KEY: &str = "spoken_punctuation_enabled";
+const REVIEW_BEFORE_PASTE_KEY: &str = "review_before_paste";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -69,6 +76,9 @@ pub struct PipelineEvent {
     /// `dictation`, la page "Transcrire un fichier" que `file`, pour qu'une
     /// dictee pendant un long fichier ne melange pas les deux.
     pub job: Job,
+    /// Parlato : numero de la dictee (0 hors dictee). La bulle ignore les
+    /// evenements d'une dictee plus ancienne que celle qu'elle montre.
+    pub dictation: u64,
 }
 
 /// Parlato : origine d'un passage dans le pipeline.
@@ -93,6 +103,14 @@ pub struct Run {
     /// Generation de la bulle d'une dictee (0 hors dictee), pour le bouton
     /// Annuler de la bulle.
     pub pill: u64,
+    /// Parlato : numero de la dictee (`commands::recording::current_dictation`
+    /// a l'arret ; 0 hors dictee), repris par chaque evenement `pipeline:state`.
+    pub dictation: u64,
+    /// Parlato : session Power Mode de cette dictee, prise a l'arret de
+    /// l'enregistrement. Sert a l'historique (nom du mode), a la touche
+    /// d'envoi et a la restauration de fin de dictee : jamais la session
+    /// "courante", qui peut deja etre celle de la dictee suivante.
+    pub power: Option<crate::power_mode::session::PowerSession>,
 }
 
 /// Parlato : generation de la bulle dont la dictee a ete annulee pendant
@@ -127,7 +145,7 @@ impl Run {
 
 fn emit_state(
     app: &AppHandle,
-    job: Job,
+    run: &Run,
     state: PipelineState,
     message: Option<String>,
     text: Option<String>,
@@ -140,7 +158,8 @@ fn emit_state(
             message,
             text,
             duration_ms,
-            job,
+            job: run.job,
+            dictation: run.dictation,
         },
     );
 }
@@ -176,6 +195,11 @@ impl Activity {
     fn end(&self) -> bool {
         use std::sync::atomic::Ordering::SeqCst;
         self.active.fetch_sub(1, SeqCst).saturating_sub(1) == 0
+    }
+
+    /// Une activite (enregistrement ou passage dans le pipeline) est-elle en cours ?
+    fn busy(&self) -> bool {
+        self.active.load(std::sync::atomic::Ordering::SeqCst) > 0
     }
 
     fn epoch(&self) -> u64 {
@@ -219,6 +243,13 @@ fn end_run(app: &AppHandle) {
             unload_inference_models(&app);
         }
     });
+}
+
+/// Parlato : vrai tant qu'un enregistrement ou une transcription (dictee,
+/// fichier, nouvel essai) est en cours. Sert a refuser une mise a jour qui
+/// couperait le travail en deux.
+pub fn is_busy() -> bool {
+    ACTIVITY.busy()
 }
 
 /// Un enregistrement vient de demarrer : il compte comme activite jusqu'a la
@@ -278,10 +309,15 @@ pub fn insert_pending_streaming_row(
     app: &AppHandle,
     provider: &str,
     model: &str,
+    wav_path: &Path,
 ) -> Option<String> {
     let db = app.try_state::<Database>()?;
+    // Parlato : le WAV enregistre en parallele est rattache des le debut a la
+    // ligne (Reessayer, Transcrire a nouveau, purge de retention). La duree
+    // n'est connue qu'a l'arret (`finish_streaming`).
+    let audio_name = wav_path.file_name().and_then(|s| s.to_str());
     let conn = db.0.lock();
-    match history_repo::insert_pending(&conn, None, None) {
+    match history_repo::insert_pending(&conn, audio_name, None) {
         Ok(id) => {
             drop(conn);
             // Pre-remplit transcription_model_name pour la ligne streaming
@@ -433,6 +469,41 @@ pub fn get_text_formatting_enabled(app: &AppHandle) -> bool {
         .unwrap_or(true)
 }
 
+/// Parlato : "new line", "new paragraph", "scratch that" (text_processing/
+/// spoken.rs). Actif par defaut.
+pub fn get_spoken_commands_enabled(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return true;
+    };
+    store
+        .get(SPOKEN_COMMANDS_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
+}
+
+/// Parlato : "comma", "period", "question mark"... dits a voix haute.
+/// Inactif par defaut (un mot comme "period" se dit aussi dans une phrase).
+pub fn get_spoken_punctuation_enabled(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return false;
+    };
+    store
+        .get(SPOKEN_PUNCTUATION_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+/// Parlato : "Review before pasting" (review.rs). Inactif par defaut.
+pub fn get_review_before_paste(app: &AppHandle) -> bool {
+    let Some(store) = app.store(STORE_FILE).ok() else {
+        return false;
+    };
+    store
+        .get(REVIEW_BEFORE_PASTE_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 pub(crate) fn is_vad_enabled(app: &AppHandle) -> bool {
     let Some(store) = app.store(STORE_FILE).ok() else {
         return false;
@@ -511,16 +582,19 @@ pub async fn start_streaming_session(
 
 /// Finalise une session streaming et applique le post-traitement + paste.
 /// Parlato : si la session echoue (cle refusee, hors ligne, erreur du
-/// fournisseur), l'enregistrement WAV fait en parallele est transcrit en
-/// mode fichier par le meme fournisseur, dans la meme ligne d'historique,
-/// et la dictee se termine toujours par `finish_dictation`.
+/// fournisseur), expire (`FINALIZE_TIMEOUT`) ou rend un texte vide alors que
+/// le WAV contient de la parole, l'enregistrement WAV fait en parallele est
+/// transcrit en mode fichier par le meme fournisseur, dans la meme ligne
+/// d'historique, et la dictee se termine toujours par `finish_dictation`.
 pub fn finish_streaming(
     app: AppHandle,
     handle: StreamingHandle,
     history_id: Option<String>,
     wav_path: PathBuf,
+    power: Option<crate::power_mode::session::PowerSession>,
 ) {
     let pill = mini_recorder::generation();
+    let dictation = crate::commands::recording::current_dictation();
     let released = std::time::Instant::now();
     begin_run();
     recording_finished(&app);
@@ -529,10 +603,43 @@ pub fn finish_streaming(
             job: Job::Dictation,
             history_id,
             pill,
+            dictation,
+            power,
         };
+        // La duree du WAV est connue maintenant que l'enregistrement est fini.
+        if let (Some(id), Some(secs), Some(db)) = (
+            run.history_id.as_deref(),
+            wav_duration_secs(&wav_path),
+            app.try_state::<Database>(),
+        ) {
+            if let Err(e) = history_repo::set_audio_duration(&db.0.lock(), id, secs) {
+                warn!("history set_audio_duration: {e}");
+            }
+        }
         let start = std::time::Instant::now();
-        let result = match handle.finalize().await {
+        let streamed = match handle.finalize_within(FINALIZE_TIMEOUT).await {
             Ok(text) => {
+                let wav = wav_path.clone();
+                let check_text = text.clone();
+                let usable = task::spawn_blocking(move || {
+                    streaming_text_usable(&check_text, || wav_has_speech(&wav))
+                })
+                .await
+                .unwrap_or(true);
+                if usable {
+                    Some(text)
+                } else {
+                    warn!("Streaming vide alors que le WAV contient de la parole, transcription du fichier enregistre");
+                    None
+                }
+            }
+            Err(e) => {
+                warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Streaming echoue, transcription du fichier enregistre");
+                None
+            }
+        };
+        let result = match streamed {
+            Some(text) => {
                 let duration_ms = start.elapsed().as_millis() as u64;
                 info!(chars = text.len(), duration_ms, "Streaming cloud finalise");
                 mark_transcribed_in_history(
@@ -545,24 +652,60 @@ pub fn finish_streaming(
                 );
                 finalize_text(&app, &run, text, duration_ms).await
             }
-            Err(e) => {
-                warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Streaming echoue, transcription du fichier enregistre");
-                run_pipeline(app.clone(), &run, wav_path).await
-            }
+            None => run_pipeline(app.clone(), &run, wav_path).await,
         };
         finish_dictation(&app, &run, result, pill, released).await;
     });
 }
 
+/// Parlato : un texte final de streaming est-il a garder ? Un texte vide n'est
+/// accepte que si le WAV n'a pas de parole (vraie dictee vide) ; sinon la
+/// session a perdu la parole et le fichier est transcrit a la place.
+/// `wav_has_speech` n'est evalue que pour un texte vide.
+fn streaming_text_usable(text: &str, wav_has_speech: impl FnOnce() -> bool) -> bool {
+    !text.trim().is_empty() || !wav_has_speech()
+}
+
+/// Y a-t-il de la parole dans ce WAV (16 kHz mono) ? Faux si illisible.
+fn wav_has_speech(wav: &Path) -> bool {
+    speech::read_wav_as_f32(wav)
+        .map(|s| samples_have_speech(&s))
+        .unwrap_or(false)
+}
+
+/// Energie par trames de 20 ms (16 kHz) : de la parole = au moins 8 trames
+/// (160 ms) au-dessus de -38 dBFS environ. Volontairement simple et bon
+/// marche : sert seulement a decider d'un repli, pas a transcrire.
+fn samples_have_speech(samples: &[f32]) -> bool {
+    const FRAME: usize = 320;
+    const MIN_RMS: f32 = 0.012;
+    const MIN_FRAMES: usize = 8;
+    samples
+        .as_chunks::<FRAME>()
+        .0
+        .iter()
+        .filter(|f| (f.iter().map(|x| x * x).sum::<f32>() / FRAME as f32).sqrt() >= MIN_RMS)
+        .take(MIN_FRAMES)
+        .count()
+        >= MIN_FRAMES
+}
+
 /// Declenche le pipeline complet apres la fin d'un enregistrement : transcribe
 /// puis paste. Emet des evenements pipeline:state vers le frontend.
-pub fn run_after_recording(app: AppHandle, wav_path: PathBuf) {
+pub fn run_after_recording(
+    app: AppHandle,
+    wav_path: PathBuf,
+    power: Option<crate::power_mode::session::PowerSession>,
+) {
     let pill = mini_recorder::generation();
+    let dictation = crate::commands::recording::current_dictation();
     let released = std::time::Instant::now();
     let run = Run {
         job: Job::Dictation,
         history_id: insert_pending_row(&app, Some(&wav_path)),
         pill,
+        dictation,
+        power,
     };
     begin_run();
     // Le passage prend le relais de l'enregistrement (jamais de trou entre
@@ -600,11 +743,13 @@ async fn finish_dictation(
     if let Err(e) = result {
         warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Pipeline echec");
         mark_failed(app, run, &e.to_string());
+        // Parlato : le meme code court que l'historique, que la bulle traduit
+        // (jamais le texte brut du fournisseur).
         emit_state(
             app,
-            Job::Dictation,
+            run,
             PipelineState::Failed,
-            Some(e.to_string()),
+            Some(crate::transcription::error_code::storable_error_code(&e.to_string())),
             None,
             None,
         );
@@ -617,9 +762,13 @@ async fn finish_dictation(
     // auto_restore est active (reference VoiceInk
     // PowerModeSessionManager.endSession). Faite tout de suite, avant
     // l'attente, pour ne pas toucher la session d'une dictee suivante.
-    crate::power_mode::session::end_session(app);
-    let _ = app.emit("power_mode:active", serde_json::Value::Null);
-    crate::tray::refresh(app);
+    // Parlato : seulement la session de CETTE dictee (voir `Run::power`).
+    // Parlato : l'evenement et le tray ne bougent que si une session a
+    // vraiment pris fin (sinon une dictee plus recente garde son mode affiche).
+    if run.power.as_ref().is_some_and(|p| crate::power_mode::session::end_session(app, p.id)) {
+        let _ = app.emit("power_mode:active", serde_json::Value::Null);
+        crate::tray::refresh(app);
+    }
     // VoiceInk ferme la bulle juste apres le paste ; 200 ms de marge pour
     // les derniers evenements, plus le temps de lire un echec.
     let delay = if matches!(result_kind, Some(Outcome::Cancelled)) {
@@ -636,8 +785,14 @@ async fn finish_dictation(
     crate::notice::flush_after_dictation(app);
 }
 
-/// Duree d'affichage d'un echec dans la bulle.
-const FAILED_PILL_MS: u64 = 3500;
+/// Parlato : code montre quand seule la copie dans le presse-papiers echoue.
+/// Code dedie (`errors.copyFailed` dans `translateError.ts`) : la
+/// transcription a reussi et le texte est dans l'historique.
+const COPY_FAILED_CODE: &str = "PARLA_ERR:copyFailed";
+
+/// Duree d'affichage d'un echec dans la bulle (assez pour lire et pour
+/// cliquer "Fix it").
+const FAILED_PILL_MS: u64 = 6000;
 /// Duree d'affichage de "Rien entendu" (dictee sans parole).
 const EMPTY_PILL_MS: u64 = 1500;
 
@@ -651,6 +806,13 @@ pub enum Outcome {
     NotPasted,
     /// Annule depuis la bulle pendant le traitement : rien n'est colle.
     Cancelled,
+    /// Parlato : le texte attend dans l'editeur "Review before pasting"
+    /// (review.rs) ; c'est lui qui colle, ou non.
+    Review,
+    /// Parlato : transcription reussie (la ligne d'historique reste
+    /// "transcrite") mais la copie dans le presse-papiers a echoue (Reessayer,
+    /// Transcrire un fichier).
+    CopyFailed,
 }
 
 /// Retranscrit un fichier audio existant (dernier enregistrement) avec la
@@ -675,11 +837,24 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
         job,
         history_id: insert_pending_row(&app, Some(&wav_path)),
         pill: 0,
+        dictation: 0,
+        power: None,
     };
     begin_run();
     tauri::async_runtime::spawn(async move {
         let result = run_pipeline(app.clone(), &run, wav_path).await;
         match result {
+            // Parlato : seule la copie a echoue. La ligne d'historique reste
+            // "transcrite" (pas de mark_failed) ; l'echec est dit a la
+            // personne (finalize_text a deja emis l'etat "failed").
+            Ok(Outcome::CopyFailed) => {
+                if job == Job::Retry {
+                    crate::notice::send(
+                        &app,
+                        crate::notice::Notice::Failed(COPY_FAILED_CODE.to_string()),
+                    );
+                }
+            }
             Ok(_) => {
                 if job == Job::Retry {
                     crate::notice::send(&app, crate::notice::Notice::RetryDone);
@@ -688,17 +863,12 @@ fn spawn_copy_only(app: AppHandle, wav_path: PathBuf, job: Job) {
             Err(e) => {
                 warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Retry pipeline echec");
                 mark_failed(&app, &run, &e.to_string());
+                // Parlato : code court traduisible, pas le texte du fournisseur.
+                let code = crate::transcription::error_code::storable_error_code(&e.to_string());
                 if job == Job::Retry {
-                    crate::notice::send(&app, crate::notice::Notice::Failed(e.to_string()));
+                    crate::notice::send(&app, crate::notice::Notice::Failed(code.clone()));
                 }
-                emit_state(
-                    &app,
-                    job,
-                    PipelineState::Failed,
-                    Some(e.to_string()),
-                    None,
-                    None,
-                );
+                emit_state(&app, &run, PipelineState::Failed, Some(code), None, None);
             }
         }
         end_run(&app);
@@ -824,7 +994,7 @@ async fn run_pipeline(app: AppHandle, run: &Run, wav_path: PathBuf) -> Result<Ou
     };
     emit_state(
         &app,
-        run.job,
+        run,
         PipelineState::Transcribing,
         Some(format!("Transcription {source_label}")),
         None,
@@ -1020,7 +1190,9 @@ fn mark_transcribed_in_history(
     let Some(db) = app.try_state::<Database>() else {
         return;
     };
-    let session = crate::power_mode::session::current(app);
+    // Parlato : le mode de CETTE dictee, pas la session courante au moment de
+    // la fin de la transcription (une dictee plus recente peut l'avoir changee).
+    let session = run.power.as_ref();
     let fields = history_repo::TranscribeFields {
         text,
         transcription_duration_sec: duration_ms as f64 / 1000.0,
@@ -1069,6 +1241,11 @@ fn mark_enhanced_in_history(app: &AppHandle, run: &Run, enhanced: &str, enhance_
 /// Post-traitement + paste commun aux branches locale et cloud.
 /// Ordre VoiceInk TranscriptionPipeline.swift L67-100 :
 ///   filter -> trim -> formatter (si active) -> word_replacement -> paste.
+/// Parlato : la ponctuation parlee passe entre le filtre et le formateur (le
+/// formateur coupe aux fins de phrase, et le filtre retire les parentheses),
+/// les commandes vocales apres le formateur (le filtre et le formateur
+/// ecrasent les sauts de ligne), puis les mots du dictionnaire, puis le
+/// nettoyage IA et le collage.
 async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u64) -> Result<Outcome> {
     let delivery = run.delivery();
     if run.cancelled() {
@@ -1080,9 +1257,18 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         Vec::new()
     };
     let mut text = output_filter::filter(&text, &fillers);
+    let language = get_language(app);
+
+    if get_spoken_punctuation_enabled(app) {
+        text = spoken::apply(&text, language.as_deref(), spoken::Group::Punctuation);
+    }
 
     if get_text_formatting_enabled(app) {
         text = text_formatter::format(&text);
+    }
+
+    if get_spoken_commands_enabled(app) {
+        text = spoken::apply(&text, language.as_deref(), spoken::Group::Commands);
     }
 
     if let Some(db) = app.try_state::<Database>() {
@@ -1095,11 +1281,36 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         }
     }
 
+    // Parlato : extraits (voir text_processing/snippets.rs). Apres le
+    // dictionnaire pour que rien ne retouche leur texte. Dictee entiere =
+    // declencheur : le texte de l'extrait seul, sans nettoyage IA. Sinon des
+    // marqueurs tiennent leur place pendant le nettoyage.
+    let mut whole_snippet = false;
+    let mut snippet_slots: Vec<snippets::Slot> = Vec::new();
+    if let Some(db) = app.try_state::<Database>() {
+        match snippet_repo::list_enabled(&db.0.lock()) {
+            Ok(list) if !list.is_empty() => match snippets::apply(&text, &list) {
+                snippets::Applied::Unchanged => {}
+                snippets::Applied::Whole(content) => {
+                    text = content;
+                    whole_snippet = true;
+                }
+                snippets::Applied::Marked { text: marked, slots } => {
+                    text = marked;
+                    snippet_slots = slots;
+                }
+            },
+            Ok(_) => {}
+            Err(e) => warn!("Lecture snippets: {e}"),
+        }
+    }
+    let mut snippets_pending = !snippet_slots.is_empty();
+
     if text.trim().is_empty() {
         warn!("Transcription vide, on saute le paste");
         emit_state(
             app,
-            run.job,
+            run,
             PipelineState::Done,
             Some("Aucun texte detecte".into()),
             Some(String::new()),
@@ -1111,17 +1322,23 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // prompt-detect : cherche un trigger_word dans le texte qui activerait
     // un prompt specifique (VoiceInk PromptDetectionService). Si match, on
     // force l'enhancement ON avec ce prompt et on strip le trigger du texte.
-    let detection = match prompt_store::load_cached(app) {
-        Ok(all) => prompt_detection::detect_and_strip(&all, &text),
-        Err(e) => {
-            warn!("prompt-detect: load prompts echec: {e}");
-            None
+    let detection = if whole_snippet {
+        // The snippet's own text is never searched for a trigger word.
+        None
+    } else {
+        match prompt_store::load_cached(app) {
+            Ok(all) => prompt_detection::detect_and_strip(&all, &text),
+            Err(e) => {
+                warn!("prompt-detect: load prompts echec: {e}");
+                None
+            }
         }
     };
 
     let prompt_override = if let Some(ref d) = detection {
+        // Parlato : jamais le mot declencheur dans les logs (il peut etre
+        // dicte), seulement l'id du prompt.
         info!(
-            trigger = %d.trigger_word,
             prompt_id = %d.prompt_id,
             "trigger_word detecte, enhancement force avec prompt specifique"
         );
@@ -1136,7 +1353,10 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     // Enhancement LLM optionnel (VoiceInk TranscriptionPipeline.swift L119-150).
     // Si active et configure, remplace le texte avant paste. En cas d'echec,
     // on preserve le texte brut (fallback VoiceInk).
-    let should_enhance = if prompt_override.is_some() {
+    let should_enhance = if whole_snippet {
+        // A snippet is inserted as saved: nothing to clean up.
+        false
+    } else if prompt_override.is_some() {
         // Trigger detecte : VoiceInk force l'enhancement ON meme si le
         // toggle global est off. On exige juste un provider configure.
         llm_service::has_provider_configured(app)
@@ -1144,10 +1364,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         llm_service::is_configured(app) && !llm_service::should_skip_short(app, &text)
     };
 
+    // Parlato : le nettoyage IA est-il voulu sans avoir tourne ? Alors le texte
+    // brut est colle et la personne le saura (`Notice::AiSkipped`, apres la
+    // dictee). Un texte trop court pour le seuil est un choix, pas un echec.
+    let cleanup_wanted =
+        !whole_snippet && (prompt_override.is_some() || prompt_store::is_enhancement_enabled(app));
+    let mut ai_skipped = false;
     if should_enhance {
         emit_state(
             app,
-            run.job,
+            run,
             PipelineState::Enhancing,
             Some("Enhancement LLM".into()),
             Some(text.clone()),
@@ -1155,14 +1381,30 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         );
         match llm_service::enhance_with_override(app.clone(), text.clone(), prompt_override).await {
             Ok(Some((enhanced, enhance_ms))) => {
-                if !enhanced.trim().is_empty() {
-                    mark_enhanced_in_history(app, run, &enhanced, enhance_ms);
-                    text = enhanced;
+                if enhanced.trim().is_empty() {
+                    ai_skipped = true;
+                } else if let Some(restored) = snippets::restore(&enhanced, &snippet_slots) {
+                    mark_enhanced_in_history(app, run, &restored, enhance_ms);
+                    text = restored;
+                    snippets_pending = false;
+                } else {
+                    // The AI lost or changed a snippet marker: its text is
+                    // dropped and the uncleaned text (snippets filled in) is used.
+                    warn!("nettoyage IA ecarte : un marqueur d'extrait a disparu");
+                    ai_skipped = true;
                 }
             }
-            Ok(None) => {}
-            Err(e) => warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Enhancement LLM echec, fallback texte brut"),
+            Ok(None) => ai_skipped = true,
+            Err(e) => {
+                warn!(code = %crate::transcription::error_code::storable_error_code(&e.to_string()), "Enhancement LLM echec, fallback texte brut");
+                ai_skipped = true;
+            }
         }
+    } else if cleanup_wanted && !llm_service::has_provider_configured(app) {
+        ai_skipped = true;
+    }
+    if snippets_pending {
+        text = snippets::fill_all(&text, &snippet_slots);
     }
     // Parlato : repli carte graphique -> processeur de l'IA locale, a dire une
     // fois dans la bulle, une fois la dictee finie.
@@ -1177,9 +1419,24 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         return Ok(Outcome::Cancelled);
     }
 
+    // Parlato : "Review before pasting" : une dictee au raccourci attend dans
+    // l'editeur au lieu d'etre collee. Le texte est deja dans l'historique ;
+    // la fin de la dictee (bulle, modeles, Power mode) se passe comme d'habitude.
+    if delivery == Delivery::Paste && get_review_before_paste(app) {
+        let send = crate::power_mode::session::auto_send_key(app, run.power.as_ref());
+        emit_state(app, run, PipelineState::Done, None, Some(text.clone()), Some(duration_ms));
+        // The editor shows the uncleaned text: say so (the pill notice appears
+        // after the dictation ends and never takes the keyboard from the editor).
+        if ai_skipped && run.job == Job::Dictation {
+            crate::notice::ai_skipped_after_dictation();
+        }
+        crate::review::open(app, text, run.history_id.clone(), send);
+        return Ok(Outcome::Review);
+    }
+
     emit_state(
         app,
-        run.job,
+        run,
         PipelineState::Pasting,
         None,
         Some(text.clone()),
@@ -1189,9 +1446,23 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
     if delivery == Delivery::CopyOnly {
         // Retry : presse-papiers uniquement, texte brut sans espace final.
         let copy_text = text.clone();
-        task::spawn_blocking(move || crate::paste::copy_to_clipboard(&copy_text))
+        let copied = task::spawn_blocking(move || crate::paste::copy_to_clipboard(&copy_text))
             .await
-            .map_err(|e| anyhow!("task join: {e}"))??;
+            .map_err(|e| anyhow!("task join: {e}"))?;
+        // Parlato : seule la copie a echoue. La transcription est reussie et
+        // la ligne d'historique la garde ; on le dit sans la marquer en echec.
+        if let Err(e) = copied {
+            warn!("copy to clipboard: {e}");
+            emit_state(
+                app,
+                run,
+                PipelineState::Failed,
+                Some(COPY_FAILED_CODE.into()),
+                Some(text),
+                Some(duration_ms),
+            );
+            return Ok(Outcome::CopyFailed);
+        }
     } else {
         let append_space = get_append_trailing_space(app);
         let restore = get_restore_clipboard(app);
@@ -1213,7 +1484,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
             warn!("paste: {e}");
             emit_state(
                 app,
-                run.job,
+                run,
                 PipelineState::Failed,
                 Some("PARLA_ERR:pasteFailed".into()),
                 Some(text),
@@ -1224,7 +1495,7 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         }
 
         // Parlato : touche d'envoi du Power mode actif (Entree...).
-        let send = crate::power_mode::session::auto_send_key(app);
+        let send = crate::power_mode::session::auto_send_key(app, run.power.as_ref());
         if send != crate::paste::AutoSendKey::None {
             match task::spawn_blocking(move || crate::paste::send_after_paste(send)).await {
                 Ok(Err(e)) => warn!("auto-send: {e}"),
@@ -1238,11 +1509,16 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
         // Only reached for non-empty transcriptions (empty text returns earlier),
         // so the cue doubles as a "text inserted" confirmation.
         feedback::play(app, Cue::Stop);
+        // Le texte est colle : maintenant seulement on dit que le nettoyage
+        // IA n'a pas tourne (montre une fois la bulle de dictee fermee).
+        if ai_skipped && run.job == Job::Dictation {
+            crate::notice::ai_skipped_after_dictation();
+        }
     }
 
     emit_state(
         app,
-        run.job,
+        run,
         PipelineState::Done,
         None,
         Some(text),
@@ -1254,6 +1530,19 @@ async fn finalize_text(app: &AppHandle, run: &Run, text: String, duration_ms: u6
 #[cfg(test)]
 mod tests {
     // -- Keep-alive : l'activite ---------------------------------------------
+
+    #[test]
+    fn busy_covers_every_running_activity() {
+        let a = Activity::new();
+        assert!(!a.busy());
+        a.begin(); // recording
+        a.begin(); // a file being transcribed
+        assert!(a.busy());
+        a.end();
+        assert!(a.busy(), "still busy until the last one ends");
+        a.end();
+        assert!(!a.busy());
+    }
 
     #[test]
     fn a_scheduled_unload_waits_for_every_activity() {
@@ -1302,6 +1591,57 @@ mod tests {
     }
 
     use super::*;
+
+    fn tone(secs: f32, amp: f32) -> Vec<f32> {
+        (0..(16_000.0 * secs) as usize)
+            .map(|i| amp * (i as f32 * 0.3).sin())
+            .collect()
+    }
+
+    #[test]
+    fn silence_and_faint_noise_are_not_speech() {
+        assert!(!samples_have_speech(&[]));
+        assert!(!samples_have_speech(&vec![0.0; 16_000]));
+        assert!(!samples_have_speech(&tone(1.0, 0.003)));
+    }
+
+    #[test]
+    fn a_click_is_not_speech_but_a_spoken_second_is() {
+        let mut click = vec![0.0; 16_000];
+        click[1000..1400].iter_mut().for_each(|x| *x = 0.5);
+        assert!(!samples_have_speech(&click));
+        assert!(samples_have_speech(&tone(1.0, 0.2)));
+    }
+
+    #[test]
+    fn an_empty_stream_with_speech_in_the_wav_falls_back_to_the_file() {
+        // Text present: the audio is never looked at.
+        assert!(streaming_text_usable("hello", || panic!("not needed")));
+        // Empty text and a silent WAV: a genuinely empty dictation.
+        assert!(streaming_text_usable("  ", || false));
+        // Empty text but the WAV has speech: use the batch path.
+        assert!(!streaming_text_usable("", || true));
+    }
+
+    #[test]
+    fn wav_has_speech_reads_a_real_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("a.wav");
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 16_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut w = hound::WavWriter::create(&path, spec).unwrap();
+        for x in tone(1.0, 0.3) {
+            w.write_sample((x * i16::MAX as f32) as i16).unwrap();
+        }
+        w.finalize().unwrap();
+        assert!(wav_has_speech(&path));
+        assert!(!wav_has_speech(&dir.path().join("missing.wav")));
+    }
+
 
     /// Smoke test of the shared VAD step in front of Parakeet (counts and
     /// timings only, never the text):

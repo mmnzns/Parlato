@@ -28,8 +28,19 @@ pub fn to_csv(records: &[TranscriptionRecord]) -> String {
     out
 }
 
+/// Parlato : un champ qui commence par `=`, `+`, `-`, `@`, tabulation ou
+/// retour chariot serait lu comme une formule par Excel / Sheets (injection
+/// de formule). On le neutralise avec une apostrophe en tete, puis on cite
+/// le champ selon les regles CSV (virgule, guillemet, \n et \r).
 fn csv_escape(s: &str) -> String {
-    if s.contains(',') || s.contains('"') || s.contains('\n') {
+    let neutralized;
+    let s = if s.starts_with(['=', '+', '-', '@', '\t', '\r']) {
+        neutralized = format!("'{s}");
+        neutralized.as_str()
+    } else {
+        s
+    };
+    if s.contains([',', '"', '\n', '\r']) {
         let escaped = s.replace('"', "\"\"");
         format!("\"{escaped}\"")
     } else {
@@ -42,5 +53,37 @@ fn power_mode_label(r: &TranscriptionRecord) -> String {
         (Some(e), Some(n)) => format!("{e} {n}"),
         (_, Some(n)) => n.clone(),
         _ => String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::csv_escape;
+
+    #[test]
+    fn plain_text_is_untouched() {
+        assert_eq!(csv_escape("hello world"), "hello world");
+        assert_eq!(csv_escape(""), "");
+    }
+
+    #[test]
+    fn quotes_commas_and_every_line_break() {
+        assert_eq!(csv_escape("a,b"), "\"a,b\"");
+        assert_eq!(csv_escape("say \"hi\""), "\"say \"\"hi\"\"\"");
+        assert_eq!(csv_escape("a\nb"), "\"a\nb\"");
+        assert_eq!(csv_escape("a\rb"), "\"a\rb\"");
+    }
+
+    #[test]
+    fn formula_starts_are_neutralized() {
+        assert_eq!(csv_escape("=1+1"), "'=1+1");
+        assert_eq!(csv_escape("+cmd"), "'+cmd");
+        assert_eq!(csv_escape("-5"), "'-5");
+        assert_eq!(csv_escape("@SUM(A1)"), "'@SUM(A1)");
+        assert_eq!(csv_escape("\tx"), "'\tx");
+        assert_eq!(csv_escape("\rx"), "\"'\rx\"");
+        assert_eq!(csv_escape("=HYPERLINK(\"u\",\"v\")"), "\"'=HYPERLINK(\"\"u\"\",\"\"v\"\")\"");
+        // Only a leading character counts.
+        assert_eq!(csv_escape("a=b"), "a=b");
     }
 }

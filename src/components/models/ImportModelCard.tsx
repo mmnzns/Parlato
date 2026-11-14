@@ -9,6 +9,7 @@ import { FolderOpen, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { api } from "@/lib/tauri";
+import { translateError } from "@/lib/translateError";
 
 export function ImportModelCard({
   onImported,
@@ -54,7 +55,7 @@ export function ImportModelCard({
           {t("speech.browse")}
         </Button>
       </div>
-      {error && <p className="text-xs text-destructive">{t("aiModels.import.error", { message: error })}</p>}
+      {error && <p className="text-xs text-destructive">{t("aiModels.import.error", { message: translateError(t, error) })}</p>}
     </div>
   );
 }

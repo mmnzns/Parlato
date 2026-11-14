@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
+import { useSaveFailure } from "@/hooks/useSaveFailure";
 import { selectClass } from "@/components/ui/section";
 import { languageLabel } from "@/lib/languages";
 import { api, type TranscriptionSource } from "@/lib/tauri";
@@ -17,12 +18,14 @@ import { api, type TranscriptionSource } from "@/lib/tauri";
 export function DictationLanguagePanel({
   bare = false,
   onLanguage,
-}: { bare?: boolean; onLanguage?: (code: string) => void } = {}) {
+  id,
+}: { bare?: boolean; onLanguage?: (code: string) => void; id?: string } = {}) {
   const { t, i18n } = useTranslation();
   const ui = i18n.resolvedLanguage;
   const [supportedCodes, setSupportedCodes] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("auto");
   const [activeLabel, setActiveLabel] = useState<string>("");
+  const saveFailure = useSaveFailure();
 
   useEffect(() => {
     onLanguage?.(selected);
@@ -52,7 +55,7 @@ export function DictationLanguagePanel({
       if (codes.length > 0 && !codes.includes(currentLang)) {
         const fallback = codes.includes("auto") ? "auto" : codes[0];
         setSelected(fallback);
-        await api.setDictationLanguage(fallback);
+        await api.setDictationLanguage(fallback).catch(saveFailure.fail);
       } else {
         setSelected(currentLang);
       }
@@ -62,15 +65,18 @@ export function DictationLanguagePanel({
   }
 
   async function change(code: string) {
+    const prev = selected;
+    saveFailure.clear();
     setSelected(code);
     try {
       await api.setDictationLanguage(code);
     } catch (e) {
-      console.error(e);
+      setSelected(prev);
+      saveFailure.fail(e);
     }
   }
 
-  // Pas d'affichage tant qu'on n'a pas de codes (source non configuree).
+  // Pas d'affichage tant qu'on n'a pas de codes (liste pas encore chargee).
   if (supportedCodes.length === 0) return null;
 
   // Tri : "auto" toujours en premier, puis les autres alphabetiquement
@@ -85,7 +91,8 @@ export function DictationLanguagePanel({
   // Parlato: compact labelled select for the Speech model "in use" bar.
   const select = (
     <select
-      aria-label={t("speech.language")}
+      id={id}
+      aria-label={id ? undefined : t("speech.language")}
       value={selected}
       onChange={(e) => change(e.target.value)}
       className={selectClass}
@@ -97,20 +104,45 @@ export function DictationLanguagePanel({
       ))}
     </select>
   );
-  if (bare) return select;
+  const failNote = saveFailure.failed ? (
+    <span role="alert" className="text-xs text-destructive">
+      {t("common.saveFailed")}
+    </span>
+  ) : null;
+  if (bare)
+    return (
+      <>
+        {select}
+        {failNote}
+      </>
+    );
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground" title={t("dictationLanguage.description", { model: activeLabel })}>
         {t("speech.language")}
       </span>
       {select}
+      {failNote}
     </label>
   );
+}
+
+/// Parlato: before any model is chosen (the setup wizard) every language
+/// Whisper knows is offered; the choice is stored as usual and applies once a
+/// model is picked (a model that lacks the language brings it back to "auto").
+async function allLanguageCodes(): Promise<string[]> {
+  const list = await api.listWhisperModels();
+  return list.reduce<string[]>((best, m) => (m.language_codes.length > best.length ? m.language_codes : best), []);
 }
 
 async function resolveSupportedCodes(
   src: TranscriptionSource,
 ): Promise<string[]> {
+  const codes = await modelCodes(src);
+  return codes.length > 0 ? codes : allLanguageCodes();
+}
+
+async function modelCodes(src: TranscriptionSource): Promise<string[]> {
   if (src.kind === "local" && src.whisper_model_id) {
     const list = await api.listWhisperModels();
     return list.find((m) => m.id === src.whisper_model_id)?.language_codes ?? [];

@@ -202,6 +202,17 @@ Windows ARM64 has no Vulkan helper. Because llama.cpp lives in the helper, the
 Vulkan runtime (`vulkan-1.dll`) is only needed by that helper, never by the app
 itself. CUDA stays out of releases.
 
+**Text features (0.16).** Order in `finalize_text` (`transcription/pipeline.rs`): filter -> spoken punctuation ->
+paragraph formatter -> spoken commands -> Dictionary words -> snippets -> AI cleanup -> paste. The filter and the
+formatter flatten newlines and the filter strips brackets, hence the order. `text_processing/spoken.rs` and
+`snippets.rs` are pure and share `phrase.rs` (whole words, case/accent/punctuation-insensitive). Commands: language
+of the dictation plus always English; punctuation: the dictation language only (all three on automatic, minus bare
+"punto"/"coma"/"point"). Snippets: a dictation that is exactly a trigger skips AI cleanup; inside a sentence the
+text is held by `[[snippet-N]]` markers through cleanup, and if the AI drops one its result is discarded. "Review
+before pasting" (`review.rs`, window `recorder-review`) is a separate window from the pill: on the Mac a non-activating
+panel with `set_accepts_key(true)` while open (never call tao's `set_focus` on it, it activates the app); on Windows an
+ordinary window (the pill's `WS_EX_NOACTIVATE` is never set on it). New dictations are refused while it is open.
+
 **Model names and descriptions shown in the UI come from the locale files.**
 The Rust catalogs keep upstream's French `display_name` / `notes`; the UI
 shows `modelText.<id>.name` / `.notes` instead (`src/lib/modelText.ts`, id with
@@ -637,6 +648,12 @@ any Mac work, but their defaults were measured on the PC only. Pull first.
   Windows code paths is not. One exception, with the owner's OK (2026-10-22):
   `audio/mute.rs` was edited for the mute-restore fix (the mute state machine
   only). Capture code stays off-limits.
+- **Exception for release 0.16 (owner's OK, 2026-11-13):** `hotkeys/`, `audio/`
+  (capture included) and `screen_context/` may be changed for the work in
+  `docs/superpowers/plans/2026-11-13-release-0.16.md`, with tests for every
+  behaviour change, Windows paths kept working, and a hand-test list for the
+  owner. After 0.16 ships, the rule above applies again unless the owner says
+  otherwise.
 - **GPU use is allowed, on conditions** (owner decision, 2026-10-22; it
   replaces the old "CPU-only" rule). It must keep one installer per platform
   and the auto-updater, be a user choice with a fallback to the processor,

@@ -15,7 +15,8 @@
 import type { TFunction } from "i18next";
 
 type ErrorMapping = {
-  i18nKey: string;
+  /** The locale key, or a function of the regex groups when it depends on them. */
+  i18nKey: string | ((groups: string[]) => string);
   /** Builds interpolation args from the regex match (g[0] is the whole match,
    *  g[1] the first captured group). */
   args?: (groups: string[], t: TFunction) => Record<string, unknown>;
@@ -31,7 +32,17 @@ export function isCancelled(e: unknown): boolean {
 const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
   [/^PARLA_ERR:noWhisper$/, { i18nKey: "errors.noWhisper" }],
   [/^PARLA_ERR:interrupted$/, { i18nKey: "errors.interrupted" }],
+  [/^PARLA_ERR:historyTextEmpty$/, { i18nKey: "errors.historyTextEmpty" }],
+  [/^PARLA_ERR:historyNotEditable$/, { i18nKey: "errors.historyNotEditable" }],
+  [/^PARLA_ERR:historyItemMissing$/, { i18nKey: "errors.historyItemMissing" }],
+  [/^PARLA_ERR:snippetInvalid$/, { i18nKey: "errors.snippetInvalid" }],
+  [/^PARLA_ERR:snippetExists$/, { i18nKey: "errors.snippetExists" }],
+  [/^PARLA_ERR:snippetMissing$/, { i18nKey: "errors.snippetMissing" }],
+  [/^PARLA_ERR:csvTooBig$/, { i18nKey: "errors.csvTooBig" }],
+  [/^PARLA_ERR:csvNotUtf8$/, { i18nKey: "errors.csvNotUtf8" }],
+  [/^PARLA_ERR:csvEmpty$/, { i18nKey: "errors.csvEmpty" }],
   [/^PARLA_ERR:pasteFailed$/, { i18nKey: "errors.pasteFailed" }],
+  [/^PARLA_ERR:copyFailed$/, { i18nKey: "errors.copyFailed" }],
   [/^PARLA_ERR:apiKeyRejected$/, { i18nKey: "errors.apiKeyRejected" }],
   [/^PARLA_ERR:aiNotConfigured$/, { i18nKey: "errors.aiNotConfigured" }],
   [/^PARLA_ERR:fileUnsupported$/, { i18nKey: "errors.fileUnsupported" }],
@@ -120,10 +131,43 @@ const ERROR_MAP: Array<[RegExp, ErrorMapping]> = [
       args: (g, t) => ({ action: t(`hotkey.additional.actionNames.${g[1]}`) }),
     },
   ],
+  // 0.16: shortcuts the system already uses, and the new key kinds.
+  [
+    /^PARLA_ERR:shortcutSystem:([^:]+):([^:]+)$/,
+    {
+      i18nKey: (g) => `errors.systemShortcut.${g[2]}`,
+      args: (g, t) => ({ action: t(`hotkey.additional.actionNames.${g[1]}`) }),
+    },
+  ],
+  ...(
+    [
+      "shortcutEscNeedsCancel",
+      "shortcutTwoModifiers",
+      "shortcutDictationOnly",
+      "shortcutUnsupported",
+      "shortcutCapsHold",
+    ] as const
+  ).map(
+    (code): [RegExp, ErrorMapping] => [
+      new RegExp(`^PARLA_ERR:${code}:(.+)$`),
+      {
+        i18nKey: `errors.${code}`,
+        args: (g, t) => ({ action: t(`hotkey.additional.actionNames.${g[1]}`) }),
+      },
+    ],
+  ),
   [/^PARLA_ERR:historyEmpty$/, { i18nKey: "errors.historyEmpty" }],
   [/^PARLA_ERR:lastTranscriptionEmpty$/, { i18nKey: "errors.lastTranscriptionEmpty" }],
   [/^PARLA_ERR:audioMissing$/, { i18nKey: "errors.audioMissing" }],
   [/^PARLA_ERR:recordingInProgress$/, { i18nKey: "errors.recordingInProgress" }],
+  // Recording stopped by itself (audio/recorder.rs).
+  [/^PARLA_ERR:micLost$/, { i18nKey: "errors.micLost" }],
+  [/^PARLA_ERR:diskFull$/, { i18nKey: "errors.diskFull" }],
+  // The system refused the microphone when the recording started (audio/recorder.rs,
+  // commands/recording.rs).
+  // A dictation was refused because the review editor is still open (review.rs).
+  [/^PARLA_ERR:reviewOpen$/, { i18nKey: "errors.reviewOpen" }],
+  [/^PARLA_ERR:micPermission$/, { i18nKey: "errors.micPermission" }],
   [/^PARLA_ERR:assemblyaiRealtimeOnly$/, { i18nKey: "errors.assemblyaiRealtimeOnly" }],
 ];
 
@@ -135,7 +179,8 @@ export function translateError(t: TFunction, raw: string | null | undefined): st
     const match = pattern.exec(raw);
     if (!match) continue;
     const args = mapping.args ? mapping.args(match, t) : undefined;
-    return t(mapping.i18nKey, args);
+    const key = typeof mapping.i18nKey === "function" ? mapping.i18nKey(match) : mapping.i18nKey;
+    return t(key, args);
   }
   return raw;
 }

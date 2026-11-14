@@ -12,6 +12,7 @@ import { DashboardPanel } from "@/components/DashboardPanel";
 import { DictionaryPanel } from "@/components/DictionaryPanel";
 import { EnhancementPanel } from "@/components/EnhancementPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { HistoryUnavailableBanner } from "@/components/HistoryUnavailableBanner";
 import { HotkeyCard } from "@/components/HotkeyCard";
 import { AdditionalShortcutsCard } from "@/components/AdditionalShortcutsCard";
 import { ModelsPage } from "@/components/ModelsPage";
@@ -24,8 +25,11 @@ import { MicrophonePanel } from "@/components/MicrophonePanel";
 import { TranscribePanel } from "@/components/TranscribePanel";
 import { UpdateChecker } from "@/components/UpdateChecker";
 import { VadPanel } from "@/components/VadPanel";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { api, type UseGpu } from "@/lib/tauri";
 import "./App.css";
+
+const lowerFirst = (s: string) => s.charAt(0).toLocaleLowerCase() + s.slice(1);
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -34,6 +38,8 @@ function App() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const crumb = useCrumb(view);
+  const setup = useSetupStatus(view);
+  const missing = setup?.missing ?? null;
 
   useEffect(() => {
     // "Use graphics card": the label under the local models follows it. The
@@ -87,9 +93,17 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleSelectModel(id: string | null) {
+  /** Resolves once the choice is saved. If the save fails the screen goes back
+   *  to the previous choice and the error is thrown, so a caller can say so. */
+  async function handleSelectModel(id: string | null): Promise<void> {
+    const prev = selectedModelId;
     setSelectedModelId(id);
-    api.setSelectedWhisperModel(id).catch(console.error);
+    try {
+      await api.setSelectedWhisperModel(id);
+    } catch (e) {
+      setSelectedModelId(prev);
+      throw e;
+    }
   }
 
   if (onboarded === false) {
@@ -105,21 +119,25 @@ function App() {
   return (
     <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
       <Sidebar current={view} onSelect={setView} />
-      <main
-        className="relative min-w-0 flex-1 overflow-auto"
-        style={{ backgroundImage: "var(--dot-grid)", backgroundSize: "18px 18px" }}
-      >
+      <main className="relative min-w-0 flex-1 overflow-auto">
         <UpdateChecker />
         <div
           data-slot="page"
           className="mx-auto flex max-w-[820px] flex-col gap-[22px] px-9 pt-7 pb-12"
         >
+          <HistoryUnavailableBanner />
           {view === "dashboard" && (
             <>
               <CompactHero
                 crumb={crumb}
-                title={t("hero.dashboardTitle")}
-                description={t("hero.dashboardDescription")}
+                title={missing ? t("hero.almostTitle") : t("hero.dashboardTitle")}
+                description={
+                  missing
+                    ? t("hero.almostDescription", {
+                        missing: lowerFirst(t(`setup.${missing}`)),
+                      })
+                    : t("hero.dashboardDescription")
+                }
               />
               <DashboardPanel onNavigate={setView} />
             </>

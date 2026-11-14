@@ -5,6 +5,154 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Spoken commands** (Settings, on by default): say "new line", "new paragraph"
+  or "scratch that" (removes the last sentence you said) while you dictate. In
+  Spanish: "nueva línea", "nuevo párrafo", "borra eso". In French: "nouvelle
+  ligne", "nouveau paragraphe", "efface ça". English phrases always work, plus
+  the ones in your dictation language. They are applied before AI cleanup.
+- **Spoken punctuation** (Settings, off by default): say "comma", "period",
+  "question mark", "open quote" and so on to type the symbol, in English,
+  Spanish and French (your dictation language).
+- **Snippets** on the Dictionary page: say a trigger phrase, get a saved text,
+  several lines if you like. Said alone, only the saved text is inserted (AI
+  cleanup is skipped); said inside a sentence, just those words are replaced and
+  AI cleanup never rewrites the snippet. Import and export as a CSV file
+  (trigger, text).
+- **Review before pasting** (Settings, off by default): the finished text opens
+  in a small editor. Enter pastes it into the app you were in, Shift+Enter adds
+  a line, Esc keeps it in History only. A text you changed is kept in History as
+  your edited version. You can't start a new dictation while the editor is open.
+- **Double-tap to keep recording** (Settings, on by default): with Hold to
+  talk, press the dictation key twice quickly to keep recording without holding
+  it, then press it once more to stop.
+- More choices for the dictation shortcut: two modifier keys alone (for example
+  Ctrl+Win or Ctrl+Alt), Caps Lock, the Menu key and Left Win on Windows, Esc
+  (if you first set a different Cancel recording shortcut), and telling the left
+  and right modifier keys apart. The Fn / Globe key is available on the Mac,
+  with a note that macOS may also use it for emoji or dictation.
+- When a shortcut is already used by the system (for example Win+L, Alt+Tab,
+  Command+Space), Parlato now says so and asks you to pick another, instead of
+  quietly not working.
+- **Pair a power mode with a website** (Mac): the mode switches on when your
+  browser is on that site. The first time, macOS asks to let Parlato read the
+  address from the browser; Parlato only looks at the site name. Works with
+  Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera and Chromium, and also
+  Firefox and Zen, which Parlato reads through the Accessibility permission it
+  already has (no extra prompt). Nothing switches while you type in the address
+  bar.
+- **AI cleanup can read the window you're typing in** (Mac): when that option is
+  on, Parlato reads the text on screen on this Mac and throws the picture away.
+  It needs the Screen Recording permission, shown on the Permissions page.
+- A chart of **words per day or per week** on Home.
+- **Edit a dictation in History**: change its text and keep your original (an
+  "Edited" label and Restore original). After you save, Parlato suggests the
+  words you changed ("Add to Dictionary?"); nothing is added until you click.
+- **Import and export the Dictionary as a CSV file.**
+- **Recent dictations** in the menu of Parlato's tray icon: the last three, click
+  one to copy it.
+- Right-click a power mode (or use its menu) to **Duplicate**, **Rename** or
+  delete it.
+- **OpenRouter as an online speech provider**, with Voxtral Mini Transcribe 3
+  and GPT Transcribe. It uses your existing OpenRouter account key.
+- **Recommended** tags in the setup wizard and on the Speech model page: the
+  wizard asks which language you speak first and tags the matching model. IBM
+  Granite is tagged Recommended for AI cleanup.
+- Models downloading now show in the sidebar ("Downloading…", with a percentage),
+  and a download still shows its progress if you leave the page and come back.
+- When something goes wrong, the recorder pill now has a **Fix it** link that
+  opens the right page (for example Permissions when the microphone is blocked,
+  Microphone & shortcut when it stopped working, or Speech model).
+- A warning when AI cleanup is on but not set up yet, and a link to get
+  a key for online services.
+- A short "AI cleanup didn't run. Pasted as spoken." notice after a dictation
+  when AI cleanup was on but couldn't run.
+- Parlato now asks before removing an account key, and says which model it will
+  switch to.
+- "Couldn't save that. Try again." when a setting can't be saved; the control
+  goes back to its old value instead of looking saved.
+
+### Changed
+- The recorder pill now appears **above full-screen apps** on the Mac, without
+  taking the keyboard from the app you're in.
+- The sidebar and Home now say **Setup needed** or **Almost ready** (naming the
+  one missing step) until dictation really works. "Ready" now means there is a
+  speech model in use, a shortcut, a working microphone and, on the Mac,
+  Accessibility allowed.
+- Setup wizard: the language comes first, **Continue** needs a speech model in
+  use (Skip is still there), the step count follows the steps you actually have,
+  and it no longer ends with no model. A model that finishes downloading becomes
+  the one in use if you had none.
+- **One Delete button per model.** If other apps (Talaan, Ensayo) use the model,
+  it asks whether to **Delete from Parlato** only or **Delete everywhere and free
+  X GB**. This replaces Remove from this computer.
+- Updates: the button now says **Update and restart**. If a dictation or file is
+  still being transcribed, Parlato asks you to wait for it first.
+- Hold to talk with double-tap on: a very quick tap now stops about a third of a
+  second later, because Parlato waits to see if a second tap follows. Starting is
+  never delayed. Turn Double-tap off for the old behavior.
+- The model step and several other places use plainer words: "Speech model"
+  instead of "How Parlato listens", "Writing style" instead of "prompt", "Silence
+  detector" instead of the model's name, "Tap to start, tap to stop" / "Hold to
+  talk" / "Hold or tap" for the shortcut modes, "Power mode" everywhere, and no
+  more VoiceInk, OCR, hook, Silero, enhancement or token jargon. Delete buttons
+  say what they delete (for example "Delete from Parlato only").
+- The French text uses "vous" and the Spanish text uses "tú" throughout, and
+  some screens that were still in English are now translated.
+- Shortcut names (such as Left Command or Fn / Globe) are written the same
+  way in the sidebar, the tray menu and Power modes.
+- Error messages are translated and say what to do, instead of showing raw
+  technical text.
+- The dotted background is gone; the app uses a plain background in light and
+  dark.
+- The Microphone button on the Permissions page only shows when the microphone
+  isn't allowed.
+
+### Fixed
+- The Keep audio recordings menu in Settings shows its choices (After 1 day,
+  After 7 days...) instead of internal names. The Delete old dictations menu
+  had the same problem and is fixed too.
+- On the Mac, Paste last transcription works when its shortcut uses Control,
+  Option or Shift: Parlato now waits for you to let go of the keys before
+  pasting.
+- A transcript is no longer lost if copying it to the clipboard fails: it stays
+  in History with a note ("Couldn't copy to the clipboard. The text is saved in
+  History."), and file transcriptions say the same.
+- If an online model that transcribes while you speak takes longer than 20
+  seconds, fails or returns nothing, Parlato now transcribes the saved recording
+  instead. The recording of those dictations is kept in History too.
+- If the microphone is unplugged or the disk fills up during a recording, Parlato
+  stops, transcribes what it already heard and tells you, instead of carrying on
+  with silence.
+- When the microphone is blocked in your computer's privacy settings, the pill
+  now says so, and Fix it opens the Permissions page.
+- If Parlato quit or crashed during a dictation using a power mode, your own
+  settings are restored the next time it starts, instead of staying changed.
+- A slow Bluetooth microphone no longer freezes Parlato while it connects.
+- A transcript already saved in History is no longer overwritten by a later
+  failure. Old recordings are never cleaned up while one is being recorded.
+- If History can't be opened, Parlato says so instead of silently not saving.
+- Reading your account keys from the Keychain no longer holds up other keys.
+- Logs no longer contain window titles, web addresses with paths, request
+  details or your trigger words, and the log file now stays small while Parlato
+  runs instead of only at startup.
+- Exporting a CSV file now protects against spreadsheet formulas (text that
+  starts with =, +, - or @ is stored as text).
+- The Privacy dropdowns (for example Keep audio recordings) show their labels
+  instead of internal names.
+- Starting a new dictation right after another no longer shows leftovers from
+  the previous one on the pill, and a late message from an old dictation can't
+  appear on a newer one.
+- On Windows, a window that closed no longer stays remembered as the place to
+  paste.
+
+### Removed
+- Remove from this computer: it is now part of the single Delete button.
+- The note that letting AI read the window you're typing in "is not available on
+  Mac yet".
+
 ## [0.15.1] - 2026-11-03
 
 ### Fixed

@@ -378,10 +378,12 @@ fn handle_turn(
 mod tests {
     use super::*;
 
-    fn collector() -> (
+    type Collected = (
         std::sync::Arc<std::sync::Mutex<Vec<StreamingEvent>>>,
         Box<dyn Fn(StreamingEvent) + Send + Sync>,
-    ) {
+    );
+
+    fn collector() -> Collected {
         let acc = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let acc_clone = acc.clone();
         let cb: Box<dyn Fn(StreamingEvent) + Send + Sync> = Box::new(move |e| {
@@ -396,7 +398,6 @@ mod tests {
             model: "universal-3-5-pro".into(),
             language: Some("fr".into()),
             custom_vocabulary: vec!["Docker".into()],
-            ..Default::default()
         };
         let url = build_streaming_url(&cfg);
         assert!(url.starts_with(

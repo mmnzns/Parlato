@@ -16,6 +16,8 @@ export function ModeEditor({
   onCancelDelete,
   onDelete,
   onDuplicate,
+  focusName,
+  onNameFocused,
 }: {
   config: PowerModeConfig;
   others: PowerModeConfig[];
@@ -26,6 +28,8 @@ export function ModeEditor({
   onCancelDelete: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  focusName?: boolean;
+  onNameFocused?: () => void;
 }) {
   function set<K extends keyof PowerModeConfig>(key: K, value: PowerModeConfig[K]) {
     onChange({ ...c, [key]: value });
@@ -41,6 +45,8 @@ export function ModeEditor({
         onCancelDelete={onCancelDelete}
         onDelete={onDelete}
         onDuplicate={onDuplicate}
+        focusName={focusName}
+        onNameFocused={onNameFocused}
       />
       <StartsSection config={c} others={others} onChange={onChange} set={set} />
       <DoesSection config={c} catalog={catalog} onChange={onChange} set={set} />

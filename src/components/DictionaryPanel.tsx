@@ -10,11 +10,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowRight, Check, Download, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Block, Section, Switch } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { api, type WordReplacement } from "@/lib/tauri";
+import { translateError } from "@/lib/translateError";
+import { SnippetsSection } from "./SnippetsSection";
 
 const inputClass = "h-[34px] min-w-0 rounded-sm border-[1.5px] border-input bg-background px-3 text-sm";
 
@@ -26,16 +28,48 @@ export function DictionaryPanel() {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<WordReplacement[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Parlato: result of the last CSV import or export ("Added 12, skipped 3").
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     refresh();
   }, []);
 
+  async function importCsv() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const res = await api.importDictionaryCsv();
+      setError(null);
+      if (res) setStatus(t("dict.importDone", { added: res.added, skipped: res.skipped }));
+      await refresh();
+    } catch (e) {
+      setError(translateError(t, String(e)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportCsv() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const path = await api.exportDictionaryCsv();
+      setError(null);
+      if (path) setStatus(t("dict.exportDone", { path }));
+    } catch (e) {
+      setError(translateError(t, String(e)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refresh() {
     try {
       setEntries(await api.listWordReplacements());
     } catch (e) {
-      setError(String(e));
+      setError(translateError(t, String(e)));
     }
   }
 
@@ -45,7 +79,7 @@ export function DictionaryPanel() {
       setError(null);
       await refresh();
     } catch (e) {
-      setError(String(e));
+      setError(translateError(t, String(e)));
     }
   }
 
@@ -56,6 +90,10 @@ export function DictionaryPanel() {
     <>
       <WordsSection
         words={words}
+        busy={busy}
+        canExport={entries.length > 0}
+        onImport={importCsv}
+        onExport={exportCsv}
         onAdd={(w) => run(() => api.addWordReplacement({ original_text: w, replacement_text: w }))}
         onRemove={(id) => run(() => api.deleteWordReplacement(id))}
       />
@@ -68,6 +106,12 @@ export function DictionaryPanel() {
         onToggle={(e) => run(() => api.updateWordReplacement({ id: e.id, is_enabled: !e.is_enabled }))}
         onRemove={(id) => run(() => api.deleteWordReplacement(id))}
       />
+      <SnippetsSection />
+      {status && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {status}
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {t("dictionary.errorPrefix", { message: error })}
@@ -79,10 +123,18 @@ export function DictionaryPanel() {
 
 function WordsSection({
   words,
+  busy,
+  canExport,
+  onImport,
+  onExport,
   onAdd,
   onRemove,
 }: {
   words: WordReplacement[];
+  busy: boolean;
+  canExport: boolean;
+  onImport: () => void;
+  onExport: () => void;
   onAdd: (word: string) => void;
   onRemove: (id: string) => void;
 }) {
@@ -102,7 +154,22 @@ function WordsSection({
   }
 
   return (
-    <Section title={t("dict.wordsTitle")} description={t("dict.wordsDesc")}>
+    <Section
+      title={t("dict.wordsTitle")}
+      description={t("dict.wordsDesc")}
+      action={
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onImport} disabled={busy} title={t("dict.importHint")}>
+            <Upload className="h-3.5 w-3.5" />
+            {t("dict.importCsv")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={onExport} disabled={busy || !canExport}>
+            <Download className="h-3.5 w-3.5" />
+            {t("dict.exportCsv")}
+          </Button>
+        </div>
+      }
+    >
       <Block className="flex flex-wrap items-center gap-2">
         {words.map((w) => (
           <span

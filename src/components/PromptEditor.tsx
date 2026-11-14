@@ -25,6 +25,7 @@ import { api, type CustomPrompt } from "@/lib/tauri";
 import { promptDescription, promptTitle } from "@/lib/promptLabels";
 import { cn } from "@/lib/utils";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { translateError } from "@/lib/translateError";
 
 type Props = {
   prompts: CustomPrompt[];
@@ -97,7 +98,7 @@ export function PromptEditor({ prompts, activeId, onSelect, onChange }: Props) {
       setStatus(t("promptEditor.saved"));
       await onChange();
     } catch (e) {
-      setStatus(t("promptEditor.errorPrefix", { message: String(e) }));
+      setStatus(t("promptEditor.errorPrefix", { message: translateError(t, String(e)) }));
     }
   }
 
@@ -108,7 +109,7 @@ export function PromptEditor({ prompts, activeId, onSelect, onChange }: Props) {
       await api.deletePrompt(p.id);
       await onChange();
     } catch (e) {
-      setStatus(t("promptEditor.errorPrefix", { message: String(e) }));
+      setStatus(t("promptEditor.errorPrefix", { message: translateError(t, String(e)) }));
     }
   }
 

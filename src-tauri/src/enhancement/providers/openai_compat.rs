@@ -121,7 +121,12 @@ pub async fn check_key(url: &str, headers: &[(&str, &str)]) -> Result<()> {
             Ok(())
         }
         Err(e) => {
-            tracing::warn!("verification de cle impossible: {e}");
+            // Parlato : pas le texte de l'erreur (il porte l'URL complete).
+            tracing::warn!(
+                timeout = e.is_timeout(),
+                connect = e.is_connect(),
+                "verification de cle impossible"
+            );
             Ok(())
         }
     }

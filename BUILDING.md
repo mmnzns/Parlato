@@ -7,7 +7,7 @@ This document describes how to build Parla from source on Windows.
 ### Required
 
 - **Windows 10 22H2 or Windows 11**
-- **[Rust](https://rustup.rs/)** stable toolchain (tested with 1.95+)
+- **[Rust](https://rustup.rs/)** toolchain (CI pins 1.99.1; Rust 1.100 breaks ort-sys 2.0.0-rc.13 on Windows, so use 1.99.x there)
 - **[Node.js 20+](https://nodejs.org/)** and `npm`
 - **Microsoft Visual Studio 2022 Build Tools** with the "Desktop development with C++" workload (or Visual Studio Community/Professional/Enterprise)
 - **WebView2 Runtime** (preinstalled on Windows 11, installed automatically by the Parla installer)

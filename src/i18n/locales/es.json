@@ -9,7 +9,8 @@
     "loading": "Cargando...",
     "error": "Error",
     "seconds": "segundos",
-    "errorPrefix": "Error: {{message}}"
+    "errorPrefix": "Error: {{message}}",
+    "saveFailed": "No se pudo guardar. Inténtalo de nuevo."
   },
   "sidebar": {
     "dashboard": "Inicio",
@@ -26,12 +27,14 @@
     "tagline": "voz → texto",
     "navLabel": "Menú principal",
     "statusReady": "Listo",
-    "statusTalk": "para hablar",
-    "statusNoShortcut": "Sin atajo de dictado"
+    "statusSetup": "Falta configurar",
+    "statusTalk": "para hablar"
   },
   "hero": {
     "dashboardTitle": "Listo cuando tú lo estés",
     "dashboardDescription": "Parlato funciona en segundo plano. Usa tu tecla de dictado en cualquier aplicación para empezar a hablar.",
+    "almostTitle": "Casi listo",
+    "almostDescription": "Un paso más: {{missing}}.",
     "transcribeTitle": "Transcribir un archivo",
     "transcribeDescription": "Convierte un archivo de audio o vídeo en texto.",
     "historyTitle": "Historial",
@@ -45,7 +48,7 @@
     "permissionsTitle": "Permisos",
     "permissionsDescription": "Parlato comprueba los accesos del sistema necesarios para funcionar correctamente.",
     "audioTitle": "Micrófono y atajo",
-    "audioDescription": "Qué micrófono usa Parlato y qué tecla inicia el dictado.",
+    "audioDescription": "Qué micrófono usa Parlato, qué tecla inicia el dictado y cómo trata los silencios.",
     "dictionaryTitle": "Diccionario",
     "dictionaryDescription": "Enseña a Parlato nombres y palabras que suele equivocar.",
     "settingsTitle": "Ajustes",
@@ -67,6 +70,7 @@
     "statusMissing": "Sin definir",
     "micDefault": "Micrófono predeterminado",
     "micNone": "No se detectó micrófono",
+    "micBlocked": "No permitido",
     "modeHold": "mantener",
     "modeToggle": "pulsar",
     "modeHybrid": "mantener o pulsar",
@@ -84,11 +88,24 @@
     "recentEmpty": "Nada todavía. Tu primer dictado aparecerá aquí.",
     "copy": "Copiar",
     "copied": "Copiado",
-    "changeShortcut": "Cambiar tu atajo"
+    "changeShortcut": "Cambiar tu atajo",
+    "chartDayTitle": "palabras por día",
+    "chartWeekTitle": "palabras por semana",
+    "chartDays": "Días",
+    "chartWeeks": "Semanas",
+    "chartDayTotal": "{{total}} palabras en los últimos {{n}} días",
+    "chartWeekTotal": "{{total}} palabras en las últimas {{n}} semanas",
+    "chartEmpty": "Tus primeros dictados aparecerán aquí.",
+    "chartDayLabel": "Palabras por día, últimos {{n}} días. {{total}} palabras en total.",
+    "chartWeekLabel": "Palabras por semana, últimas {{n}} semanas. {{total}} palabras en total.",
+    "chartBarDay_one": "{{date}}: {{words}} palabra",
+    "chartBarDay_other": "{{date}}: {{words}} palabras",
+    "chartBarWeek_one": "Semana del {{date}}: {{words}} palabra",
+    "chartBarWeek_other": "Semana del {{date}}: {{words}} palabras"
   },
   "modelPerformance": {
-    "avgEnhancement": "Enhancement promedio",
-    "empty": "Aún no hay datos para este periodo. Ejecuta una transcripción y vuelve.",
+    "avgEnhancement": "Tiempo medio de limpieza con IA",
+    "empty": "Aún no hay datos para este periodo. Haz una transcripción y vuelve.",
     "period": {
       "last7Days": "Últimos 7 días",
       "last30Days": "Últimos 30 días",
@@ -98,15 +115,16 @@
   },
   "updater": {
     "newVersion": "Nueva versión {{version}} disponible",
-    "install": "Instalar",
+    "install": "Actualizar y reiniciar",
     "hide": "Ocultar",
     "downloading": "Descargando{{percent}}...",
-    "installed": "Instalada - reiniciando..."
+    "installed": "Instalada - reiniciando...",
+    "finishFirst": "Espera a que termine tu dictado o tu archivo."
   },
   "settings": {
-    "recorderStyleInfo": "'Mini' muestra una píldora flotante en la parte inferior de la pantalla. 'Notch' desciende desde arriba como la muesca del MacBook Pro.",
+    "recorderStyleInfo": "Mini muestra una pequeña píldora flotante en la parte inferior de la pantalla. La otra opción la muestra en el borde superior.",
     "recorderStyleMini": "Mini (píldora flotante, abajo)",
-    "recorderStyleNotch": "Notch (anclado arriba)",
+    "recorderStyleNotch": "Parte superior de la pantalla",
     "sectionGeneral": "General",
     "sectionDictating": "Mientras dictas",
     "sectionAfterPaste": "Después de pegar",
@@ -136,7 +154,7 @@
     "resumeLabel": "Reanudar el audio tras",
     "resumeHint": "Cuánto esperar antes de reactivar el sonido al terminar el dictado.",
     "recorderPosLabel": "Posición de la grabadora",
-    "recorderPosHint": "Dónde aparece la pequeña barra de grabación.",
+    "recorderPosHint": "Dónde aparece la pequeña píldora del grabador.",
     "formatLabel": "Ordenar párrafos",
     "formatHint": "Añade saltos de línea y mayúsculas a los dictados largos.",
     "spaceLabel": "Añadir un espacio después del texto",
@@ -155,7 +173,15 @@
     "keepAudioFollows": "Se borran junto con el dictado.",
     "retNever": "Nunca",
     "retMinutes": "Tras {{n}} minutos",
+    "retAfter1d": "Tras 1 día",
+    "retAfter7d": "Tras 7 días",
+    "retAfter30d": "Tras 30 días",
+    "retAfter90d": "Tras 90 días",
     "audioForever": "Conservarlas",
+    "audio1d": "Tras 1 día",
+    "audio7d": "Tras 7 días",
+    "audio30d": "Tras 30 días",
+    "audio90d": "Tras 90 días",
     "audioDays": "{{n}} días",
     "versionLabel": "Versión",
     "versionHint": "Parlato {{version}}. Instalar una actualización reinicia Parlato.",
@@ -182,7 +208,7 @@
     "modelLicencesLabel": "Licencias de los modelos",
     "modelLicencesHint": "Los modelos de voz y de IA son creados por otras empresas y tienen sus propias licencias. Parakeet Unified tiene licencia de NVIDIA Corporation bajo la NVIDIA Open Model License.",
     "modelLicencesButton": "Ver avisos",
-    "updateNow": "Actualizar ahora",
+    "updateNow": "Actualizar y reiniciar",
     "installFailed": "No se pudo instalar",
     "logsLabel": "Registro",
     "logsHint": "Si algo falla, adjunta parlato.log a tu reporte. Guarda tiempos y errores, nunca lo que dictas.",
@@ -191,12 +217,18 @@
     "deleteAllHint": "Borra de este ordenador los modelos descargados, el historial y las grabaciones, los ajustes, los registros, el inicio automático y las claves de cuenta guardadas, y luego cierra Parlato. Hazlo antes de quitar la app para no dejar nada.",
     "deleteAllButton": "Borrar todo",
     "deleteAllFailed": "No se pudo terminar la eliminación: {{message}}",
-    "deleteAllConfirm": "¿Borrar todos los datos de Parlato? Se borran todos los modelos descargados, todo el historial con sus grabaciones, tus ajustes, prompts y modos, los registros, el inicio automático y tus claves de cuenta. No se puede deshacer. Parlato se cierra al terminar.",
+    "deleteAllConfirm": "¿Borrar todos los datos de Parlato? Se borran todos los modelos descargados, todo el historial con sus grabaciones, tus ajustes, estilos de escritura y modos Power, los registros, el inicio automático y tus claves de cuenta. No se puede deshacer. Parlato se cierra al terminar.",
     "deleteAllAfterMac": "Para quitar también la app, arrastra luego Parlato desde Aplicaciones a la Papelera.",
     "deleteAllAfterWindows": "Para quitar también la app, desinstala luego Parlato desde Configuración > Aplicaciones.",
     "supportLabel": "Apoyar Parlato",
     "supportHint": "Un café ayuda a firmar Parlato para Windows y Mac, para que nadie tenga que saltarse un aviso de nuevo.",
-    "supportAlt": "Invítame a un café"
+    "supportAlt": "Invítame a un café",
+    "spokenLabel": "Comandos de voz",
+    "spokenHint": "Di «nueva línea», «nuevo párrafo» o «borra eso» (quita la última frase) mientras dictas. Las frases en inglés siempre funcionan, además de las del idioma en que dictas.",
+    "spokenPunctLabel": "Puntuación hablada",
+    "spokenPunctHint": "Di «coma», «punto», «signo de interrogación», etc. para escribir el símbolo. Usa el idioma en que dictas. Desactivado por defecto, porque palabras como «punto» también aparecen en frases normales.",
+    "reviewLabel": "Revisar antes de pegar",
+    "reviewHint": "Tras cada dictado, un pequeño editor muestra el texto. Intro lo pega, Mayús+Intro añade una línea y Esc lo deja solo en el Historial."
   },
   "history": {
     "confirmDeleteCount": "¿Eliminar {{count}} transcripción(es) ?",
@@ -231,20 +263,17 @@
   "parakeet": {
     "downloading": "descargando...",
     "cancelled": "Cancelado",
-    "errorPrefix": "Error: {{message}}",
-    "confirmDelete": "¿Eliminar el modelo Parakeet {{id}}?"
+    "errorPrefix": "Error: {{message}}"
   },
   "llmLocal": {
     "contextSize": "Tamaño del contexto",
-    "maxTokens": "Longitud máxima de la respuesta (tokens)",
+    "maxTokens": "Respuesta más larga (tokens)",
     "imported": "importado",
-    "ctx": "ctx {{count}}",
     "download": "Descargar",
     "cancel": "Cancelar",
     "downloading": "descargando...",
     "cancelled": "Cancelado",
-    "errorPrefix": "Error: {{message}}",
-    "confirmDelete": "¿Eliminar el modelo {{id}} ?"
+    "errorPrefix": "Error: {{message}}"
   },
   "enhancement": {
     "ollamaBaseUrl": "Base URL Ollama",
@@ -282,24 +311,24 @@
     "errorPrefix": "Error: {{message}}"
   },
   "promptEditor": {
-    "fromTemplate": "+ desde plantilla",
-    "newPromptTitle": "Nuevo prompt",
-    "editPromptTitle": "Editar prompt",
-    "predefinedDescription": "Prompt predefinido: se permite modificarlo pero se restaurará si se elimina.",
-    "customDescription": "El prompt personalizado se usará para la mejora LLM de las transcripciones.",
+    "fromTemplate": "+ A partir de un estilo integrado",
+    "newPromptTitle": "Nuevo estilo de escritura",
+    "editPromptTitle": "Editar estilo de escritura",
+    "predefinedDescription": "Estilo integrado. Haz una copia para cambiarlo; los cambios en el original se restablecen.",
+    "customDescription": "Le indica a la IA cómo ordenar lo que dices.",
     "title_field": "Título",
     "description_field": "Descripción",
-    "injectWrapper": "Inyectar en la plantilla Transcription Enhancer",
-    "injectWrapperHelp": "Desmarque para modo asistente directo (el prompt se usa tal cual sin envoltura).",
-    "content": "Contenido del prompt",
-    "triggerWords": "Trigger words (opcional)",
+    "injectWrapper": "Mantener las reglas de limpieza de Parlato",
+    "injectWrapperHelp": "Desactívalo solo si quieres que la IA te responda en lugar de ordenar tus palabras.",
+    "content": "Instrucciones para la IA",
+    "triggerWords": "Palabras clave (opcional)",
     "triggerWordsPlaceholder": "palabras separadas por coma",
-    "triggerWordsHelp": "Activa este prompt automáticamente cuando la transcripción contiene una de estas palabras.",
+    "triggerWordsHelp": "Cambia a este estilo automáticamente cuando digas una de estas palabras.",
     "saved": "guardado",
     "errorPrefix": "Error: {{message}}",
     "duplicateSuffix": "(copia)",
-    "confirmDelete": "¿Eliminar el prompt \"{{name}}\" ?",
-    "newPromptDefaultTitle": "Nuevo prompt"
+    "confirmDelete": "¿Eliminar el estilo de escritura \"{{name}}\"?",
+    "newPromptDefaultTitle": "Nuevo estilo de escritura"
   },
   "recorder": {
     "refresh": "Actualizar"
@@ -307,18 +336,18 @@
   "postProcessing": {
     "fillersLabel": "Muletillas (separadas por coma)",
     "save": "Guardar",
-    "fillersDefault": "Por defecto VoiceInk: uh, um, uhm, umm, uhh, uhhh, hmm, hm, mmm, mm, mh, ehh"
+    "fillersDefault": "Lista por defecto: uh, um, uhm, umm, uhh, uhhh, hmm, hm, mmm, mm, mh, ehh"
   },
   "dictionary": {
     "errorPrefix": "Error: {{message}}"
   },
   "vad": {
     "title": "Detección de voz",
-    "description": "Omite las partes en silencio de una grabación para transcribir solo el habla. Usa el pequeño modelo Silero, como VoiceInk.",
+    "description": "Omite las partes en silencio de una grabación para transcribir solo el habla. Usa un modelo diminuto (menos de 1 MB) que descargas una sola vez.",
     "enableTitle": "Omitir los silencios",
     "enableDesc": "Menos palabras inventadas en los silencios y una transcripción más rápida de las grabaciones largas.",
     "downloadFirst": "Primero descarga el modelo de abajo.",
-    "modelTitle": "Modelo Silero",
+    "modelTitle": "Detector de silencios",
     "notDownloaded": "No descargado (menos de 1 MB).",
     "size": "Descargado, {{size}}",
     "delete": "Eliminar",
@@ -327,23 +356,23 @@
     "errorPrefix": "Error: {{message}}"
   },
   "permissions": {
-    "intro": "Estado actual de los permisos y dependencias del sistema.",
+    "intro": "Lo que Parlato necesita de tu ordenador para funcionar.",
     "refresh": "Actualizar",
     "microphoneTitle": "Micrófono",
     "microphoneDescription": "Necesario para capturar el audio del dictado.",
     "microphoneAction": "Ajustes de Windows",
     "microphoneTip": "Si Parlato no detecta ningún micrófono, abre Ajustes de Windows > Privacidad > Micrófono y permite el acceso a las apps de escritorio. Comprueba también que el micrófono está conectado y seleccionado en Entrada de audio.",
-    "ocrTitle": "OCR Windows.Media.Ocr",
-    "ocrDescription": "Lectura del texto de la ventana activa para la mejora.",
+    "ocrTitle": "Lectura de la pantalla",
+    "ocrDescription": "Permite que la limpieza con IA lea el texto de la ventana donde escribes.",
     "ocrAction": "Idiomas de Windows",
-    "ocrTip": "El OCR usa el paquete de idioma activo en Windows. Añade el idioma que quieras (español, inglés, etc.) en Ajustes de Windows > Hora e idioma > Idioma y después descarga el 'paquete de idioma opcional con OCR'.",
+    "ocrTip": "La lectura de la pantalla usa el paquete de idioma activo en Windows. Añade el idioma que quieras (español, inglés, etc.) en Ajustes de Windows > Hora e idioma > Idioma y después descarga el 'paquete de idioma opcional con OCR'.",
     "autostartTitle": "Auto-inicio",
     "autostartDescription": "Iniciar Parlato al arrancar el ordenador.",
     "autostartActivate": "Activar",
     "autostartDeactivate": "Desactivar",
-    "hotkeyTitle": "Hook global de teclado",
+    "hotkeyTitle": "Escucha del atajo",
     "hotkeyDescription": "Escucha tu atajo en todas las aplicaciones.",
-    "hotkeyTip": "Parlato instala un hook WH_KEYBOARD_LL de bajo nivel que no requiere permisos especiales en Windows. El atajo por defecto es Alt derecho.",
+    "hotkeyTip": "Parlato escucha tu atajo con una función estándar de Windows que no necesita ningún permiso especial. El atajo por defecto es Alt derecho.",
     "audio": {
       "detected_one": "{{count}} entrada de audio detectada",
       "detected_other": "{{count}} entradas de audio detectadas",
@@ -351,8 +380,8 @@
       "hint": "Conecta un micrófono o revisa Configuración > Privacidad > Micrófono."
     },
     "ocr": {
-      "available": "Windows.Media.Ocr disponible",
-      "unavailable": "OCR no disponible",
+      "available": "Lectura de pantalla disponible",
+      "unavailable": "Lectura de pantalla no disponible",
       "hint": "Añade un paquete de idioma OCR en Configuración de Windows > Hora e idioma > Idioma."
     },
     "autostart": {
@@ -362,11 +391,12 @@
       "disabledHint": "Parlato no se iniciará automáticamente con el ordenador."
     },
     "hotkey": {
-      "active": "Hook de teclado activo",
-      "hint": "Atajo por defecto: Right Alt. Configura otro en Ajustes."
+      "active": "Tu atajo funciona en todas las apps",
+      "hint": "El predeterminado es Alt derecho. Puedes cambiarlo en Micrófono y atajo."
     },
     "mac": {
       "allow": "Permitir",
+      "waiting": "Esperando a que actives Parlato…",
       "micAllowed": "Permitido",
       "micNotAsked": "Aún no permitido",
       "micNotAskedHint": "Haz clic en Permitir y luego elige Permitir en el aviso de macOS.",
@@ -377,16 +407,19 @@
       "accessibilityAllowed": "Permitido",
       "accessibilityMissing": "Aún no permitido",
       "accessibilityHint": "Haz clic en Permitir y activa Parlato en Ajustes del Sistema > Privacidad y seguridad > Accesibilidad. Funciona en unos segundos.",
+      "screenAllowed": "Permitido",
+      "screenMissing": "Aún no permitido",
+      "screenHint": "Haz clic en Permitir y activa Parlato en Ajustes del Sistema > Privacidad y seguridad > Grabación de pantalla. macOS te pedirá cerrar y volver a abrir Parlato.",
       "hotkeyNeedsAccess": "Necesita Accesibilidad"
     }
   },
   "miniRecorder": {
     "powerMode": "Modo Power",
-    "noConfigs": "Sin configuración definida. Cree un perfil para que Parlato cambie automáticamente prompt + LLM + fuente según la app activa.",
-    "openPowerMode": "Abrir Modo Power",
+    "noConfigs": "Crea un modo Power para que Parlato cambie tus ajustes automáticamente según la app.",
+    "openPowerMode": "Abrir Modos Power",
     "escapeHint": "Pulsa Esc de nuevo para cancelar",
     "selectMode": "modo",
-    "noModesAvailable": "Sin perfiles disponibles",
+    "noModesAvailable": "Aún no hay modos Power",
     "startRecording": "Iniciar la grabación",
     "stopRecording": "Detener la grabación",
     "processing": "Procesando...",
@@ -399,8 +432,10 @@
       "copied": "Copiado al portapapeles",
       "retryStarted": "Transcribiendo de nuevo...",
       "retryDone": "Listo, copiado al portapapeles",
-      "gpuFallback": "Falló la gráfica, se usó el procesador"
-    }
+      "gpuFallback": "Falló la gráfica, se usó el procesador",
+      "aiSkipped": "La limpieza con IA no se hizo. Se pegó tal como lo dijiste."
+    },
+    "fixIt": "Arreglarlo"
   },
   "errors": {
     "apiKeyMissing": "Clave API ausente para {{provider}}.",
@@ -408,21 +443,25 @@
     "aiNotConfigured": "Primero elige un modelo de limpieza con IA (y añade su clave si es un servicio en línea).",
     "modelNotDownloaded": "El modelo {{model}} aún no está descargado.",
     "noWhisper": "Aún no hay modelo de voz. Abre Modelo de voz y elige uno.",
-    "noParakeet": "Ningún modelo Parakeet seleccionado. Abre Modelo de voz y elige uno.",
-    "parakeetIncomplete": "El modelo Parakeet {{model}} está incompleto. Vuelve a descargarlo desde Modelos IA.",
-    "cloudUnconfigured": "Ningún proveedor de nube o modelo seleccionado. Abre Modelos IA y configura uno.",
+    "noParakeet": "No hay ningún modelo de voz en uso. Abre Modelo de voz y elige uno.",
+    "parakeetIncomplete": "El modelo Parakeet {{model}} está incompleto. Vuelve a descargarlo desde Modelo de voz.",
+    "cloudUnconfigured": "No hay ningún servicio en línea configurado. Abre Modelo de voz, añade tu clave de cuenta y pulsa Usar.",
     "shortcutConflict": "Atajo ya utilizado por {{b}} ({{a}}).",
-    "shortcutReserved": "Alt+número está reservado a los perfiles de Power Mode durante la grabación ({{action}}).",
+    "shortcutReserved": "Alt+número está reservado para cambiar de modo Power durante la grabación ({{action}}).",
     "shortcutNeedsModifier": "Esta tecla necesita un modificador (Ctrl, Alt, Shift o Win) ({{action}}).",
     "historyEmpty": "El historial está vacío.",
     "lastTranscriptionEmpty": "La última transcripción está vacía.",
     "audioMissing": "Falta el archivo de audio de este dictado.",
     "recordingInProgress": "Hay una grabación en curso.",
+    "micLost": "El micrófono dejó de funcionar durante la grabación.",
+    "diskFull": "No se pudo guardar la grabación: el disco está lleno.",
+    "historyUnavailable": "El historial no está disponible ahora mismo. Tus dictados siguen funcionando, pero no se guardarán.",
     "fileUnsupported": "No se puede leer este tipo de archivo. Prueba MP3, WAV, M4A, FLAC, OGG o MP4.",
     "fileNoAudio": "Este archivo no tiene pista de audio o está en silencio.",
     "fileTooLong": "Este archivo dura más de 2 horas. Divídelo en partes más cortas.",
     "interrupted": "Parlato se cerró antes de terminar este dictado. Usa «Transcribir de nuevo» para intentarlo otra vez.",
     "pasteFailed": "No se pudo pegar en esta aplicación. El texto está en el portapapeles, listo para pegar.",
+    "copyFailed": "No se pudo copiar al portapapeles. El texto está guardado en el Historial.",
     "assemblyaiRealtimeOnly": "Universal-3.6 Pro solo admite este idioma en vivo, y la conexión en vivo falló. Para transcribir esta grabación, elige otro idioma u otro modelo.",
     "downloadOffline": "Sin conexión con el servidor de descarga. Revisa tu conexión a internet e inténtalo de nuevo.",
     "downloadRefused": "El servidor de descarga rechazó la solicitud (error {{status}}). Inténtalo más tarde.",
@@ -431,14 +470,60 @@
     "downloadStalled": "La descarga se detuvo. Inténtalo de nuevo: continúa donde se quedó.",
     "downloadFailed": "No se pudo descargar o guardar el modelo. Inténtalo de nuevo.",
     "downloadRunning": "Este modelo ya se está descargando.",
-    "downloadingElsewhere": "Otra aplicación (Talaan o Ensayo) está descargando este modelo ahora. Espera a que termine.",
+    "downloadingElsewhere": "Otra aplicación de este ordenador está descargando este modelo. Espera a que termine.",
     "providerTimeout": "El servicio tardó demasiado en responder. Inténtalo de nuevo.",
     "providerNetwork": "No se pudo contactar con el servicio. Revisa tu conexión a internet e inténtalo de nuevo.",
     "providerHttp": "El servicio rechazó la solicitud (error {{status}}). Revisa tu clave y el modelo, y vuelve a intentarlo.",
     "transcriptionFailed": "La transcripción falló. Usa Transcribir de nuevo para intentarlo otra vez.",
     "cliNotFound": "No se encontró el comando. Revisa la línea de comandos de tu limpieza con IA.",
     "cliFailed": "El comando terminó con un error (código {{code}}). Revisa la línea de comandos de tu limpieza con IA.",
-    "cliEmpty": "El comando no devolvió nada. Revisa la línea de comandos de tu limpieza con IA."
+    "cliEmpty": "El comando no devolvió nada. Revisa la línea de comandos de tu limpieza con IA.",
+    "shortcutEscNeedsCancel": "Esc también sirve para cancelar una grabación. Para usarla en el dictado, primero define otro atajo para Cancelar grabación en Atajos adicionales ({{action}}).",
+    "shortcutTwoModifiers": "Elige dos o más teclas modificadoras a la vez, como Ctrl y Win ({{action}}).",
+    "shortcutDictationOnly": "Esta tecla o combinación solo se puede usar para el dictado ({{action}}).",
+    "shortcutUnsupported": "Esta tecla no se puede usar en este ordenador ({{action}}).",
+    "shortcutCapsHold": "En un Mac, Bloq Mayús solo funciona con una pulsación. Elige \"Pulsar para empezar, pulsar para parar\" o \"Mantener o pulsar\", u otra tecla ({{action}}).",
+    "systemShortcut": {
+      "winL": "Win+L ya bloquea tu ordenador. Elige otro atajo ({{action}}).",
+      "winD": "Win+D ya muestra el escritorio. Elige otro atajo ({{action}}).",
+      "winE": "Win+E ya abre el Explorador de archivos. Elige otro atajo ({{action}}).",
+      "winR": "Win+R ya abre la ventana Ejecutar. Elige otro atajo ({{action}}).",
+      "winI": "Win+I ya abre la Configuración. Elige otro atajo ({{action}}).",
+      "winV": "Win+V ya abre el historial del portapapeles. Elige otro atajo ({{action}}).",
+      "winPeriod": "Win+. ya abre el panel de emojis. Elige otro atajo ({{action}}).",
+      "winTab": "Win+Tab ya abre la Vista de tareas. Elige otro atajo ({{action}}).",
+      "winShiftS": "Win+Shift+S ya hace una captura de pantalla. Elige otro atajo ({{action}}).",
+      "altTab": "Alt+Tab ya cambia entre ventanas. Elige otro atajo ({{action}}).",
+      "altF4": "Alt+F4 ya cierra la ventana actual. Elige otro atajo ({{action}}).",
+      "ctrlAltDel": "Ctrl+Alt+Supr ya abre la pantalla de seguridad de Windows. Elige otro atajo ({{action}}).",
+      "ctrlShiftEsc": "Ctrl+Shift+Esc ya abre el Administrador de tareas. Elige otro atajo ({{action}}).",
+      "ctrlC": "Ctrl+C ya copia en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlV": "Ctrl+V ya pega en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlX": "Ctrl+X ya corta en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlZ": "Ctrl+Z ya deshace en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlY": "Ctrl+Y ya rehace en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlA": "Ctrl+A ya selecciona todo en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "ctrlS": "Ctrl+S ya guarda en todas las aplicaciones. Elige otro atajo ({{action}}).",
+      "cmdSpace": "Comando+Espacio ya abre Spotlight. Elige otro atajo ({{action}}).",
+      "cmdTab": "Comando+Tab ya cambia entre aplicaciones. Elige otro atajo ({{action}}).",
+      "cmdShift3": "Comando+Mayús+3 ya captura toda la pantalla. Elige otro atajo ({{action}}).",
+      "cmdShift4": "Comando+Mayús+4 ya captura una selección de la pantalla. Elige otro atajo ({{action}}).",
+      "cmdShift5": "Comando+Mayús+5 ya abre las herramientas de captura y grabación de pantalla. Elige otro atajo ({{action}}).",
+      "ctrlCmdQ": "Control+Comando+Q ya bloquea la pantalla de tu Mac. Elige otro atajo ({{action}}).",
+      "cmdOptEsc": "Comando+Opción+Esc ya abre Forzar salida. Elige otro atajo ({{action}}).",
+      "cmdShift": "Comando+Mayús forma parte de muchos atajos del Mac (capturas de pantalla, Rehacer y más). Elige otra combinación ({{action}})."
+    },
+    "historyTextEmpty": "El texto no puede estar vacío.",
+    "historyNotEditable": "Solo se pueden editar los dictados terminados.",
+    "historyItemMissing": "Ese dictado ya no está en el historial.",
+    "csvTooBig": "Ese archivo es demasiado grande para una lista del diccionario.",
+    "csvNotUtf8": "Ese archivo no es texto UTF-8. Guárdalo como CSV (UTF-8) e inténtalo de nuevo.",
+    "csvEmpty": "No se encontraron palabras en ese archivo.",
+    "micPermission": "Parlato no tiene permiso para usar el micrófono. Permítelo en los ajustes de privacidad de tu ordenador.",
+    "snippetInvalid": "Un fragmento necesita una frase con al menos una palabra y algo de texto (no demasiado largo).",
+    "snippetExists": "Ya tienes un fragmento con esa frase.",
+    "snippetMissing": "Ese fragmento ya no existe.",
+    "reviewOpen": "Pega o cierra el editor de texto antes de volver a dictar."
   },
   "prompts": {
     "default": {
@@ -447,12 +532,12 @@
     },
     "assistant": {
       "title": "Assistant",
-      "description": "Modo asistente: respuesta directa, sin markdown."
+      "description": "Responde a lo que dices en vez de ordenarlo."
     }
   },
   "hotkey": {
     "resetDefaults": "Restablecer valores predeterminados",
-    "altGrTip": "En teclados AZERTY/QWERTZ, AltGr genera un Right Alt sintético cuando escribes @, #, {, [, etc. Parlato los detecta e ignora automáticamente.",
+    "altGrTip": "En teclados AZERTY y QWERTZ, AltGr cuenta como Alt derecho cuando escribes caracteres como @, #, { o [. Parlato ignora esas pulsaciones automáticamente.",
     "options": {
       "none": "Ninguno (desactivado)",
       "rightAlt": "Alt derecho",
@@ -462,33 +547,40 @@
       "rightWin": "Windows derecho",
       "rightShift": "Mayús derecha",
       "leftShift": "Mayús izquierda",
-      "custom": "Tecla o combinación personalizada..."
+      "custom": "Tecla o combinación personalizada...",
+      "leftWin": "Windows izquierdo",
+      "capsLock": "Bloq Mayús",
+      "menu": "Tecla Menú",
+      "fn": "Tecla Fn / Globo"
     },
     "modes": {
-      "toggle": "Toggle",
-      "pushToTalk": "Push to talk",
-      "hybrid": "Híbrido"
+      "toggle": "Pulsar para empezar, pulsar para parar",
+      "pushToTalk": "Mantener para hablar",
+      "hybrid": "Mantener o pulsar"
     },
     "record": {
       "title": "Grabar una tecla o combinación personalizada",
       "hint": "Pulsa la tecla o combinación que quieras usar (ej. F13, R, Ctrl + Alt + R, Win + Espacio). Esc cancela.",
       "waiting": "Pulsa una tecla o una combinación...",
-      "needsModifier": "En los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se admite para F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Si no, agrega Ctrl, Alt, Shift o Win. Los atajos de dictado aceptan cualquier tecla sola.",
+      "needsModifier": "Para los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se permite para F1-F24, Insert, Delete, Home, End, PageUp/Down, Pause, PrintScreen. Si no, añade Ctrl, Alt, Shift o Win. Los atajos de dictado aceptan cualquier tecla sola.",
       "typesTextWarning": "Esta tecla seguirá escribiendo su carácter, y al pulsarla en cualquier sitio también se iniciará el dictado.",
       "useThisKey": "Usar esta tecla",
       "chooseAnother": "Elegir otra",
-      "macReserved": "Los atajos con Comando pertenecen a macOS y a tus apps (copiar, pegar, salir...). Agrega Control u Opción, ej. Control + Opción + R."
+      "macReserved": "Los atajos con Comando pertenecen a macOS y a tus apps (copiar, pegar, salir...). Agrega Control u Opción, ej. Control + Opción + R.",
+      "hintDictation": "Pulsa la tecla o combinación que quieras usar (p. ej. F13, R, Ctrl + Alt + R). Para dos teclas modificadoras solas, mantén las dos pulsadas a la vez (p. ej. Ctrl + Win) y suéltalas. Aquí Esc puede ser una tecla de dictado, así que cierra esta ventana con Cancelar.",
+      "escWarning": "Esc también sirve para cancelar una grabación y cerrar diálogos. Para usarla en el dictado, primero define otro atajo para Cancelar grabación en Atajos adicionales.",
+      "tellSides": "Distinguir las teclas modificadoras izquierda y derecha"
     },
     "editCombo": "Clic para cambiar la tecla o la combinación",
     "additional": {
       "cardTitle": "Atajos adicionales",
-      "cardDescription": "Atajos globales para la última transcripción y para cancelar una grabación. Sin definir por defecto.",
+      "cardDescription": "Atajos globales para la última transcripción y para cancelar una grabación. No definidos por defecto.",
       "copyLast": "Copiar la última transcripción",
-      "copyLastHint": "Copia la última transcripción (texto mejorado si existe) al portapapeles. También en el menú del icono de Parlato junto al reloj.",
+      "copyLastHint": "Copia la última transcripción (el texto limpiado con IA, si lo hay) al portapapeles. También está en el menú del icono de Parlato junto al reloj.",
       "pasteLast": "Pegar la última transcripción (original)",
-      "pasteLastEnhanced": "Pegar la última transcripción (mejorada)",
+      "pasteLastEnhanced": "Pegar la última transcripción (limpiada con IA)",
       "retryLast": "Reintentar la última transcripción",
-      "retryLastHint": "Vuelve a transcribir la última grabación con el modelo y la mejora actuales, copia el resultado al portapapeles y lo agrega al historial.",
+      "retryLastHint": "Vuelve a transcribir la última grabación con el modelo de voz y la limpieza con IA actuales, copia el resultado al portapapeles y lo añade al historial.",
       "openHistory": "Abrir el historial",
       "cancelRecording": "Cancelar la grabación",
       "cancelHint": "El atajo asignado cancela la grabación. Restablecer vuelve al doble Esc por defecto.",
@@ -503,10 +595,22 @@
         "cancelRecording": "Cancelar la grabación",
         "copyLast": "Copiar la última transcripción",
         "pasteLast": "Pegar la última transcripción (original)",
-        "pasteLastEnhanced": "Pegar la última transcripción (mejorada)",
+        "pasteLastEnhanced": "Pegar la última transcripción (limpiada con IA)",
         "retryLast": "Reintentar la última transcripción",
         "openHistory": "Abrir el historial"
       }
+    },
+    "notes": {
+      "chord": "Mantén las dos teclas pulsadas para hablar. Si pulsas cualquier otra tecla mientras las mantienes, Parlato descarta la grabación, así tus otros atajos siguen funcionando.",
+      "capsLockWindows": "Mientras Bloq Mayús sea tu tecla de dictado, ya no activa ni desactiva las mayúsculas.",
+      "capsLockMac": "En un Mac, esta tecla también activa o desactiva las mayúsculas, y solo funciona con una pulsación, no como Mantener para hablar.",
+      "leftWin": "Los atajos de Windows que empiezan con esta tecla (como Win + E) iniciarán una grabación un instante y la cancelarán. Parlato evita que se abra el menú Inicio.",
+      "menu": "Mientras la tecla Menú sea tu tecla de dictado, ya no abre menús contextuales.",
+      "fn": "macOS también puede usar la tecla Fn para los emojis o el dictado. Puedes cambiarlo en Ajustes del Sistema > Teclado."
+    },
+    "doubleTap": {
+      "title": "Doble pulsación para seguir grabando",
+      "description": "Pulsa la tecla dos veces rápido para seguir grabando sin mantenerla, y púlsala una vez más para parar. Se aplica a Mantener para hablar; los otros modos ya funcionan así."
     }
   },
   "voice": {
@@ -520,6 +624,7 @@
     "test": "Probar micrófono",
     "stopTest": "Detener prueba",
     "hearing": "Te oímos",
+    "listening": "Escuchando…",
     "quiet": "Demasiado bajo",
     "levelHint": "Habla con normalidad. La barra debería llegar más o menos a la mitad. ¿Demasiado bajo? Acércate o elige otro micrófono.",
     "shortcutTitle": "Atajo de dictado",
@@ -530,8 +635,8 @@
     "holdDesc": "Mantén la tecla mientras hablas y suéltala para pegar. Ideal para notas rápidas.",
     "toggleTitle": "Pulsar para empezar, pulsar para parar",
     "toggleDesc": "Manos libres, para dictados largos.",
-    "hybridTitle": "Ambos",
-    "hybridDesc": "Una pulsación corta activa manos libres, mantenerla funciona como mantener para hablar.",
+    "hybridTitle": "Mantener o pulsar",
+    "hybridDesc": "Una pulsación corta activa manos libres, mantenerla funciona como Mantener para hablar. (predeterminado)",
     "secondLabel": "Segundo atajo",
     "secondHint": "Una tecla extra que también inicia el dictado.",
     "add": "Añadir",
@@ -544,6 +649,7 @@
     "filterAi": "Limpiados por IA",
     "filterFailed": "Fallidos",
     "select": "Seleccionar",
+    "selectOne": "Seleccionar este dictado",
     "done": "Listo",
     "selected": "{{count}} seleccionado(s)",
     "noneSelected": "Marca dictados para exportarlos o borrarlos",
@@ -582,12 +688,26 @@
     "again": "Transcribir de nuevo",
     "againHint": "Usa tu modelo de voz y tus ajustes de limpieza IA actuales. El original no cambia.",
     "againStarted": "En curso. La nueva versión aparece arriba.",
-    "noAudio": "La grabación no se conservó."
+    "noAudio": "No se guardó la grabación. Puedes cambiarlo en Ajustes > Privacidad.",
+    "edit": "Editar",
+    "editLabel": "Texto de este dictado",
+    "editSave": "Guardar",
+    "editCancel": "Cancelar",
+    "editHint": "Se conserva tu original.",
+    "editedBadge": "Editado",
+    "restoreOriginal": "Restaurar original",
+    "dictAsk": "¿Añadir al diccionario?",
+    "dictAdd": "Añadir {{word}} al diccionario",
+    "dictAddShort": "Añadir",
+    "dictDismiss": "Descartar {{word}}",
+    "dictDismissShort": "Descartar",
+    "dictAdded": "Se añadió {{word}} al diccionario."
   },
   "ai": {
     "on": "Activado",
     "off": "Desactivado",
-    "offNotice": "La limpieza con IA está desactivada. Ya puedes elegir un modelo y añadir una clave, y luego activarla con el interruptor de arriba.",
+    "offNotice": "La limpieza con IA está desactivada. Descarga un modelo (o añade una clave de cuenta) abajo y actívala con el interruptor de la parte superior de esta página.",
+    "notSetUp": "La limpieza con IA está activada, pero aún no está configurada. Descarga un modelo abajo o añade una clave de cuenta.",
     "tryTitle": "Probar",
     "tryDesc": "Escribe o pega una frase para ver qué hacen con ella el modelo y el estilo elegidos. Funciona aunque la limpieza con IA esté desactivada.",
     "tryPlaceholder": "pues eh creo que deberíamos vernos el martes como a las tres",
@@ -599,7 +719,7 @@
     "localDesc": "Privado y gratis. Funciona sin internet. Sin registrarse.",
     "localEg": "integrado, Ollama",
     "cloudTitle": "Servicio en línea",
-    "cloudDesc": "Mejora opcional. Reescrituras más finas, pero necesitas una cuenta con un proveedor y tu texto se le envía.",
+    "cloudDesc": "Mejora opcional. Reescrituras más finas, pero necesitas una cuenta con un proveedor, la mayoría de los servicios cobran por uso y tu texto se les envía.",
     "cloudEg": "Claude, OpenAI, Gemini, Mistral, Groq y más",
     "engine": "Motor",
     "engineBuiltin": "Integrado (sin instalar nada)",
@@ -612,14 +732,15 @@
     "keyPlaceholder": "Pega tu clave",
     "keyNote": "Guardada de forma segura en el almacén de contraseñas del ordenador, nunca en un archivo.",
     "keyRemove": "Quitar clave",
+    "confirmRemoveKey": "¿Quitar tu clave de {{provider}}? Tendrás que pegarla de nuevo para usar este servicio.",
     "advanced": "Avanzado: dirección del servidor, servicio personalizado",
     "serverAddress": "Dirección del servidor",
     "builtinTitle": "Modelos integrados",
     "builtinDesc": "Descarga un modelo para limpiar el texto en este ordenador. Nada sale de tu ordenador.",
     "runsOnCpu": "Funciona en tu procesador.",
     "runsOnGpu": "Funciona en la tarjeta gráfica ({{backend}}).",
-    "gpuSetting": "El ajuste «Usar la tarjeta gráfica» está en Modelos, en Velocidad y memoria.",
-    "import": "Importar un archivo GGUF",
+    "gpuSetting": "El ajuste «Usar la tarjeta gráfica» está en Modelo de voz, en Velocidad y memoria.",
+    "import": "Importar un modelo GGUF (avanzado)",
     "use": "Usar",
     "inUse": "En uso",
     "tuning": "Avanzado: ajustes del modelo",
@@ -644,7 +765,7 @@
     "inUseBadge": "En uso",
     "download": "Descargar",
     "cancel": "Cancelar",
-    "delete": "Borrar",
+    "delete": "Eliminar solo de Parlato",
     "speed": "Velocidad",
     "accuracy": "Precisión",
     "addKey": "Añadir clave",
@@ -706,8 +827,12 @@
     "keepAliveHours_one": "{{count}} hora",
     "keepAliveHours_other": "{{count}} horas",
     "keepAliveRecommended": "{{label}} (recomendado)",
-    "confirmDeleteModel": "¿Eliminar {{name}}? Tendrás que descargarlo de nuevo para usarlo.",
-    "downloadingElsewhere": "Descargando en otra app"
+    "confirmRemoveKey": "¿Quitar tu clave de {{provider}}? Tendrás que pegarla de nuevo para usar este servicio.",
+    "confirmRemoveKeySwitch": "Parlato cambiará a un modelo de este ordenador.",
+    "downloadingElsewhere": "Descargando en otra app",
+    "connecting": "Iniciando la descarga…",
+    "downloadProgress": "{{done}} de {{total}} ({{pct}} %)",
+    "recommended": "Recomendado"
   },
   "tf": {
     "dropTitle": "Suelta aquí un archivo de audio o vídeo",
@@ -739,12 +864,12 @@
   },
   "dict": {
     "wordsTitle": "Palabras que Parlato debe conocer",
-    "wordsDesc": "Nombres, marcas y jerga. Parlato las escribirá exactamente así.",
+    "wordsDesc": "Nombres, marcas y jerga. Parlato usa tu ortografía y tus mayúsculas cuando los oye. Los modelos de voz en línea también aprenden estas palabras.",
     "addWord": "Añadir una palabra",
     "wordPlaceholder": "Escribe una palabra y pulsa Intro",
     "removeWord": "Quitar {{word}}",
     "replTitle": "Reemplazos",
-    "replDesc": "Di una frase corta y obtén algo más largo. Útil para direcciones, correos y despedidas.",
+    "replDesc": "Corrige palabras que Parlato se sigue equivocando: cuando oye lo de la izquierda, escribe lo de la derecha. Para textos más largos, usa los Fragmentos de abajo.",
     "whenYouSay": "cuando dices",
     "parlatoWrites": "Parlato escribe",
     "sayPlaceholder": "mi dirección",
@@ -757,7 +882,23 @@
     "noReplacements": "Aún no hay reemplazos.",
     "variantsHint": "Separa varias formas de decirlo con comas.",
     "on": "Activado",
-    "bothRequired": "Rellena los dos lados."
+    "bothRequired": "Rellena los dos lados.",
+    "importCsv": "Importar CSV",
+    "exportCsv": "Exportar CSV",
+    "importHint": "Añade palabras desde un archivo CSV. Las que ya están en el diccionario se omiten.",
+    "importDone": "Añadidas {{added}}, omitidas {{skipped}}.",
+    "exportDone": "Guardado en {{path}}",
+    "snippetsTitle": "Fragmentos de texto",
+    "snippetsDesc": "Di una frase y Parlato inserta un texto guardado, incluso de varias líneas: una firma, una dirección, una respuesta habitual. Se inserta tal como lo guardaste y la limpieza con IA nunca lo reescribe.",
+    "snippetText": "Texto guardado",
+    "snippetTriggerPlaceholder": "mi firma",
+    "snippetTextPlaceholder": "Un saludo, Alex",
+    "addSnippet": "Añadir fragmento",
+    "noSnippets": "Aún no hay fragmentos.",
+    "snippetsHint": "Di la frase sola para insertar solo el texto guardado. Dicha dentro de una frase, reemplaza solo esas palabras.",
+    "snippetEditHint": "Las mayúsculas y la puntuación no importan al decir la frase. El texto puede tener varias líneas.",
+    "snippetRequired": "Rellena la frase y el texto.",
+    "snippetsImportHint": "Añade fragmentos desde un archivo CSV con las columnas trigger y text. Las frases que ya están en la lista se omiten."
   },
   "pm": {
     "yourModes": "tus modos",
@@ -773,7 +914,7 @@
     "enabled": "Activado",
     "delete": "Borrar modo",
     "confirmTitle": "¿Borrar el modo Power {{name}}?",
-    "confirmBody": "Sus apps asociadas vuelven a tus ajustes habituales. No se puede deshacer.",
+    "confirmBody": "Las apps asociadas vuelven a tus ajustes habituales. No se puede deshacer.",
     "cancel": "Cancelar",
     "confirmDelete": "Borrar",
     "startsTitle": "Cómo empieza",
@@ -786,6 +927,9 @@
     "addSite": "Añadir sitio web",
     "appPlaceholder": "p. ej. outlook.exe",
     "sitePlaceholder": "p. ej. mail.google.com",
+    "macSiteNote": "La primera vez, macOS te pide permiso para que Parlato lea la dirección de tu navegador. Permítelo en el aviso. Funciona con Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, Chromium, Firefox y Zen (Firefox y Zen no piden permiso). Solo se compara el nombre del sitio.",
+    "macDenied": "macOS impide que Parlato lea la dirección en {{browser}}. Activa Parlato bajo {{browser}} en Ajustes del Sistema > Privacidad y seguridad > Automatización y luego dicta una vez en el navegador.",
+    "macOpenAutomation": "Abrir ajustes de Automatización",
     "remove": "Quitar {{name}}",
     "fallback": "Usar en todo lo demás",
     "fallbackDesc": "Se usa en todas las apps que no están asociadas a otro modo.",
@@ -803,7 +947,7 @@
     "autoSendShiftEnter": "Mayús+Intro",
     "autoSendCtrlEnter": "Ctrl+Intro",
     "aiCleanup": "Limpieza con IA",
-    "aiCleanupDesc": "Arregla la puntuación y las muletillas, y aplica el estilo de abajo.",
+    "aiCleanupDesc": "Activada o desactivada mientras este modo está activo.",
     "aiService": "Servicio de IA",
     "aiServiceDesc": "La IA que hace la limpieza.",
     "aiModel": "Modelo de IA",
@@ -823,28 +967,34 @@
     "shortcutTaken": "{{key}} (usado por {{name}})",
     "appSearch": "Busca tus aplicaciones",
     "appLoading": "Buscando tus aplicaciones...",
-    "appNone": "No se encontró ninguna aplicación. Prueba otra palabra o escribe el nombre de su programa.",
+    "appNone": "No se encontró ninguna aplicación. Prueba otra palabra o escribe el nombre del programa.",
     "appOpen": "abierta",
-    "appTypeName": "¿No está en la lista? Escribe el nombre de su programa"
+    "appTypeName": "¿No está en la lista? Escribe el nombre del programa",
+    "rename": "Renombrar",
+    "menuLabel": "Acciones del modo",
+    "moreFor": "Más acciones para {{name}}"
   },
   "ob": {
     "setupTitle": "Configurar Parlato",
-    "setupDesc": "Cuatro pasos rápidos. Unos dos minutos.",
+    "setupDesc": "Unos pasos rápidos, unos dos minutos. La descarga del modelo puede tardar un poco más.",
     "later": "puedes cambiar todo esto luego en ajustes",
-    "stepOf": "paso {{n}} de 4",
+    "stepOf": "paso {{n}} de {{total}}",
     "micLabel": "Micrófono",
     "micTitle": "¿Te oye Parlato?",
     "micDesc": "Elige tu micrófono, pulsa Probar y di algo en voz alta. La barra debería moverse.",
     "micSettings": "¿La barra no se mueve? Abrir los ajustes de micrófono del ordenador",
-    "modelLabel": "Cómo escucha Parlato",
-    "modelTitle": "¿Dónde se convierte tu voz en texto?",
-    "modelDesc": "En este ordenador es privado y gratis tras una descarga única. Los servicios en línea necesitan una clave. Puedes cambiarlo luego en Modelo de voz.",
+    "modelLabel": "Modelo de voz",
+    "modelTitle": "Elige un modelo de voz",
+    "modelDesc": "Parlato necesita un modelo de voz para convertir tu voz en texto. Elige el que lleva la etiqueta Recomendado para tu idioma. Es una descarga única y después funciona sin conexión. Puedes cambiarlo cuando quieras en Modelo de voz.",
+    "modelNone": "Descarga un modelo y pulsa Usar para continuar.",
     "keyLabel": "Tu atajo",
     "keyTitle": "¿Qué tecla inicia el dictado?",
     "keyDesc": "Usarás esta tecla cada vez que quieras hablar. Elige una cómoda que no uses para otra cosa.",
     "tryLabel": "Pruébalo",
     "tryTitle": "Haz una prueba",
     "tryPrivacy": "No se envía nada, salvo que hayas elegido un servicio en línea.",
+    "tryNoModel": "El dictado aún no funcionará: no hay ningún modelo de voz en uso.",
+    "tryNoModelButton": "Volver al paso del modelo",
     "autostart": "Iniciar Parlato con el ordenador",
     "autostartDesc": "Para que esté listo cuando quieras dictar.",
     "back": "Atrás",
@@ -853,16 +1003,12 @@
     "skip": "Saltar la configuración",
     "accessLabel": "Permisos",
     "accessTitle": "Permite Parlato en tu Mac",
-    "accessDesc": "macOS pregunta antes de que una app use el micrófono o escriba por ti. Parlato necesita ambos: el micrófono para oírte y la Accesibilidad para oír tu atajo y pegar el texto. Nada sale de tu ordenador salvo que elijas un servicio en línea."
+    "accessDesc": "macOS pregunta antes de que una app use el micrófono o escriba por ti. Parlato necesita ambos: el micrófono para oírte y la Accesibilidad para oír tu atajo y pegar el texto. Nada sale de tu ordenador salvo que elijas un servicio en línea.",
+    "languageQuestion": "¿Qué idioma hablas?"
   },
   "removeModel": {
-    "action": "Quitar de este equipo",
-    "confirmTitle": "¿Quitar {{name}} de este equipo?",
-    "bodyShared": "Se quitará de Parlato y de {{apps}}, y liberará {{size}}.",
-    "bodyAlone": "Esto libera {{size}}.",
-    "confirmButton": "Quitar",
     "inUse": "{{name}} está abierto en otra aplicación. Ciérralo allí primero y vuelve a intentarlo.",
-    "oldCopies": "Quitado. Algunos archivos antiguos estaban en uso y desaparecerán tras reiniciar."
+    "oldCopies": "Eliminado. Algunos archivos antiguos estaban en uso y desaparecerán tras reiniciar."
   },
   "modelText": {
     "imported": "Un modelo que importaste.",
@@ -1013,43 +1159,54 @@
     "qwen3_5_9b": {
       "name": "Qwen3.5 9B",
       "notes": "Más grande y un poco más minucioso. Necesita 16 GB de memoria y tarda aproximadamente el doble."
+    },
+    "mistralai_voxtral_mini_transcribe_3_0": {
+      "notes": "Voxtral Mini Transcribe 3 de Mistral a través de OpenRouter. Precio bajo, 13 idiomas. Transcribe cuando dejas de hablar."
+    },
+    "openai_gpt_transcribe": {
+      "notes": "GPT Transcribe de OpenAI a través de OpenRouter. Cubre todos los idiomas de Whisper. Transcribe cuando dejas de hablar."
     }
-  },
-  "mac": {
-    "screenNotYet": "Dejar que la IA lea la ventana donde escribes aún no está disponible en Mac."
   },
   "macOverrides": {
     "permissions": {
       "hotkeyTip": "Parlato necesita el permiso de Accesibilidad para oír el atajo y pegar el texto: Ajustes del Sistema > Privacidad y seguridad > Accesibilidad, y activa Parlato. El atajo por defecto es Opción derecha.",
       "hotkey": {
-        "hint": "Atajo por defecto: Opción derecha. Configura otro en Ajustes."
+        "hint": "El predeterminado es Opción derecha. Puedes cambiarlo en Micrófono y atajo."
       },
       "microphoneAction": "Ajustes del Sistema",
       "microphoneTip": "Si las grabaciones salen en silencio, abre Ajustes del Sistema > Privacidad y seguridad > Micrófono y activa Parlato. Comprueba también el micrófono elegido en Micrófono y atajo.",
+      "ocrTitle": "Grabación de pantalla",
+      "ocrDescription": "Permite que la limpieza con IA lea el texto de la ventana donde escribes. Solo se usa cuando esta opción está activada.",
+      "ocrTip": "Parlato solo mira la ventana donde escribes cuando «Dejar que la IA vea la ventana donde escribes» está activado. Lee el texto en este Mac y descarta la imagen. El texto se envía a tu proveedor de IA como contexto, así que con un proveedor en línea sale de tu Mac.",
       "audio": {
         "hint": "Conecta un micrófono o revisa Ajustes del Sistema > Sonido > Entrada."
       }
     },
     "errors": {
-      "shortcutReserved": "Opción+número está reservado a los perfiles de Power Mode durante la grabación ({{action}}).",
-      "shortcutNeedsModifier": "Esta tecla necesita un modificador (Control, Opción, Mayúsculas o Comando) ({{action}})."
+      "shortcutReserved": "Opción+número está reservado para cambiar de modo Power durante la grabación ({{action}}).",
+      "shortcutNeedsModifier": "Esta tecla necesita un modificador (Control, Opción, Mayúsculas o Comando) ({{action}}).",
+      "shortcutTwoModifiers": "Elige dos o más teclas modificadoras a la vez, como Control y Opción ({{action}})."
     },
     "hotkey": {
-      "altGrTip": "En un Mac, Opción también escribe caracteres especiales (como é o ©). Si Opción derecha te molesta, elige Comando derecho o una tecla o combinación personalizada.",
+      "altGrTip": "En un Mac, Opción también escribe caracteres especiales (como é o ©). Si Opción derecha te estorba, elige Comando derecha o una tecla o combinación personalizada.",
       "options": {
         "rightAlt": "Opción derecha",
         "leftAlt": "Opción izquierda",
         "rightCtrl": "Control derecho",
         "leftCtrl": "Control izquierdo",
-        "rightWin": "Comando derecho"
+        "rightWin": "Comando derecho",
+        "leftWin": "Comando izquierdo"
       },
       "record": {
         "hint": "Pulsa la tecla o combinación que quieras usar (ej. F13, R, Control + Opción + R, Control + Opción + Espacio). Esc cancela.",
-        "needsModifier": "En los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se admite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, agrega Control, Opción, Mayúsculas o Comando. Los atajos de dictado aceptan cualquier tecla sola."
+        "needsModifier": "Para los atajos adicionales (copiar, pegar, reintentar, historial, cancelar), una tecla sola solo se permite para F1-F24, Home, End, PageUp/Down y Suprimir. Si no, añade Control, Opción, Shift o Comando. Los atajos de dictado aceptan cualquier tecla sola.",
+        "hintDictation": "Pulsa la tecla o combinación que quieras usar (p. ej. F13, R, Control + Opción + R). Para dos teclas modificadoras solas, mantén las dos pulsadas a la vez (p. ej. Control + Opción) y suéltalas. Aquí Esc puede ser una tecla de dictado, así que cierra esta ventana con Cancelar."
       }
     },
     "settings": {
-      "trayHint": "Parlato se queda en la barra de menús junto al reloj. Haz clic en su icono para abrirlo o salir."
+      "trayHint": "Parlato se queda en la barra de menús junto al reloj. Haz clic en su icono para abrirlo o salir.",
+      "recorderStyleNotch": "Notch (anclado arriba)",
+      "recorderStyleInfo": "'Mini' muestra una píldora flotante en la parte inferior de la pantalla. 'Notch' desciende desde arriba como la muesca del MacBook Pro."
     },
     "keys": {
       "ctrl": "Control",
@@ -1089,7 +1246,17 @@
     "right": "Derecha",
     "down": "Abajo",
     "insert": "Insert",
-    "printScreen": "Impr Pant"
+    "printScreen": "Impr Pant",
+    "pause": "Pausa",
+    "menu": "Menú",
+    "numLock": "Bloq Num",
+    "scrollLock": "Bloq Despl",
+    "volumeMute": "Silenciar",
+    "volumeDown": "Bajar volumen",
+    "volumeUp": "Subir volumen",
+    "nextTrack": "Pista siguiente",
+    "prevTrack": "Pista anterior",
+    "playPause": "Reproducir/Pausa"
   },
   "shortcutWording": {
     "hold": {
@@ -1122,5 +1289,33 @@
       "tryPlaceholder": "Haz clic aquí, mantén o pulsa {{key}} y di: \"Este es mi primer dictado.\"",
       "tryNote": "Tus palabras aparecen aquí al soltar la tecla o al volver a pulsarla."
     }
+  },
+  "setup": {
+    "model": "Elige un modelo de voz",
+    "shortcut": "Elige un atajo",
+    "accessibility": "Permite la Accesibilidad",
+    "micAccess": "Permite el micrófono",
+    "mic": "Conecta un micrófono"
+  },
+  "deleteModel": {
+    "title": "¿Eliminar {{name}}?",
+    "sharedBody": "{{apps}} también usan este modelo. Elimínalo solo de Parlato o de todas las apps.",
+    "importedBody": "Esto lo quita de Parlato.",
+    "aloneBody": "Esto libera {{size}}.",
+    "fromParlato": "Eliminar de Parlato",
+    "everywhere": "Eliminar en todas partes y liberar {{size}}"
+  },
+  "downloads": {
+    "one": "Descargando {{name}}…",
+    "onePct": "Descargando {{name}}… {{pct}} %",
+    "many": "{{count}} descargas…",
+    "manyPct": "{{count}} descargas… {{pct}} %",
+    "cancel": "Cancelar"
+  },
+  "review": {
+    "textLabel": "Texto para pegar",
+    "hint": "Intro pega · Mayús+Intro nueva línea · Esc cancela",
+    "cancel": "Cancelar",
+    "paste": "Pegar"
   }
 }

@@ -56,7 +56,7 @@ fancy-regex = "0.14"
 unicode-segmentation = "1"
 
 # Persistence SQLite (dictionnaire, historique)
-rusqlite = { version = "0.33", features = ["bundled"] }
+rusqlite = { version = "0.33", features = ["bundled", "functions"] }
 chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
 
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "multipart", "json"] }
@@ -132,6 +132,8 @@ objc2-av-foundation = { version = "0.3", default-features = false, features = ["
 # Info.plist of the installed apps (bundle identifier and name), already in the
 # tree through Tauri.
 plist = "1"
+# Text recognition for "AI cleanup reads the window" (Apple Vision).
+objc2-vision = { version = "0.3", default-features = false, features = ["std", "VNRequest", "VNRecognizeTextRequest", "VNRequestHandler", "VNObservation", "VNTypes", "VNUtils"] }
 
 # rustc 1.95 plante (STATUS_ACCESS_VIOLATION) en compilant tokenizers
 # v0.22 a opt-level 3 sur Windows MSVC. On baisse l'opt-level juste pour

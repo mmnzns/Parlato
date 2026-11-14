@@ -28,6 +28,9 @@ use crate::enhancement::prompts::CustomPrompt;
 pub struct PromptDetectionResult {
     pub prompt_id: String,
     pub processed_text: String,
+    // Parlato : plus lu (le mot declencheur n'est plus journalise) ; garde
+    // pour les tests et l'usage futur.
+    #[allow(dead_code)]
     pub trigger_word: String,
 }
 

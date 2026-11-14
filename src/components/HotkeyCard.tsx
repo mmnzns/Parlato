@@ -15,11 +15,17 @@
 // Reset to defaults wipe la config user et remet Right Alt + Hybrid.
 
 import { useEffect, useState } from "react";
+import { notifySetupChanged } from "@/lib/setupStatus";
 import { useTranslation } from "react-i18next";
 import { Plus, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Block, RadioRow, Row, Section, selectClass } from "@/components/ui/section";
-import { formatCombo, HotkeyRecorder } from "@/components/HotkeyRecorder";
+import { Block, RadioRow, Row, Section, Switch, selectClass } from "@/components/ui/section";
+import {
+  type ChordTrigger,
+  type ComboTrigger,
+  formatTrigger,
+  HotkeyRecorder,
+} from "@/components/HotkeyRecorder";
 import {
   api,
   type HotkeyConfig,
@@ -34,15 +40,40 @@ import { isMac } from "@/lib/platform";
 
 // Parlato: MacBook keyboards have no Right Control, so it is not offered on
 // the Mac (a saved Right Control still works and still shows).
+// Parlato 0.16: Caps Lock is offered on both. Left Win and the Menu key
+// exist on Windows keyboards only; the Fn / Globe key on Macs only (Left
+// Command alone is not offered: it is part of too many Mac shortcuts).
 const MODIFIER_OPTIONS: HotkeyOptionId[] = [
   "rightAlt",
   "leftAlt",
   ...(isMac ? [] : (["rightCtrl"] as HotkeyOptionId[])),
   "leftCtrl",
   "rightWin",
+  ...(isMac ? [] : (["leftWin"] as HotkeyOptionId[])),
   "rightShift",
   "leftShift",
+  "capsLock",
+  ...(isMac ? (["fn"] as HotkeyOptionId[]) : (["menu"] as HotkeyOptionId[])),
 ];
+
+// Parlato 0.16: the notes shown under the picker for the keys that need one
+// (locale keys under hotkey.notes).
+function noteKeys(trigger: HotkeyTrigger): string[] {
+  if (trigger.kind === "modifiers") return ["chord"];
+  if (trigger.kind !== "modifier") return [];
+  switch (trigger.option) {
+    case "capsLock":
+      return [isMac ? "capsLockMac" : "capsLockWindows"];
+    case "leftWin":
+      return ["leftWin"];
+    case "menu":
+      return ["menu"];
+    case "fn":
+      return ["fn"];
+    default:
+      return [];
+  }
+}
 
 const MODES: HotkeyMode[] = ["toggle", "pushToTalk", "hybrid"];
 
@@ -66,6 +97,7 @@ function selectValueOf(trigger: HotkeyTrigger): SelectValue {
     case "modifier":
       return { kind: "modifier", option: trigger.option };
     case "combo":
+    case "modifiers":
       return { kind: "custom" };
   }
 }
@@ -113,6 +145,7 @@ export function HotkeyCard() {
       const merged = { ...next, actions: current.actions };
       await api.setHotkeyConfig(merged);
       setConfig(merged);
+      notifySetupChanged();
     } catch (e) {
       setError(translateError(t, String(e)));
       api.getHotkeyConfig().then(setConfig).catch(console.error);
@@ -120,11 +153,14 @@ export function HotkeyCard() {
   }
 
   async function reset() {
+    setError(null);
     try {
       const c = await api.resetHotkeyConfig();
       setConfig(c);
       setShowSecondary(false);
+      notifySetupChanged();
     } catch (e) {
+      setError(t("common.saveFailed"));
       console.error(e);
     }
   }
@@ -155,7 +191,7 @@ export function HotkeyCard() {
     }
   }
 
-  function onComboCaptured(trigger: Extract<HotkeyTrigger, { kind: "combo" }>) {
+  function onComboCaptured(trigger: ComboTrigger | ChordTrigger) {
     if (!config || !recorderTarget) {
       setRecorderTarget(null);
       return;
@@ -184,6 +220,16 @@ export function HotkeyCard() {
       secondary: { trigger: { kind: "none" }, mode: config.secondary.mode },
     });
   }
+
+  // The notes for the keys picked in either slot, each shown once.
+  const notes = config
+    ? Array.from(
+        new Set([
+          ...noteKeys(config.primary.trigger),
+          ...(showSecondary ? noteKeys(config.secondary.trigger) : []),
+        ]),
+      )
+    : [];
 
   return (
     <Section
@@ -260,12 +306,31 @@ export function HotkeyCard() {
             )}
           </Row>
 
+          <Row
+            label={t("hotkey.doubleTap.title")}
+            description={t("hotkey.doubleTap.description")}
+            htmlFor="double-tap-switch"
+          >
+            <Switch
+              id="double-tap-switch"
+              checked={config.double_tap}
+              onChange={(next) => commit({ ...config, double_tap: next })}
+              label={t("hotkey.doubleTap.title")}
+            />
+          </Row>
+
           {(config.primary.trigger.kind === "modifier" && config.primary.trigger.option === "rightAlt") ||
+          notes.length > 0 ||
           error ? (
             <Block className="flex flex-col gap-2 py-3">
               {config.primary.trigger.kind === "modifier" && config.primary.trigger.option === "rightAlt" && (
                 <p className="text-xs leading-relaxed text-muted-foreground">{t("hotkey.altGrTip")}</p>
               )}
+              {notes.map((n) => (
+                <p key={n} className="text-xs leading-relaxed text-muted-foreground">
+                  {t(`hotkey.notes.${n}`)}
+                </p>
+              ))}
               {error && <p className="rounded-sm bg-destructive/10 p-2 text-xs text-destructive">{error}</p>}
             </Block>
           ) : null}
@@ -297,14 +362,15 @@ function TriggerPicker({
 
   return (
     <>
-      {slot.trigger.kind === "combo" && (
+      {(slot.trigger.kind === "combo" || slot.trigger.kind === "modifiers") && (
         <button
           type="button"
           onClick={onEditCombo}
           title={t("hotkey.editCombo")}
+          aria-label={`${formatTrigger(slot.trigger)}. ${t("hotkey.editCombo")}`}
           className="flex h-[34px] items-center rounded-sm border-[1.5px] border-edge bg-card px-2.5 font-mono text-xs font-semibold shadow-btn transition-colors hover:bg-muted"
         >
-          {formatCombo(slot.trigger)}
+          {formatTrigger(slot.trigger)}
         </button>
       )}
       <select

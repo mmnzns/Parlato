@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { persist } from "@/lib/persist";
+import { useSaveFailure } from "@/hooks/useSaveFailure";
 import { api, type PowerModeConfig } from "@/lib/tauri";
 import type { CloudModel } from "@/components/models/types";
 import { duplicateName, emptyConfig, type Catalog } from "./config";
@@ -15,6 +16,7 @@ export function usePowerModes() {
   const [autoRestore, setAutoRestore] = useState(true);
   const [catalog, setCatalog] = useState<Catalog>({ prompts: [], providers: [], whisper: [], parakeet: [], cloud: [] });
   const [confirming, setConfirming] = useState(false);
+  const saveFailure = useSaveFailure();
 
   useEffect(() => {
     refresh(true);
@@ -48,19 +50,22 @@ export function usePowerModes() {
 
   async function createMode() {
     try {
-      const created = await api.addPowerConfig(emptyConfig(t("pm.newName")));
+      // Start from the everyday AI cleanup setting (see emptyConfig).
+      const aiCleanup = await api.getEnhancementEnabled().catch(() => false);
+      const created = await api.addPowerConfig(emptyConfig(t("pm.newName"), aiCleanup));
       await refresh();
       setSelectedId(created.id);
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
     }
   }
 
   // VoiceInk 2.21 duplicateConfiguration: same settings, no app or website
   // triggers (so the two modes never compete), never the default. Added at
   // the end so no other mode's Alt+number shortcut moves.
-  async function duplicateSelected() {
-    const source = configs.find((c) => c.id === selectedId);
+  // Parlato: `id` lets the right-click menu duplicate any mode in the list.
+  async function duplicateSelected(id: string | null = selectedId) {
+    const source = configs.find((c) => c.id === id);
     if (!source) return;
     try {
       const created = await api.addPowerConfig({
@@ -75,7 +80,7 @@ export function usePowerModes() {
       await refresh();
       setSelectedId(created.id);
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
     }
   }
 
@@ -89,7 +94,7 @@ export function usePowerModes() {
       // cleared them on another mode.
       if (next.is_default || next.shortcut_slot !== prev?.shortcut_slot) await refresh();
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
       await refresh();
     }
   }
@@ -103,12 +108,12 @@ export function usePowerModes() {
       setSelectedId(rest[0]?.id ?? null);
       await refresh();
     } catch (e) {
-      console.error(e);
+      saveFailure.fail(e);
     }
   }
 
   async function toggleAutoRestore(v: boolean) {
-    await persist(v, autoRestore, setAutoRestore, api.setPowerAutoRestore);
+    await persist(v, autoRestore, setAutoRestore, api.setPowerAutoRestore, saveFailure.fail);
   }
 
   return {
@@ -124,5 +129,6 @@ export function usePowerModes() {
     save,
     removeSelected,
     toggleAutoRestore,
+    saveFailure,
   };
 }

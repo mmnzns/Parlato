@@ -17,6 +17,7 @@ import {
   type ModelPerformanceMetrics,
   type TranscriptionModelMetric,
 } from "@/lib/tauri";
+import { translateError } from "@/lib/translateError";
 
 export function ModelPerformancePanel() {
   const { t } = useTranslation();
@@ -41,7 +42,7 @@ export function ModelPerformancePanel() {
       setData(result);
       setError(null);
     } catch (e) {
-      setError(String(e));
+      setError(translateError(t, String(e)));
     }
   }
 

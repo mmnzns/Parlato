@@ -1,16 +1,26 @@
 // Parlato: "when this mode starts" section: shortcut, paired apps and
 // websites, fallback switch.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe, X } from "lucide-react";
+import { CircleAlert, ExternalLink, Globe, X } from "lucide-react";
 import { AppPicker } from "@/components/AppPicker";
+import { Button } from "@/components/ui/button";
 import { Block, Row, Section, Switch, selectClass } from "@/components/ui/section";
 import { cn, powerShortcutLabel } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
-import type { InstalledApp, PowerModeConfig } from "@/lib/tauri";
+import { api, type InstalledApp, type PowerModeConfig } from "@/lib/tauri";
 import { ChipInput } from "./ChipInput";
 import { SHORTCUT_SLOTS } from "./config";
+
+/** Parlato (Mac): only the site name is compared, so "https://Mail.Google.com/x?y"
+ *  is stored as "mail.google.com". */
+function siteHost(raw: string): string {
+  const rest = raw.trim().replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+  const authority = rest.split(/[/?#]/)[0] ?? "";
+  const hostPort = authority.split("@").pop() ?? "";
+  return hostPort.split(":")[0].replace(/\.$/, "").toLowerCase();
+}
 
 export function StartsSection({
   config: c,
@@ -27,6 +37,20 @@ export function StartsSection({
   const [appDraft, setAppDraft] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [siteDraft, setSiteDraft] = useState<string | null>(null);
+  // Parlato (Mac): the browser macOS refused Automation for, if any. Checked on
+  // open and whenever the user comes back from System Settings.
+  const [deniedBrowser, setDeniedBrowser] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isMac) return;
+    const check = () =>
+      api
+        .getBrowserAutomationStatus()
+        .then((s) => setDeniedBrowser(s.denied_browser))
+        .catch(console.error);
+    check();
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
+  }, []);
 
   function addApp() {
     const exe = (appDraft ?? "").trim().toLowerCase();
@@ -45,7 +69,7 @@ export function StartsSection({
   }
 
   function addSite() {
-    const url = (siteDraft ?? "").trim();
+    const url = isMac ? siteHost(siteDraft ?? "") : (siteDraft ?? "").trim();
     setSiteDraft(null);
     if (!url || c.url_triggers.some((u) => u.url === url)) return;
     onChange({ ...c, url_triggers: [...c.url_triggers, { id: crypto.randomUUID(), url }] });
@@ -115,18 +139,44 @@ export function StartsSection({
             label={t("pm.addApp")}
             placeholder={t("pm.appPlaceholder")}
           />
-          {/* Parlato: matching a website needs the browser's address, which is
-              not read on Mac yet. */}
-          {!isMac && (
-            <ChipInput
-              draft={siteDraft}
-              setDraft={setSiteDraft}
-              onCommit={addSite}
-              label={t("pm.addSite")}
-              placeholder={t("pm.sitePlaceholder")}
-            />
-          )}
+          <ChipInput
+            draft={siteDraft}
+            setDraft={setSiteDraft}
+            onCommit={addSite}
+            label={t("pm.addSite")}
+            placeholder={t("pm.sitePlaceholder")}
+          />
         </div>
+        {/* Parlato (Mac): websites are read from the browser with AppleScript,
+            which macOS gates behind the Automation permission (Firefox and Zen
+            are read through Accessibility, no prompt). */}
+        {isMac && (c.url_triggers.length > 0 || siteDraft !== null || deniedBrowser) && (
+          <div className="flex flex-col gap-1.5">
+            {(c.url_triggers.length > 0 || siteDraft !== null) && (
+              <span className="text-xs leading-[17px] text-pretty text-muted-foreground">{t("pm.macSiteNote")}</span>
+            )}
+            {deniedBrowser && (
+              <div
+                role="alert"
+                className="mt-1 flex items-start gap-3 rounded-lg border-[1.5px] border-edge bg-card px-3.5 py-3"
+              >
+                <CircleAlert className="mt-0.5 h-4 w-4 flex-none text-warn-foreground" />
+                <span className="min-w-0 flex-1 text-[13px] leading-[18px] text-pretty">
+                  {t("pm.macDenied", { browser: deniedBrowser })}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-none"
+                  onClick={() => api.openAutomationSettings().catch(console.error)}
+                >
+                  {t("pm.macOpenAutomation")}
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
         {picking && (
           <AppPicker
             paired={c.app_triggers.map((a) => a.exe_name)}

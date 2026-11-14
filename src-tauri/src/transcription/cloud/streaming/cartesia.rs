@@ -185,10 +185,12 @@ fn handle_text(
 mod tests {
     use super::*;
 
-    fn collector() -> (
+    type Collected = (
         std::sync::Arc<std::sync::Mutex<Vec<StreamingEvent>>>,
         Box<dyn Fn(StreamingEvent) + Send + Sync>,
-    ) {
+    );
+
+    fn collector() -> Collected {
         let acc = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let acc_clone = acc.clone();
         let cb: Box<dyn Fn(StreamingEvent) + Send + Sync> = Box::new(move |e| {

@@ -41,12 +41,15 @@ import { cn } from "@/lib/utils";
 import coffeeButton from "@/assets/coffee-button.webp";
 import { isMac } from "@/lib/platform";
 import { confirmDelete } from "@/lib/confirmDelete";
+import { persist as persistValue } from "@/lib/persist";
+import { useSaveFailure } from "@/hooks/useSaveFailure";
 import {
   checkForUpdate,
   getUpdaterState,
   installPendingUpdate,
   subscribeUpdater,
 } from "@/lib/updater";
+import { translateError } from "@/lib/translateError";
 
 const REPO_URL = "https://github.com/mmnzns/Parlato";
 // Credit the upstream author (profile, not just the repo).
@@ -75,6 +78,11 @@ export function SettingsPanel() {
   const [retention, setRetention] = useState<RetentionSettings | null>(null);
   const [version, setVersion] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // One "Couldn't save that" note per section, so it shows near the control.
+  const failGeneral = useSaveFailure();
+  const failDictating = useSaveFailure();
+  const failAfter = useSaveFailure();
+  const failPrivacy = useSaveFailure();
   const updater = useSyncExternalStore(subscribeUpdater, getUpdaterState);
   // "installed" means the app is restarting; show it as downloading.
   const update = updater.status === "installed" ? "downloading" : updater.status;
@@ -117,15 +125,14 @@ export function SettingsPanel() {
     }
   }
 
-  // Optimistic toggle helper: flip the UI, persist, roll back on error.
-  async function persist(next: boolean, set: (v: boolean) => void, save: (v: boolean) => Promise<unknown>) {
-    set(next);
-    try {
-      await save(next);
-    } catch (e) {
-      console.error(e);
-      set(!next);
-    }
+  // Optimistic toggle helper: flip the UI, persist, roll back and say so on error.
+  function persist(
+    next: boolean,
+    set: (v: boolean) => void,
+    save: (v: boolean) => Promise<unknown>,
+    fail: (e?: unknown) => void,
+  ) {
+    return persistValue(next, !next, set, save, fail);
   }
 
   async function toggleText(key: keyof TextProcessingSettings) {
@@ -133,12 +140,15 @@ export function SettingsPanel() {
     const value = !text[key];
     try {
       if (key === "text_formatting_enabled") await api.setTextFormattingEnabled(value);
+      if (key === "spoken_commands") await api.setSpokenCommands(value);
+      if (key === "spoken_punctuation") await api.setSpokenPunctuation(value);
+      if (key === "review_before_paste") await api.setReviewBeforePaste(value);
       if (key === "remove_filler_words") await api.setRemoveFillerWords(value);
       if (key === "append_trailing_space") await api.setAppendTrailingSpace(value);
       if (key === "restore_clipboard_after_paste") await api.setRestoreClipboardAfterPaste(value);
       setText({ ...text, [key]: value });
     } catch (e) {
-      console.error(e);
+      failAfter.fail(e);
     }
   }
 
@@ -151,35 +161,41 @@ export function SettingsPanel() {
       await api.setFillerWords(words);
       await refreshText();
     } catch (e) {
-      console.error(e);
+      failAfter.fail(e);
     }
   }
 
   async function saveResumeDelay(secs: number) {
     const clamped = Math.max(0, Math.min(10, secs));
+    const prev = resumeDelay;
     setResumeDelay(clamped);
     try {
       await api.setAudioResumptionDelay(clamped);
     } catch (e) {
-      console.error(e);
+      setResumeDelay(prev);
+      failDictating.fail(e);
     }
   }
 
   async function changeStyle(next: "mini" | "notch") {
+    const prev = recorderStyle;
     setRecorderStyle(next);
     try {
       await api.setRecorderStyle(next);
     } catch (e) {
-      console.error(e);
+      setRecorderStyle(prev);
+      failDictating.fail(e);
     }
   }
 
   async function saveRetention(next: RetentionSettings) {
+    const prev = retention;
     setRetention(next);
     try {
       await api.setRetentionSettings(next);
     } catch (e) {
-      console.error(e);
+      setRetention(prev);
+      failPrivacy.fail(e);
     }
   }
 
@@ -259,11 +275,11 @@ export function SettingsPanel() {
           <Switch
             id="set-autostart"
             checked={autostart}
-            onChange={(v) => persist(v, setAutostart, api.setAutostartEnabled)}
+            onChange={(v) => persist(v, setAutostart, api.setAutostartEnabled, failGeneral.fail)}
           />
         </Row>
         <Row htmlFor="set-tray" label={t("settings.trayLabel")} description={t("settings.trayHint")}>
-          <Switch id="set-tray" checked={closeToTray} onChange={(v) => persist(v, setCloseToTray, api.setCloseToTray)} />
+          <Switch id="set-tray" checked={closeToTray} onChange={(v) => persist(v, setCloseToTray, api.setCloseToTray, failGeneral.fail)} />
         </Row>
         {/* Parlato: Skip and Start both mark setup done; this brings it back. */}
         <Row label={t("settings.setupAgainLabel")} description={t("settings.setupAgainHint")}>
@@ -284,9 +300,10 @@ export function SettingsPanel() {
         </Row>
         {isMac && (
           <Row htmlFor="set-dock" label={t("settings.hideDockLabel")} description={t("settings.hideDockHint")}>
-            <Switch id="set-dock" checked={hideDock} onChange={(v) => persist(v, setHideDock, api.setHideDockIcon)} />
+            <Switch id="set-dock" checked={hideDock} onChange={(v) => persist(v, setHideDock, api.setHideDockIcon, failGeneral.fail)} />
           </Row>
         )}
+        {failGeneral.notice}
       </Section>
 
       <Section title={t("settings.sectionDictating")}>
@@ -294,14 +311,14 @@ export function SettingsPanel() {
           <Switch
             id="set-sound"
             checked={soundFeedback}
-            onChange={(v) => persist(v, setSoundFeedback, api.setSoundFeedbackEnabled)}
+            onChange={(v) => persist(v, setSoundFeedback, api.setSoundFeedbackEnabled, failDictating.fail)}
           />
         </Row>
         <Row htmlFor="set-mute" label={t("settings.muteLabel")} description={t("settings.muteHint")}>
           <Switch
             id="set-mute"
             checked={systemMute}
-            onChange={(v) => persist(v, setSystemMute, api.setSystemMuteEnabled)}
+            onChange={(v) => persist(v, setSystemMute, api.setSystemMuteEnabled, failDictating.fail)}
           />
         </Row>
         {systemMute && (
@@ -344,6 +361,7 @@ export function SettingsPanel() {
             orientation="top"
           />
         </Row>
+        {failDictating.notice}
       </Section>
 
       <Section title={t("settings.sectionAfterPaste")}>
@@ -368,6 +386,27 @@ export function SettingsPanel() {
                 id="set-format"
                 checked={text.text_formatting_enabled}
                 onChange={() => toggleText("text_formatting_enabled")}
+              />
+            </Row>
+            <Row htmlFor="set-spoken" label={t("settings.spokenLabel")} description={t("settings.spokenHint")}>
+              <Switch
+                id="set-spoken"
+                checked={text.spoken_commands}
+                onChange={() => toggleText("spoken_commands")}
+              />
+            </Row>
+            <Row htmlFor="set-spoken-punct" label={t("settings.spokenPunctLabel")} description={t("settings.spokenPunctHint")}>
+              <Switch
+                id="set-spoken-punct"
+                checked={text.spoken_punctuation}
+                onChange={() => toggleText("spoken_punctuation")}
+              />
+            </Row>
+            <Row htmlFor="set-review" label={t("settings.reviewLabel")} description={t("settings.reviewHint")}>
+              <Switch
+                id="set-review"
+                checked={text.review_before_paste}
+                onChange={() => toggleText("review_before_paste")}
               />
             </Row>
             <Row htmlFor="set-fillers" label={t("settings.fillersLabel")} description={t("settings.fillersHint")}>
@@ -400,6 +439,7 @@ export function SettingsPanel() {
             )}
           </>
         )}
+        {failAfter.notice}
       </Section>
 
       <Section title={t("settings.sectionPrivacy")}>
@@ -458,6 +498,7 @@ export function SettingsPanel() {
             </Row>
           </>
         )}
+        {failPrivacy.notice}
       </Section>
 
       <PermissionsPanel hideAutostart />
@@ -499,6 +540,11 @@ export function SettingsPanel() {
             </Button>
           )}
         </Row>
+        {updater.status === "installFailed" && updater.error && (
+          <p role="alert" className="px-5 py-2 text-xs text-destructive">
+            {updater.error}
+          </p>
+        )}
         <Row label={t("settings.releaseNotesLabel")} description={t("settings.releaseNotesHint")}>
           {link(t("settings.releaseNotesButton"), `${REPO_URL}/releases`)}
         </Row>
@@ -524,7 +570,7 @@ export function SettingsPanel() {
               setDeleteError(null);
               await api.deleteAllData().catch((e) => {
                 console.error(e);
-                setDeleteError(String(e));
+                setDeleteError(translateError(t, String(e)));
               });
             }}
           >

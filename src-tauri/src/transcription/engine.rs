@@ -25,9 +25,11 @@ use tauri::{AppHandle, Emitter, Manager};
 use tracing::warn;
 
 use crate::audio::mute as system_mute;
+use crate::audio::recorder::RecorderFailure;
 use crate::commands::hotkey::HotkeyManagerState;
 use crate::commands::recording::{
-    cancel_recording_core, start_recording_core_with_chunk, stop_recording_core, RecorderState,
+    cancel_recording_core, current_dictation, start_recording_core_with_chunk,
+    stop_recording_core, RecorderState,
 };
 use crate::commands::streaming::StreamingSessionState;
 use crate::history::last_transcription;
@@ -64,14 +66,33 @@ pub fn handle_hotkey_action(app: &AppHandle, manager: &Arc<HotkeyManager>, actio
 /// hands-free a demarre pour que la prochaine pression du raccourci
 /// l'arrete. Reference VoiceInk MenuBarView "Toggle Recorder" ->
 /// RecorderUIManager.handleToggleRecorderPanelNotification.
+///
+/// Parlato : tourne sur son propre thread. Creer la bulle (une fenetre) depuis
+/// une commande synchrone ou le gestionnaire de menu, donc depuis le fil
+/// principal, peut bloquer sous Windows (documentation Tauri) ; le raccourci
+/// clavier passe deja par un fil dedie.
 pub fn toggle_from_ui(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::Builder::new()
+        .name("toggle-recorder".into())
+        .spawn(move || toggle_from_ui_blocking(&app))
+        .map_err(|e| warn!("toggle_from_ui: thread: {e}"))
+        .ok();
+}
+
+fn toggle_from_ui_blocking(app: &AppHandle) {
     let Some(mgr) = app.try_state::<HotkeyManagerState>() else {
         warn!("toggle_from_ui: hotkey manager absent");
         return;
     };
     let manager = mgr.0.clone();
     let state = app.state::<RecorderState>();
-    let recording = state.0.lock().is_some();
+    // Parlato : pendant l'ouverture du peripherique, un second appui ne fait rien
+    // (avant, il attendait le verrou, puis arretait l'enregistrement a peine ne).
+    if state.is_starting() {
+        return;
+    }
+    let recording = state.is_active();
     if recording {
         stop(app, &manager, &state);
     } else if start(app, &manager, &state) {
@@ -135,11 +156,28 @@ fn select_power_mode(app: &AppHandle, index: usize) {
 /// Demarre un cycle d'enregistrement. Retourne `true` si la capture (ou la
 /// session streaming) a effectivement demarre.
 fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<RecorderState>) -> bool {
+    // Parlato : the "Review before pasting" editor is open. A new dictation would
+    // overwrite the paste target remembered below with the editor itself, so it
+    // is refused with a message (finish or close the editor first).
+    if crate::review::is_open() {
+        crate::notice::send(app, crate::notice::Notice::Failed(crate::review::OPEN_CODE.to_string()));
+        // The press that got us here already marked the state machine as
+        // recording: undo it (like the failure branch below), or hold-to-talk
+        // would "stop" on release and toggle/hybrid would need two presses.
+        manager.mark_recording_state(false);
+        keyboard_hook::set_recording_active(false);
+        return false;
+    }
     let _ = app.emit("hotkey:action", "start");
     // Sauvegarde le HWND de l'app actuellement focus AVANT d'ouvrir
     // la mini-recorder (qui peut voler le focus). On le restaure
     // juste avant Ctrl+V au moment du paste.
     paste::remember_foreground();
+    // Parlato (macOS) : starts reading the browser's address now, so it is
+    // ready by the time the Power mode is chosen below. No-op unless a mode
+    // is paired with a website.
+    #[cfg(target_os = "macos")]
+    power_mode::browser_url_macos::prefetch(app);
     // Ouvre la fenetre mini-recorder EN PREMIER pour que le webview
     // ait le temps de charger pendant l'init du recorder audio. Sans
     // ca, la pill n'apparait qu'au stop (le HTML/JS prend ~500ms a
@@ -150,7 +188,7 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
     // apres recorder.startRecording (VoiceInkEngine.swift:152).
     // On le fait avant, pour que les settings soient en place au
     // moment ou le pipeline choisit la source de transcription.
-    if let Some(session) = power_mode::session::begin_session(app) {
+    if let Some(session) = power_mode::session::begin_recording_session(app) {
         let _ = app.emit("power_mode:active", &session);
     }
     // Arme les raccourcis Alt+chiffre de selection Power Mode pour la duree
@@ -177,7 +215,12 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
             match tauri::async_runtime::block_on(start_with_streaming(app.clone(), provider, model)) {
                 Ok(()) => true,
                 Err(e) => {
-                    warn!("start streaming: {e}, enregistrement sans direct");
+                    // Parlato : le code court seulement, le texte du fournisseur peut
+                    // porter un corps de reponse ou une URL.
+                    warn!(
+                        code = %crate::transcription::error_code::storable_error_code(&e.to_string()),
+                        "start streaming echoue, enregistrement sans direct"
+                    );
                     false
                 }
             }
@@ -189,10 +232,23 @@ fn start(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Rec
         true
     } else if let Err(e) = start_recording_core_with_chunk(app, state, None, None) {
         warn!("start_recording via hotkey: {e}");
-        // L'enregistrement n'a pas demarre : desarme les raccourcis Power Mode.
+        // L'enregistrement n'a pas demarre : desarme les raccourcis Power Mode
+        // et termine la session ouverte plus haut (sinon les reglages du mode
+        // resteraient appliques a la place de ceux de la personne).
+        if power_mode::session::end_recording_session(app) {
+            let _ = app.emit("power_mode:active", serde_json::Value::Null);
+        }
         keyboard_hook::set_power_shortcut_count(0);
         manager.mark_recording_state(false);
         mini_recorder::close(app);
+        // Parlato : a refused microphone is the one start failure the person
+        // can fix, so say it (the pill closed above shows the message).
+        if e.to_string() == crate::audio::recorder::MIC_PERMISSION_CODE {
+            crate::notice::send(
+                app,
+                crate::notice::Notice::Failed(crate::audio::recorder::MIC_PERMISSION_CODE.to_string()),
+            );
+        }
         false
     } else {
         manager.mark_recording_state(true);
@@ -213,22 +269,46 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
     // Streaming actif ?
     let streaming = app.state::<StreamingSessionState>();
     let streaming_handle = streaming.0.lock().take();
+    // Parlato : la session Power Mode de CET enregistrement, portee par la
+    // dictee jusqu'a sa fin (une dictee suivante peut en ouvrir une autre
+    // pendant que celle-ci se transcrit).
+    let power = power_mode::session::take_recording_session(app);
+    let was_recording = state.is_active();
     match stop_recording_core(app, state) {
         Ok(stopped) => {
             let wav_path = PathBuf::from(&stopped.wav_path);
             if let Some((handle, history_id)) = streaming_handle {
-                pipeline::finish_streaming(app.clone(), handle, history_id, wav_path);
+                pipeline::finish_streaming(app.clone(), handle, history_id, wav_path, power);
             } else {
-                pipeline::run_after_recording(app.clone(), wav_path);
+                pipeline::run_after_recording(app.clone(), wav_path, power);
             }
         }
         Err(e) => {
-            // Parlato : rien n'enregistrait (demarrage rate). Ferme la bulle
-            // au lieu de la laisser ouverte sans fin.
+            // Parlato : l'arret a echoue. Une ligne d'historique en attente
+            // (dictee streaming) est retiree, sinon elle resterait
+            // "Transcription..." ; la bulle le dit au lieu de se fermer sans
+            // un mot (elle est reutilisee pour le message, puis se ferme).
             warn!("stop_recording via hotkey: {e}");
-            mini_recorder::close(app);
-            power_mode::session::end_session(app);
-            let _ = app.emit("power_mode:active", serde_json::Value::Null);
+            if let Some((_, Some(history_id))) = streaming_handle {
+                pipeline::discard_pending_row(app, &history_id);
+            }
+            // Seulement la session de cet enregistrement (prise plus haut).
+            if power.as_ref().is_some_and(|p| power_mode::session::end_session(app, p.id)) {
+                let _ = app.emit("power_mode:active", serde_json::Value::Null);
+            }
+            if was_recording {
+                crate::notice::send(
+                    app,
+                    crate::notice::Notice::Failed(RECORDING_FAILED_CODE.to_string()),
+                );
+            } else {
+                // Rien n'enregistrait (demarrage rate) : rien a dire. Sauf si la
+                // bulle montre un message (editeur ouvert, micro refuse) : le
+                // relachement du raccourci ne doit pas le fermer.
+                if !crate::notice::is_showing() {
+                    mini_recorder::close(app);
+                }
+            }
             crate::tray::refresh(app);
         }
     }
@@ -239,7 +319,24 @@ fn stop(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Reco
     manager.mark_recording_state(false);
 }
 
+/// Code montre quand l'arret de l'enregistrement echoue : il n'y a pas de code
+/// dedie dans `translateError.ts`, on reutilise celui de la transcription
+/// echouee ("Use Transcribe again" ne s'applique pas, mais le message reste
+/// vrai : rien n'a ete transcrit).
+const RECORDING_FAILED_CODE: &str = "PARLA_ERR:transcriptionFailed";
+
 fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<RecorderState>) {
+    cancel_cycle(app, manager, state, true);
+}
+
+/// Annule le cycle. `close_pill` = faux quand la bulle doit rester ouverte
+/// pour montrer un message juste apres (enregistrement interrompu).
+fn cancel_cycle(
+    app: &AppHandle,
+    manager: &Arc<HotkeyManager>,
+    state: &tauri::State<RecorderState>,
+    close_pill: bool,
+) {
     let _ = app.emit("hotkey:action", "cancel");
     system_mute::release(app);
     // Purge eventuelle session streaming (elle retournera un final
@@ -254,15 +351,68 @@ fn cancel(app: &AppHandle, manager: &Arc<HotkeyManager>, state: &tauri::State<Re
     if let Err(e) = cancel_recording_core(app, state) {
         warn!("cancel_recording via hotkey: {e}");
     }
-    power_mode::session::end_session(app);
-    let _ = app.emit("power_mode:active", serde_json::Value::Null);
+    if power_mode::session::end_recording_session(app) {
+        let _ = app.emit("power_mode:active", serde_json::Value::Null);
+    }
     // Annulation : desarme les raccourcis Alt+chiffre Power Mode et le
     // raccourci d'annulation personnalise.
     keyboard_hook::set_power_shortcut_count(0);
     keyboard_hook::set_recording_active(false);
     manager.mark_recording_state(false);
-    mini_recorder::close(app);
+    if close_pill {
+        mini_recorder::close(app);
+    }
     crate::tray::refresh(app);
+}
+
+/// Parlato : l'enregistreur s'est arrete seul (micro debranche, flux en erreur,
+/// disque plein). Appele depuis le thread worker, qui se termine juste apres :
+/// le traitement part donc sur son propre thread (il attend ce worker).
+pub fn on_recorder_failure(app: &AppHandle, dictation: u64, failure: RecorderFailure) {
+    let app = app.clone();
+    std::thread::Builder::new()
+        .name("recorder-failure".into())
+        .spawn(move || handle_recorder_failure(&app, dictation, failure))
+        .map_err(|e| warn!("recorder failure: thread: {e}"))
+        .ok();
+}
+
+fn handle_recorder_failure(app: &AppHandle, dictation: u64, failure: RecorderFailure) {
+    let state = app.state::<RecorderState>();
+    // Le rapport peut arriver avant que l'etat passe de "demarrage" a
+    // "enregistrement" : on attend un instant.
+    for _ in 0..40 {
+        if !state.is_starting() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    // Seulement l'enregistrement qui a echoue : s'il a deja ete arrete ou
+    // remplace, il n'y a rien a faire.
+    if !state.is_active() || current_dictation() != dictation {
+        return;
+    }
+    let code = failure.kind.code();
+    let Some(mgr) = app.try_state::<HotkeyManagerState>() else {
+        return;
+    };
+    let manager = mgr.0.clone();
+    if !manager.is_recording() {
+        // Test du micro (reglages) : pas de cycle de dictee, on le termine.
+        if let Err(e) = cancel_recording_core(app, &state) {
+            warn!("recorder failure: cancel: {e}");
+        }
+        return;
+    }
+    if failure.usable {
+        // Ce qui a ete capture est transcrit comme une dictee normale ; le
+        // message suit une fois la dictee terminee.
+        crate::notice::send_after_dictation(crate::notice::Notice::Failed(code.to_string()));
+        stop(app, &manager, &state);
+    } else {
+        cancel_cycle(app, &manager, &state, false);
+        crate::notice::send(app, crate::notice::Notice::Failed(code.to_string()));
+    }
 }
 
 /// Demarre simultanement la session WebSocket streaming et le recorder audio.
@@ -292,11 +442,17 @@ async fn start_with_streaming(
         });
 
     let recorder_state = app.state::<RecorderState>();
-    start_recording_core_with_chunk(&app, &recorder_state, None, Some(on_chunk))?;
+    let started = start_recording_core_with_chunk(&app, &recorder_state, None, Some(on_chunk))?;
 
     // Ligne history pending, une fois l'enregistrement demarre. Le handle et
-    // l'id vivent dans le state pour stop/cancel.
-    let history_id = pipeline::insert_pending_streaming_row(&app, &provider, &model);
+    // l'id vivent dans le state pour stop/cancel. Parlato : le WAV enregistre
+    // en parallele est rattache a la ligne des maintenant.
+    let history_id = pipeline::insert_pending_streaming_row(
+        &app,
+        &provider,
+        &model,
+        std::path::Path::new(&started.wav_path),
+    );
     let state = app.state::<StreamingSessionState>();
     *state.0.lock() = Some((handle, history_id));
     Ok(())
