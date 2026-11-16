@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Gemma 4 E4B**, a new model for AI cleanup that runs on your computer
+  (Google, about 5.2 GB). It wants 16 GB of memory for long texts; on 8 GB only
+  short ones fit.
+- **Parakeet Unified in 25 languages** (NVIDIA, about 2.5 GB), a speech model
+  for 25 European languages with punctuation. You pick the language or let it
+  detect it. It sits with the other NVIDIA models under "Show all versions".
+
+### Changed
+- Speech and local AI now run on voice-engine v0.4.0, the shared engine.
+
 ## [0.16.0] - 2026-11-13
 
 ### Added

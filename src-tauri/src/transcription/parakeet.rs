@@ -58,9 +58,9 @@ impl ParakeetEngine {
     }
 
     /// Transcrit un buffer PCM Float32 mono 16 kHz. Bloquant (inference).
-    /// `language` n'est utilise que par Nemotron (le moteur l'ignore pour les
-    /// autres) : parakeet TDT v2 et Unified sont anglais uniquement, v3 detecte
-    /// la langue seul.
+    /// `language` n'est utilise que par Nemotron et par Parakeet Unified 25
+    /// langues (le moteur l'ignore pour les autres) : parakeet TDT v2 et
+    /// Unified EN sont anglais uniquement, v3 detecte la langue seul.
     pub fn transcribe_samples(&self, samples: &[f32], language: Option<&str>) -> Result<String> {
         self.slot.run(|engine, kind| {
             let (text, windows) = transcribe_in_windows(samples, |slice| {

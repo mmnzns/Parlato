@@ -353,6 +353,9 @@ mod tests {
         assert_eq!(runtime_for(Kind::ParakeetUnified), Runtime::OtherOnnx);
         assert_eq!(runtime_for(Kind::Nemotron), Runtime::OtherOnnx);
         assert_eq!(runtime_for(Kind::Vad), Runtime::OtherOnnx);
+        // Cohere et Multitalker : pas de chemin carte, Parlato ne les propose pas.
+        assert_eq!(runtime_for(Kind::Cohere), Runtime::OtherOnnx);
+        assert_eq!(runtime_for(Kind::Multitalker), Runtime::OtherOnnx);
     }
 
     #[test]

@@ -86,7 +86,7 @@ The upstream `BUILDING.md` is incomplete. This machine additionally needed:
 Also note: VS Build Tools here are **2026 (v18)**, not the 2022 (v17) upstream
 specifies. The build works. CUDA is not used by this app — see Guardrails.
 
-**The local AI helper must exist before the app builds** (engine v0.3.5).
+**The local AI helper must exist before the app builds** (engine v0.4.0).
 `tauri.conf.json` lists `binaries/parlato-llm` in `bundle.externalBin`, and
 `tauri-build` fails if `src-tauri/binaries/parlato-llm-<triple>[.exe]` is
 missing. On the Mac run `scripts/fetch-helpers.sh` once (it builds the engine's

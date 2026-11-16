@@ -76,8 +76,9 @@ fn unload(app: &AppHandle, store: &ModelStore, model: &ModelInfo) -> Option<Was>
             ai.unload();
             Some(Was::Llm { n_ctx })
         }
-        // Parlato ne charge ni separation des voix ni embeddings.
-        Kind::Diarization | Kind::Embedding => None,
+        // Parlato ne charge ni separation des voix, ni embeddings, ni Cohere,
+        // ni Multitalker (`Kind` est non exhaustif : les genres futurs non plus).
+        _ => None,
     }
 }
 

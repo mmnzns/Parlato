@@ -40,6 +40,19 @@ version 1.1 (OpenMDW-1.1).
   `4d2a8bc71f5c896ec40faa59732e6716295edaf2`. As an export of NVIDIA's model
   it remains subject to OpenMDW-1.1.
 
+### NVIDIA Parakeet Unified (25 languages)
+
+Provided by NVIDIA Corporation under the OpenMDW License Agreement,
+version 1.1 (OpenMDW-1.1).
+
+- Model: https://huggingface.co/nvidia/nemotron-labs-unified-asr-0.6b
+- License: https://openmdw.ai/license/1-1/ (copy in `licenses/OpenMDW-1.1.txt`)
+- ONNX export by altunenes, the author of parakeet-rs, downloaded from the
+  `nemotron-labs-unified-asr-0.6b` folder of
+  https://huggingface.co/altunenes/parakeet-rs at the fixed revision
+  `664cc742197053fa11afd12f5100749fb8000181`. As an export of NVIDIA's model
+  it remains subject to OpenMDW-1.1.
+
 ### Moondream Parakeet Ultra
 
 Post-trained version of NVIDIA's parakeet-tdt-0.6b-v3 by Moondream, licensed
@@ -88,6 +101,15 @@ downloaded at fixed revisions:
 
 - unsloth/Qwen3.5-4B-GGUF `e87f176479d0855a907a41277aca2f8ee7a09523`
 - unsloth/Qwen3.5-9B-GGUF `3885219b6810b007914f3a7950a8d1b469d598a5`
+
+### Gemma 4 E4B
+
+Gemma 4 by Google, released under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0; Google's page for Gemma 4:
+https://ai.google.dev/gemma/docs/gemma_4_license). The 4-bit GGUF file is
+published by Google and downloaded at a fixed revision:
+
+- google/gemma-4-E4B-it-qat-q4_0-gguf `4b4a2c1d584be7264f87aac328a1bc739ce81b6c`
 
 ### Models no longer offered
 
