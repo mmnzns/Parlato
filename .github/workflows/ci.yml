@@ -37,8 +37,7 @@ jobs:
           cache: "npm"
 
       - name: Setup Rust
-        # Pinned: Rust 1.100 changed the build-dir layout and ort-sys 2.0.0-rc.13's DirectML DLL copy fails on Windows. Unpin when the engine's ort is updated (see mmnzns/voice-engine issue).
-        uses: dtolnay/rust-toolchain@1.99.1
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2

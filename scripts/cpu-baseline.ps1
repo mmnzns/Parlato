@@ -38,8 +38,10 @@ function Set-GgmlBaseline([ValidateSet('x64', 'arm64')][string]$arch) {
 function Get-GgmlCaches([string]$profileDir) {
   $build = Join-Path $profileDir 'build'
   if (-not (Test-Path $build)) { return @() }
-  Get-ChildItem $build -Directory |
-    Where-Object { $_.Name -match '^whisper-rs-sys-' } |
+  # Old layout: build/whisper-rs-sys-<hash>/out/build. Rust 1.100 (new build-dir layout): build/whisper-rs-sys/<hash>/out/build.
+  $old = Get-ChildItem $build -Directory | Where-Object { $_.Name -match '^whisper-rs-sys-' }
+  $new = Get-ChildItem (Join-Path $build 'whisper-rs-sys') -Directory -ErrorAction SilentlyContinue
+  @($old) + @($new) | Where-Object { $_ } |
     ForEach-Object { Join-Path $_.FullName 'out\build\CMakeCache.txt' } | Where-Object { Test-Path $_ }
 }
 

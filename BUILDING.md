@@ -7,7 +7,7 @@ This document describes how to build Parla from source on Windows.
 ### Required
 
 - **Windows 10 22H2 or Windows 11**
-- **[Rust](https://rustup.rs/)** toolchain (CI pins 1.99.1; Rust 1.100 breaks ort-sys 2.0.0-rc.13 on Windows, so use 1.99.x there)
+- **[Rust](https://rustup.rs/)** toolchain (stable; CI uses the stable toolchain)
 - **[Node.js 20+](https://nodejs.org/)** and `npm`
 - **Microsoft Visual Studio 2022 Build Tools** with the "Desktop development with C++" workload (or Visual Studio Community/Professional/Enterprise)
 - **WebView2 Runtime** (preinstalled on Windows 11, installed automatically by the Parla installer)
@@ -18,13 +18,13 @@ No CUDA and no NVIDIA toolkit is needed or supported. The graphics card is used 
 
 ## The shared engine and the local AI helper
 
-Speech models, the model catalog and downloader, and the local AI helper come from [voice-engine](https://github.com/mmnzns/voice-engine), pinned by tag (`v0.3.3`) in `src-tauri/Cargo.toml`. Cargo downloads the engine crates itself; nothing to do for the speech part.
+Speech models, the model catalog and downloader, and the local AI helper come from [voice-engine](https://github.com/mmnzns/voice-engine), pinned by tag (`v0.3.5`) in `src-tauri/Cargo.toml`. Cargo downloads the engine crates itself; nothing to do for the speech part.
 
 Local AI runs in a separate program, the `parlato-llm` helper, which Tauri bundles as a sidecar (`bundle.externalBin` in `tauri.conf.json`). **Tauri refuses to build until `src-tauri/binaries/parlato-llm-<target triple>[.exe]` exists.** The folder is git-ignored.
 
 - **Mac (Apple silicon):** run `scripts/fetch-helpers.sh` once. It clones the engine at the pinned tag into `~/.cache/parlato/` and builds the helper there (several minutes the first time because llama.cpp is compiled; needs `jq` and `cmake`). Set `ENGINE_REF` to use another tag.
-- **Windows:** the engine's `scripts/build-helpers.ps1 -Target x86_64-pc-windows-msvc -OutDir <folder> -EngineRef v0.3.3 -Helpers llm -LlmName parlato-llm` (from a clone of the engine at that tag) builds it; copy the result into `src-tauri/binaries/`. Releases do this in CI. For `cargo test --lib` alone an empty placeholder file with the right name is enough.
-- **Releases:** `.github/workflows/release.yml` calls the engine's reusable workflow (`build-helpers.yml@v0.3.3`, `helpers: llm,llm-vulkan`, `llm-name: parlato-llm`), downloads `helpers-<triple>` into `src-tauri/binaries`, and the Windows x64 job passes `src-tauri/tauri.windows-x64.conf.json` (`--config`) so `parlato-llm-vulkan` is bundled too. Windows ARM64 and the Mac ship `parlato-llm` only.
+- **Windows:** the engine's `scripts/build-helpers.ps1 -Target x86_64-pc-windows-msvc -OutDir <folder> -EngineRef v0.3.5 -Helpers llm -LlmName parlato-llm` (from a clone of the engine at that tag) builds it; copy the result into `src-tauri/binaries/`. Releases do this in CI. For `cargo test --lib` alone an empty placeholder file with the right name is enough.
+- **Releases:** `.github/workflows/release.yml` calls the engine's reusable workflow (`build-helpers.yml@v0.3.5`, `helpers: llm,llm-vulkan`, `llm-name: parlato-llm`), downloads `helpers-<triple>` into `src-tauri/binaries`, and the Windows x64 job passes `src-tauri/tauri.windows-x64.conf.json` (`--config`) so `parlato-llm-vulkan` is bundled too. Windows ARM64 and the Mac ship `parlato-llm` only.
 
 The repo-root `.cargo/config.toml` carries the engine's build settings (fixed CPU baseline, macOS 11 minimum, `-O2` for whisper.cpp). Keep it equal to the engine's "Build settings an app must copy"; Cargo does not read the engine's own file when it builds Parlato. It sits at the repo root because Cargo reads `.cargo/config.toml` from the folder it runs in and its parents (`tauri build` runs Cargo from `src-tauri`, so it finds it). Keep `lto = false` in the release profile (with LTO the Mac link fails). To try an engine change, put a `[patch."https://github.com/mmnzns/voice-engine"]` block in `~/.cargo/config.toml` or pass it with `cargo --config`, never in the committed file.
 
