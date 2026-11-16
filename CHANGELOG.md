@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   detect it. It sits with the other NVIDIA models under "Show all versions".
 
 ### Changed
+- Cloud AI model lists updated: Gemini 4 Hydrogen, GPT-6.1 Terra and Claude
+  Fable 5.2 added (Fable 5.2 replaces Fable 5.1); Mistral Medium removed because
+  Mistral is retiring it. New defaults: Gemini 4 Hydrogen for Google Gemini and
+  Claude Haiku 5.5 for Anthropic (only for new setups; a model you already
+  picked stays). If you had Mistral Medium selected it keeps working
+  until Mistral shuts it off, and you can switch models on the AI page.
 - Speech and local AI now run on voice-engine v0.4.0, the shared engine.
 
 ## [0.16.0] - 2026-11-13

@@ -17,7 +17,6 @@ pub struct MistralProvider;
 // Parlato : Ministral 3 ajoutes, d'apres docs.mistral.ai/models (2026-09).
 const MODELS: &[&str] = &[
     "mistral-small-latest",
-    "mistral-medium-latest",
     "mistral-large-latest",
     "ministral-14b-latest",
     "ministral-8b-latest",
