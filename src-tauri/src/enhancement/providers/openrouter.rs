@@ -23,11 +23,12 @@ const MODELS: &[&str] = &[
     "anthropic/claude-haiku-5.5",
     "openai/gpt-6-sol",
     "openai/gpt-6-luna",
+    "openai/gpt-6.1-terra",
     "google/gemini-3.8-flash",
+    "google/gemini-4-hydrogen",
     "google/gemini-3.1-pro-preview",
     "deepseek/deepseek-v4.1-flash",
     "qwen/qwen3.8-flash",
-    "mistralai/mistral-medium-3-5",
     "x-ai/grok-4.7",
     "meta-llama/llama-4-maverick",
 ];

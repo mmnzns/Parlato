@@ -1132,6 +1132,10 @@
       "name": "Granite 4.2 3B",
       "notes": "El modelo pequeño más reciente de IBM. Preciso y fiel a lo que dijiste."
     },
+    "gemma_4_e4b": {
+      "name": "Gemma 4 E4B",
+      "notes": "El modelo pequeño Gemma 4 de Google, hecho para funcionar en 4 bits. Entiende muchos idiomas. Unos 5,2 GB; pide 16 GB de memoria para textos largos, y con 8 GB solo caben los cortos."
+    },
     "parakeet_unified_en_full": {
       "name": "Parakeet Unified EN 0.6B (inglés, F16)",
       "notes": "El modelo en inglés más reciente y preciso de NVIDIA. Unos 2,5 GB. Licencia de NVIDIA Corporation bajo la NVIDIA Open Model License."
@@ -1143,6 +1147,10 @@
     "nemotron_3_5": {
       "name": "Nemotron 3.5 ASR 0.6B (multilingüe)",
       "notes": "El modelo de voz más reciente de NVIDIA: 35 idiomas, entre ellos chino, japonés, coreano, hindi y árabe, y detecta cuál hablas. Unos 2.6 GB. Proporcionado por NVIDIA bajo la licencia OpenMDW-1.1."
+    },
+    "parakeet_unified_25": {
+      "name": "Parakeet Unified (25 idiomas)",
+      "notes": "El Parakeet Unified de NVIDIA para 25 idiomas europeos, con puntuación. Tú eliges el idioma o dejas que lo detecte. Más preciso que Parakeet v3 en la prueba de NVIDIA. Unos 2,5 GB. Proporcionado por NVIDIA bajo la licencia OpenMDW-1.1."
     },
     "parakeet_ultra": {
       "name": "Parakeet Ultra 0.6B (multilingüe, int8)",

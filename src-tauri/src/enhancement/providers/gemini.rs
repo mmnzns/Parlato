@@ -19,6 +19,7 @@ pub struct GeminiProvider;
 // 2026-10-15 : 3.7 Flash et 3.5 Flash retires (deprecies le 2026-10-08,
 // Google redirige les requetes vers un modele plus recent).
 const MODELS: &[&str] = &[
+    "gemini-4-hydrogen",
     "gemini-3.8-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
@@ -38,7 +39,7 @@ impl LLMProvider for GeminiProvider {
         MODELS
     }
     fn default_model(&self) -> &'static str {
-        "gemini-3.8-flash"
+        "gemini-4-hydrogen"
     }
     fn endpoint(&self) -> &'static str {
         "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"

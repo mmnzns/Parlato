@@ -333,6 +333,48 @@ mod tests {
     }
 
     #[test]
+    fn cohere_and_multitalker_never_reach_the_speech_lists() {
+        // The engine catalog has them (Cohere is a speech kind), Parlato does
+        // not offer them: the lists filter on explicit kinds.
+        let tmp = tempfile::tempdir().unwrap();
+        let store = temp_store(tmp.path());
+        let hidden: Vec<&str> = catalog::all()
+            .iter()
+            .filter(|m| matches!(m.kind, Kind::Cohere | Kind::Multitalker))
+            .map(|m| m.id)
+            .collect();
+        assert!(hidden.contains(&"cohere-transcribe") && hidden.contains(&"multitalker-tdt"));
+        let whisper = whisper_models(&store);
+        let parakeet = parakeet_models(&store);
+        let gguf = gguf_models(&store);
+        for id in hidden {
+            assert!(
+                whisper.iter().all(|m| m.id != id),
+                "{id} in the Whisper list"
+            );
+            assert!(
+                parakeet.iter().all(|m| m.id != id),
+                "{id} in the Parakeet list"
+            );
+            assert!(gguf.iter().all(|m| m.id != id), "{id} in the local AI list");
+        }
+    }
+
+    #[test]
+    fn parakeet_unified_25_lists_the_25_languages() {
+        let tmp = tempfile::tempdir().unwrap();
+        let store = temp_store(tmp.path());
+        let list = parakeet_models(&store);
+        let u25 = list.iter().find(|m| m.id == "parakeet-unified-25").unwrap();
+        assert!(u25.multilingual);
+        assert_eq!(u25.language_codes.len(), PARAKEET_V3_LANGS.len());
+        assert_eq!(u25.language_codes[0], "auto");
+        // The English Unified model stays English only.
+        let en = list.iter().find(|m| m.id == "parakeet-unified-en").unwrap();
+        assert_eq!(en.language_codes, ["en"]);
+    }
+
+    #[test]
     fn installed_whisper_shows_its_file_and_imports_follow() {
         let tmp = tempfile::tempdir().unwrap();
         let store = temp_store(tmp.path());
@@ -370,7 +412,7 @@ mod tests {
         ] {
             assert!(ids.contains(&id), "{id}");
         }
-        assert_eq!(list.len(), 8);
+        assert_eq!(list.len(), 9);
         let ultra = list.iter().find(|m| m.id == "parakeet-ultra").unwrap();
         assert!(ultra.is_quantized && ultra.multilingual);
         assert_eq!(ultra.language_codes.len(), PARAKEET_V3_LANGS.len());
@@ -422,17 +464,17 @@ mod tests {
         let list = gguf_models(&store);
         let ids: Vec<_> = list.iter().map(|m| m.id.as_str()).collect();
         assert_eq!(&ids[..3], ["granite-4.2-3b", "qwen3.5-4b", "qwen3.5-9b"]);
-        assert_eq!(list.len(), 5);
-        assert!(list[..3]
+        assert_eq!(list.len(), 6);
+        assert!(list[..4]
             .iter()
             .all(|m| !m.imported && !m.downloaded && m.context_length > 0));
         assert!(
-            list[3].imported
-                && list[3].display_name == "phi-3.5-mini-instruct-q4"
-                && !list[3].removable
+            list[4].imported
+                && list[4].display_name == "phi-3.5-mini-instruct-q4"
+                && !list[4].removable
         );
-        assert!(list[4].imported && list[4].display_name == "mine" && list[4].removable);
-        assert!(list[3].id.starts_with("import-"));
+        assert!(list[5].imported && list[5].display_name == "mine" && list[5].removable);
+        assert!(list[4].id.starts_with("import-"));
     }
 
     #[test]

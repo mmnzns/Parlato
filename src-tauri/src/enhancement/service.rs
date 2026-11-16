@@ -245,7 +245,8 @@ fn reasoning_for(provider_id: &str, model: &str) -> ReasoningConfig {
     match (provider_id, model) {
         (
             "openai",
-            "gpt-6-sol" | "gpt-6-luna" | "gpt-5.6-luna" | "gpt-5.6-terra" | "gpt-5.6-sol"
+            "gpt-6-sol" | "gpt-6-luna" | "gpt-6.1-terra" | "gpt-5.6-luna" | "gpt-5.6-terra"
+            | "gpt-5.6-sol"
             | "gpt-5.5" | "gpt-5.4" | "gpt-5.4-mini" | "gpt-5.4-nano",
         ) => {
             cfg.effort = Some("none".into());
@@ -253,7 +254,11 @@ fn reasoning_for(provider_id: &str, model: &str) -> ReasoningConfig {
         ("openai", "gpt-6-astra" | "gpt-6.1-sol") => {
             cfg.effort = Some("low".into());
         }
-        ("gemini", "gemini-3.8-flash" | "gemini-3.7-flash" | "gemini-3.1-pro-preview") => {
+        (
+            "gemini",
+            "gemini-4-hydrogen" | "gemini-3.8-flash" | "gemini-3.7-flash"
+            | "gemini-3.1-pro-preview",
+        ) => {
             cfg.effort = Some("low".into());
         }
         (
@@ -555,7 +560,7 @@ mod tests {
         for m in [
             "claude-sonnet-5-5",
             "claude-opus-5-5",
-            "claude-fable-5-1",
+            "claude-fable-5-2",
             "claude-haiku-5-5",
             "claude-haiku-4-5",
             "anthropic/claude-sonnet-5.5",
@@ -594,6 +599,24 @@ mod tests {
         assert_eq!(r.effort, Some("none".into()));
         // GPT-4.1 : aucun parametre de raisonnement.
         assert_eq!(reasoning_for("openai", "gpt-4.1").effort, None);
+    }
+
+    #[test]
+    fn reasoning_for_gpt_6_1_terra() {
+        // 6.1 Terra accepte "none" ; sans temperature (seuls 6-sol / 6-luna en envoient).
+        let r = reasoning_for("openai", "gpt-6.1-terra");
+        assert_eq!(r.effort, Some("none".into()));
+        assert!(r.extra_body.is_none());
+        assert_eq!(temperature_for("gpt-6.1-terra"), None);
+    }
+
+    #[test]
+    fn reasoning_for_gemini_4_hydrogen() {
+        // Pas de "minimal" -> "low", comme 3.8 Flash.
+        assert_eq!(
+            reasoning_for("gemini", "gemini-4-hydrogen").effort,
+            Some("low".into())
+        );
     }
 
     #[test]

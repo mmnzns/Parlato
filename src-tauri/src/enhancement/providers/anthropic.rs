@@ -33,10 +33,10 @@ pub struct AnthropicProvider;
 // plus tot le 2026-10-15 ; Parla 517837b fait de meme). Un identifiant
 // plus ancien reste possible via "identifiant personnalise".
 const MODELS: &[&str] = &[
-    "claude-sonnet-5-5",
     "claude-haiku-5-5",
+    "claude-sonnet-5-5",
     "claude-opus-5-5",
-    "claude-fable-5-1",
+    "claude-fable-5-2",
 ];
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
@@ -54,7 +54,7 @@ impl LLMProvider for AnthropicProvider {
         MODELS
     }
     fn default_model(&self) -> &'static str {
-        "claude-sonnet-5-5"
+        "claude-haiku-5-5"
     }
     fn endpoint(&self) -> &'static str {
         "https://api.anthropic.com/v1/messages"

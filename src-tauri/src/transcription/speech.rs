@@ -1,4 +1,4 @@
-// Parlato : les moteurs de parole, sur `voice-engine-stt` (voice-engine v0.3.5).
+// Parlato : les moteurs de parole, sur `voice-engine-stt` (voice-engine v0.4.0).
 //
 // Un `SpeechSlot` garde UN modele charge (`Box<dyn Transcriber>`), le verrou
 // du dossier de modeles partage (`ModelHandle`) tant qu'il est charge, et
