@@ -458,12 +458,34 @@ pub fn show_main_window(app: AppHandle, panel: Option<String>) {
 }
 
 /// Ferme la bulle et son popover.
+///
+/// Parlato (macOS): the pill and the popover are HIDDEN and reused, never
+/// destroyed. Destroying them after they became floating panels
+/// (mini_recorder_macos.rs) crashed the app a few seconds after some
+/// dictations in 0.16.0 to 0.17.0 (an Objective-C exception while the
+/// window was torn down). The pill page is told to reset itself
+/// (`recorder:hidden`) so the next dictation never shows the last one's
+/// stage. Windows keeps closing them.
 pub fn close(app: &AppHandle) {
-    if let Some(popover) = app.get_webview_window(POPOVER_LABEL) {
-        let _ = popover.close();
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Emitter;
+        if let Some(popover) = app.get_webview_window(POPOVER_LABEL) {
+            let _ = popover.hide();
+        }
+        if let Some(win) = app.get_webview_window(LABEL) {
+            let _ = win.hide();
+            let _ = win.emit_to(LABEL, "recorder:hidden", ());
+        }
     }
-    if let Some(win) = app.get_webview_window(LABEL) {
-        let _ = win.close();
+    #[cfg(not(target_os = "macos"))]
+    {
+        if let Some(popover) = app.get_webview_window(POPOVER_LABEL) {
+            let _ = popover.close();
+        }
+        if let Some(win) = app.get_webview_window(LABEL) {
+            let _ = win.close();
+        }
     }
 }
 

@@ -203,6 +203,11 @@ pub fn make_floating_panel(window: &WebviewWindow, above_pill: bool, key_window:
             let swapped = match panel_class(current) {
                 Some(panel) => {
                     if !std::ptr::eq(current, panel) {
+                        // Remembered so `restore_class` can put it back
+                        // before the window is destroyed.
+                        ORIGINAL_CLASS
+                            .lock()
+                            .insert(obj as usize, current as *const AnyClass as usize);
                         objc2::ffi::object_setClass(obj.cast(), (panel as *const AnyClass).cast());
                     }
                     true
@@ -224,6 +229,42 @@ pub fn make_floating_panel(window: &WebviewWindow, above_pill: bool, key_window:
             let _: () = msg_send![obj, setCollectionBehavior: COLLECTION_BEHAVIOR];
         }
         tracing::debug!(label = w.label(), "recorder window configured as floating panel");
+    });
+}
+
+/// Class each swapped window had before `make_floating_panel` (NSWindow
+/// pointer -> class pointer). Read back by `restore_class`.
+static ORIGINAL_CLASS: parking_lot::Mutex<std::collections::BTreeMap<usize, usize>> =
+    parking_lot::Mutex::new(std::collections::BTreeMap::new());
+
+/// Puts back the class `make_floating_panel` replaced, so the window is torn
+/// down as the class tao and WebKit created it with. Call it right before
+/// `close()`: destroying a window that is still a `ParlatoPillPanel` crashed
+/// Parlato (an Objective-C exception during teardown, 0.16.0 to 0.17.0). The
+/// work is queued on the main thread ahead of the close, which uses the same
+/// queue. No-op for a window that was never swapped.
+pub fn restore_class(window: &WebviewWindow) {
+    let w = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        let Ok(ptr) = w.ns_window() else {
+            return;
+        };
+        let obj = ptr as *mut AnyObject;
+        if obj.is_null() {
+            return;
+        }
+        let Some(original) = ORIGINAL_CLASS.lock().remove(&(obj as usize)) else {
+            return;
+        };
+        if KEY_WINDOW.load(Ordering::SeqCst) == obj as usize {
+            KEY_WINDOW.store(0, Ordering::SeqCst);
+        }
+        // SAFETY: `original` is the class this very object had before the
+        // swap (same instance size, checked in `panel_class`); main thread.
+        unsafe {
+            objc2::ffi::object_setClass(obj.cast(), original as *const AnyClass);
+        }
+        tracing::debug!(label = w.label(), "recorder window class restored before close");
     });
 }
 

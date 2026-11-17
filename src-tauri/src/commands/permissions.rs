@@ -322,10 +322,14 @@ pub fn set_onboarding_completed(app: AppHandle, completed: bool) -> Result<(), S
 pub fn set_recorder_style(app: AppHandle, style: String) -> Result<(), String> {
     let s = crate::mini_recorder::RecorderStyle::parse(&style);
     crate::mini_recorder::set_style(&app, s).map_err(|e| e.to_string())?;
-    // Re-positionne la fenetre si ouverte.
+    // Re-positionne la fenetre si ouverte. Parlato : sur macOS la bulle
+    // fermee existe encore (cachee, reutilisee) ; seule une bulle visible
+    // est replacee, sinon changer de style la ferait apparaitre.
     if let Some(win) = tauri::Manager::get_webview_window(&app, crate::mini_recorder::LABEL) {
-        crate::mini_recorder::ensure_open(&app);
-        let _ = win.show();
+        if win.is_visible().unwrap_or(false) {
+            crate::mini_recorder::ensure_open(&app);
+            let _ = win.show();
+        }
     }
     Ok(())
 }

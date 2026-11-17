@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Mac: Parlato no longer quits unexpectedly a few seconds after a dictation.
+  Since 0.16.0 the pill was destroyed at the end of each dictation after it
+  had become a floating panel, and that teardown could crash the app. The
+  pill is now hidden and reused; the "Review before pasting" editor goes back
+  to a normal window before it closes.
+- Mac: if a system error like this happens again, its name is written to the
+  log so it can be traced.
+
 ## [0.17.0] - 2026-11-16
 
 ### Added

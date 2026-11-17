@@ -12,6 +12,8 @@ mod hotkeys;
 mod mini_recorder;
 #[cfg(target_os = "macos")]
 mod mini_recorder_macos;
+#[cfg(target_os = "macos")]
+mod objc_exceptions_macos;
 mod models;
 mod notice;
 mod paste;
@@ -138,6 +140,10 @@ fn ping() -> &'static str {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::init();
+    // Parlato (macOS): an Objective-C exception that reaches the event loop
+    // aborts the app without saying which; log them first.
+    #[cfg(target_os = "macos")]
+    objc_exceptions_macos::install();
 
     tauri::Builder::default()
         // Single-instance guard. If the user double-clicks the exe or an
