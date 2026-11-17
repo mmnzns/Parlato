@@ -127,7 +127,7 @@ pub fn ensure_open(app: &AppHandle) {
     let style = get_style(app);
     if let Some(existing) = app.get_webview_window(LABEL) {
         reposition(&existing, style);
-        let _ = existing.show();
+        show_pill(&existing);
         ensure_popover_window(app);
         return;
     }
@@ -459,34 +459,69 @@ pub fn show_main_window(app: AppHandle, panel: Option<String>) {
 
 /// Ferme la bulle et son popover.
 ///
-/// Parlato (macOS): the pill and the popover are HIDDEN and reused, never
-/// destroyed. Destroying them after they became floating panels
-/// (mini_recorder_macos.rs) crashed the app a few seconds after some
-/// dictations in 0.16.0 to 0.17.0 (an Objective-C exception while the
-/// window was torn down). The pill page is told to reset itself
-/// (`recorder:hidden`) so the next dictation never shows the last one's
-/// stage. Windows keeps closing them.
+/// Parlato: the pill and the popover are HIDDEN and reused, never
+/// destroyed, on both platforms.
+/// - macOS: destroying them after they became floating panels
+///   (mini_recorder_macos.rs) crashed the app a few seconds after some
+///   dictations in 0.16.0 to 0.17.0 (an Objective-C exception while the
+///   window was torn down).
+/// - Windows: no crash, but reusing the window skips building a new
+///   WebView2 window at every dictation, so the pill shows up faster.
+///
+/// The pill page is told to reset itself (`recorder:hidden`) so the next
+/// dictation never shows the last one's stage.
 pub fn close(app: &AppHandle) {
-    #[cfg(target_os = "macos")]
-    {
-        use tauri::Emitter;
-        if let Some(popover) = app.get_webview_window(POPOVER_LABEL) {
-            let _ = popover.hide();
-        }
-        if let Some(win) = app.get_webview_window(LABEL) {
-            let _ = win.hide();
-            let _ = win.emit_to(LABEL, "recorder:hidden", ());
-        }
+    use tauri::Emitter;
+    if let Some(popover) = app.get_webview_window(POPOVER_LABEL) {
+        let _ = popover.hide();
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        if let Some(popover) = app.get_webview_window(POPOVER_LABEL) {
-            let _ = popover.close();
-        }
-        if let Some(win) = app.get_webview_window(LABEL) {
-            let _ = win.close();
-        }
+    if let Some(win) = app.get_webview_window(LABEL) {
+        hide_pill(&win);
+        let _ = win.emit_to(LABEL, "recorder:hidden", ());
     }
+}
+
+/// Shows the (reused) pill without taking the keyboard from the app being
+/// typed into.
+///
+/// Windows: tao shows a window without activating it only the FIRST time
+/// (`focused(false)`); later `show()` calls use SW_SHOW, which would activate
+/// the pill and break the Ctrl+V paste. So the pill is shown and hidden with
+/// SW_SHOWNOACTIVATE / SW_HIDE directly, on the main thread (queued after
+/// `reposition`). tao's own `show()`/`hide()` are never used on it after
+/// creation, so its visibility flag never disagrees with these calls
+/// (`is_visible()` asks Windows directly).
+fn show_pill(window: &tauri::WebviewWindow) {
+    #[cfg(windows)]
+    set_shown_no_activate(window, true);
+    #[cfg(not(windows))]
+    let _ = window.show();
+}
+
+fn hide_pill(window: &tauri::WebviewWindow) {
+    #[cfg(windows)]
+    set_shown_no_activate(window, false);
+    #[cfg(not(windows))]
+    let _ = window.hide();
+}
+
+#[cfg(windows)]
+fn set_shown_no_activate(window: &tauri::WebviewWindow, show: bool) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_SHOWNOACTIVATE};
+    let w = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        let Ok(raw_hwnd) = w.hwnd() else {
+            warn!("hwnd() recorder: indisponible");
+            return;
+        };
+        let hwnd = HWND(raw_hwnd.0 as *mut _);
+        // SAFETY: `hwnd` is this window's handle, alive while `w` is held;
+        // ShowWindow's return value is the previous visibility, not an error.
+        unsafe {
+            let _ = ShowWindow(hwnd, if show { SW_SHOWNOACTIVATE } else { SW_HIDE });
+        }
+    });
 }
 
 #[cfg(test)]
