@@ -47,14 +47,17 @@ export function useRecorderState(setHoverPopover: (hovering: boolean) => void) {
   const [notice, setNotice] = useState<RecorderNotice | null>(null);
 
   useEffect(() => {
-    // Charge une fois au mount - la fenetre mini-recorder est recreee a
-    // chaque start donc pas besoin de re-fetch frequent.
-    Promise.all([api.listPowerConfigs(), api.getRecorderStyle()])
-      .then(([pcs, rs]) => {
-        setPowerConfigs(pcs);
-        setStyle(rs === "notch" ? "notch" : "mini");
-      })
-      .catch(console.error);
+    // Parlato: loaded at mount, and again each time the pill is hidden: on
+    // macOS the window is hidden and reused between dictations instead of
+    // being recreated, so changed modes or pill style must be re-read.
+    const loadConfig = () =>
+      Promise.all([api.listPowerConfigs(), api.getRecorderStyle()])
+        .then(([pcs, rs]) => {
+          setPowerConfigs(pcs);
+          setStyle(rs === "notch" ? "notch" : "mini");
+        })
+        .catch(console.error);
+    loadConfig();
 
     const showNotice = (n: RecorderNotice | null) => {
       if (!n) return;
@@ -115,6 +118,17 @@ export function useRecorderState(setHoverPopover: (hovering: boolean) => void) {
           return;
         }
         apply();
+      }),
+      // Parlato (macOS): the pill was hidden (end of a dictation or of a
+      // message). Back to a neutral stage so the next showing never flashes
+      // the last dictation's state before "recording:started" arrives.
+      listen("recorder:hidden", () => {
+        if (hintTimer !== null) window.clearTimeout(hintTimer);
+        setFailure("");
+        setNotice(null);
+        setEscapeHint(false);
+        setStage("idle");
+        loadConfig();
       }),
       listen("recorder:notice", () => {
         api.takeRecorderNotice().then(showNotice).catch(console.error);

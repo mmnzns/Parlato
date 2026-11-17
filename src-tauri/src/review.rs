@@ -92,7 +92,7 @@ pub fn open(app: &AppHandle, text: String, history_id: Option<String>, send: Aut
     // Par securite : un editeur deja ouvert est remplace (son texte est dans
     // l'historique).
     if let Some(old) = app.get_webview_window(LABEL) {
-        let _ = old.close();
+        destroy(&old);
     }
     *PENDING.lock() = Some(Pending { generation, text, history_id, send, ready: false });
     set_keyboard(true);
@@ -188,8 +188,17 @@ fn fall_back_to_paste(app: &AppHandle, generation: u64) {
 fn close_window(app: &AppHandle) {
     set_keyboard(false);
     if let Some(w) = app.get_webview_window(LABEL) {
-        let _ = w.close();
+        destroy(&w);
     }
+}
+
+/// Closes the editor window. On macOS its floating-panel class is put back
+/// first: destroying a window that is still a panel can crash the app
+/// (mini_recorder_macos::restore_class).
+fn destroy(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "macos")]
+    crate::mini_recorder_macos::restore_class(window);
+    let _ = window.close();
 }
 
 /// Le texte a relire (la fenetre le demande au montage).
